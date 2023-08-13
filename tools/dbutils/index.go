@@ -58,18 +58,18 @@ func (idx Index) Build() string {
 	}
 
 	if idx.SchemaName != "" {
-		str.WriteString("`")
+		str.WriteString("\"")
 		str.WriteString(idx.SchemaName)
-		str.WriteString("`.")
+		str.WriteString("\".")
 	}
 
-	str.WriteString("`")
+	str.WriteString("\"")
 	str.WriteString(idx.IndexName)
-	str.WriteString("` ")
+	str.WriteString("\" ")
 
-	str.WriteString("ON `")
+	str.WriteString("ON \"")
 	str.WriteString(idx.TableName)
-	str.WriteString("` (")
+	str.WriteString("\" (")
 
 	if len(idx.Columns) > 1 {
 		str.WriteString("\n  ")
@@ -91,9 +91,9 @@ func (idx Index) Build() string {
 			str.WriteString(trimmedColName)
 		} else {
 			// regular identifier
-			str.WriteString("`")
+			str.WriteString("\"")
 			str.WriteString(trimmedColName)
-			str.WriteString("`")
+			str.WriteString("\"")
 		}
 
 		if col.Collate != "" {

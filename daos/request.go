@@ -39,7 +39,7 @@ func (dao *Dao) RequestsStats(expr dbx.Expression) ([]*RequestsStatsItem, error)
 	result := []*RequestsStatsItem{}
 
 	query := dao.RequestQuery().
-		Select("count(id) as total", "created as date").
+		Select("count(id) as total", "to_char(created,'yyyy-MM-dd HH24') as date").
 		GroupBy("date")
 
 	if expr != nil {

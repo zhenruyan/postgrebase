@@ -341,7 +341,7 @@ func (dao *Dao) dropCollectionIndex(collection *models.Collection) error {
 				continue
 			}
 
-			if _, err := txDao.DB().NewQuery(fmt.Sprintf("DROP INDEX IF EXISTS [[%s]]", parsed.IndexName)).Execute(); err != nil {
+			if _, err := txDao.DB().NewQuery(fmt.Sprintf(`DROP INDEX IF EXISTS "[[%s]]"`, parsed.IndexName)).Execute(); err != nil {
 				return err
 			}
 		}
@@ -357,10 +357,9 @@ func (dao *Dao) createCollectionIndexes(collection *models.Collection) error {
 
 	return dao.RunInTransaction(func(txDao *Dao) error {
 		// drop new indexes in case a duplicated index name is used
-		if err := txDao.dropCollectionIndex(collection); err != nil {
+		if err := dao.dropCollectionIndex(collection); err != nil {
 			return err
 		}
-
 		// upsert new indexes
 		//
 		// note: we are returning validation errors because the indexes cannot be

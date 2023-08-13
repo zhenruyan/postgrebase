@@ -12,7 +12,7 @@ func init() {
 		_, err = db.NewQuery(`
 			CREATE TABLE {{_requests}} (
 				[[id]]        string NOT NULL DEFAULT uuid_generate_v4()::string,
-				[[rowid]]        string NOT NULL DEFAULT uuid_generate_v4()::string,
+				[[rowid]]     timestamp NOT NULL DEFAULT now():::TIMESTAMP,
 				[[url]]       string DEFAULT '' NOT NULL,
 				[[method]]    string DEFAULT 'get' NOT NULL,
 				[[status]]    int DEFAULT 200 NOT NULL,
@@ -20,7 +20,7 @@ func init() {
 				[[ip]]        string DEFAULT '127.0.0.1' NOT NULL,
 				[[referer]]   string DEFAULT '' NOT NULL,
 				[[userAgent]] string DEFAULT '' NOT NULL,
-				[[meta]]      JSON DEFAULT '{}' NOT NULL,
+				[[meta]]      string DEFAULT '{}' NOT NULL,
 				[[created]]   timestamp NOT NULL DEFAULT now():::TIMESTAMP,
 				[[updated]]   timestamp NOT NULL DEFAULT now():::TIMESTAMP,
 				CONSTRAINT "primary" PRIMARY KEY (id)
