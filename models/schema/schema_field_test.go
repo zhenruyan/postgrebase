@@ -111,7 +111,7 @@ func TestSchemaFieldColDefinition(t *testing.T) {
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeRelation, Name: "test", Options: &schema.RelationOptions{MaxSelect: types.Pointer(1)}},
-			"string DEFAULT '' NOT NULL",
+			"TEXT DEFAULT '' NOT NULL",
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeRelation, Name: "test_multiple", Options: &schema.RelationOptions{MaxSelect: nil}},

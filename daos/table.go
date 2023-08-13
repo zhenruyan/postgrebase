@@ -12,9 +12,9 @@ func (dao *Dao) HasTable(tableName string) bool {
 	var exists bool
 
 	err := dao.DB().Select("count(*)").
-		From("sqlite_schema").
-		AndWhere(dbx.HashExp{"type": []any{"table", "view"}}).
-		AndWhere(dbx.NewExp("LOWER([[name]])=LOWER({:tableName})", dbx.Params{"tableName": tableName})).
+		From("information_schema.tables").
+		AndWhere(dbx.HashExp{"table_type": []any{"BASE TABLE", "VIEW"}}).
+		AndWhere(dbx.NewExp("LOWER([[table_name]])=LOWER({:tableName})", dbx.Params{"tableName": tableName})).
 		Limit(1).
 		Row(&exists)
 
@@ -25,7 +25,9 @@ func (dao *Dao) HasTable(tableName string) bool {
 func (dao *Dao) TableColumns(tableName string) ([]string, error) {
 	columns := []string{}
 
-	err := dao.DB().NewQuery("SELECT name FROM PRAGMA_TABLE_INFO({:tableName})").
+	err := dao.DB().NewQuery(`SELECT column_name as name
+	FROM information_schema.columns
+	WHERE table_name ={:tableName}`).
 		Bind(dbx.Params{"tableName": tableName}).
 		Column(&columns)
 
@@ -36,7 +38,16 @@ func (dao *Dao) TableColumns(tableName string) ([]string, error) {
 func (dao *Dao) TableInfo(tableName string) ([]*models.TableInfoRow, error) {
 	info := []*models.TableInfoRow{}
 
-	err := dao.DB().NewQuery("SELECT * FROM PRAGMA_TABLE_INFO({:tableName})").
+	err := dao.DB().NewQuery(`SELECT ordinal_position as cid ,column_name as name,crdb_sql_type as type,
+	CASE WHEN is_nullable='NO' THEN 1
+			  ELSE 0
+		 END as notnull,
+   column_default as dflt_value,
+	 CASE WHEN column_name='id' THEN 1
+			  ELSE 0
+		 END as pk
+	FROM information_schema.columns
+	WHERE table_name ={:tableName}`).
 		Bind(dbx.Params{"tableName": tableName}).
 		All(&info)
 	if err != nil {
@@ -61,12 +72,11 @@ func (dao *Dao) TableIndexes(tableName string) (map[string]string, error) {
 		Sql  string
 	}{}
 
-	err := dao.DB().Select("name", "sql").
-		From("sqlite_master").
-		AndWhere(dbx.NewExp("sql is not null")).
+	err := dao.DB().Select("indexname as name", "indexdef as sql").
+		From("pg_indexes").
+		AndWhere(dbx.NewExp("indexdef <>''")).
 		AndWhere(dbx.HashExp{
-			"type":     "index",
-			"tbl_name": tableName,
+			"tablename": tableName,
 		}).
 		All(&indexes)
 	if err != nil {
@@ -93,14 +103,6 @@ func (dao *Dao) DeleteTable(tableName string) error {
 		"DROP TABLE IF EXISTS {{%s}}",
 		tableName,
 	)).Execute()
-
-	return err
-}
-
-// Vacuum executes VACUUM on the current dao.DB() instance in order to
-// reclaim unused db disk space.
-func (dao *Dao) Vacuum() error {
-	_, err := dao.DB().NewQuery("VACUUM").Execute()
 
 	return err
 }

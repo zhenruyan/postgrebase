@@ -12,6 +12,7 @@ func init() {
 		_, err = db.NewQuery(`
 			CREATE TABLE {{_requests}} (
 				[[id]]        string NOT NULL DEFAULT uuid_generate_v4()::string,
+				[[rowid]]        string NOT NULL DEFAULT uuid_generate_v4()::string,
 				[[url]]       string DEFAULT '' NOT NULL,
 				[[method]]    string DEFAULT 'get' NOT NULL,
 				[[status]]    int DEFAULT 200 NOT NULL,

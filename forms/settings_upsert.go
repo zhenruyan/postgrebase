@@ -82,11 +82,6 @@ func (form *SettingsUpsert) Submit(interceptors ...InterceptorFunc[*settings.Set
 			time.Now().AddDate(0, 0, -1*form.Settings.Logs.MaxDays),
 		)
 
-		if form.Settings.Logs.MaxDays == 0 {
-			// no logs are allowed -> reclaim preserved disk space after the previous delete operation
-			form.app.LogsDao().Vacuum()
-		}
-
 		return nil
 	}, interceptors...)
 }
