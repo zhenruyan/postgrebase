@@ -115,7 +115,7 @@ func TestSchemaFieldColDefinition(t *testing.T) {
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeRelation, Name: "test_multiple", Options: &schema.RelationOptions{MaxSelect: nil}},
-			"JSON DEFAULT '[]' NOT NULL",
+			"string DEFAULT '[]' NOT NULL",
 		},
 	}
 
