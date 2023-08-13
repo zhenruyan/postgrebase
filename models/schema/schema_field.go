@@ -147,13 +147,13 @@ func (f *SchemaField) ColDefinition() string {
 	case FieldTypeBool:
 		return "BOOLEAN DEFAULT FALSE NOT NULL"
 	case FieldTypeJson:
-		return "JSON DEFAULT NULL"
+		return "string DEFAULT NULL"
 	default:
 		if opt, ok := f.Options.(MultiValuer); ok && opt.IsMultiple() {
-			return "JSON DEFAULT '[]' NOT NULL"
+			return "string DEFAULT '[]' NOT NULL"
 		}
 
-		return "TEXT DEFAULT '' NOT NULL"
+		return "string DEFAULT '' NOT NULL"
 	}
 }
 

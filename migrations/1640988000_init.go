@@ -37,60 +37,57 @@ func init() {
 	AppMigrations.Register(func(db dbx.Builder) error {
 		_, tablesErr := db.NewQuery(`
 			CREATE TABLE {{_admins}} (
-				[[id]]              TEXT PRIMARY KEY NOT NULL,
-				[[avatar]]          INTEGER DEFAULT 0 NOT NULL,
-				[[email]]           TEXT UNIQUE NOT NULL,
-				[[tokenKey]]        TEXT UNIQUE NOT NULL,
-				[[passwordHash]]    TEXT NOT NULL,
-				[[lastResetSentAt]] TEXT DEFAULT "" NOT NULL,
-				[[created]]         TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%fZ')) NOT NULL,
-				[[updated]]         TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%fZ')) NOT NULL
+				[[id]]              string NOT NULL DEFAULT uuid_generate_v4()::string PRIMARY KEY,
+				[[avatar]]          int DEFAULT 0 NOT NULL,
+				[[email]]           string UNIQUE NOT NULL,
+				[[tokenKey]]        string UNIQUE NOT NULL,
+				[[passwordHash]]    string NOT NULL,
+				[[lastResetSentAt]] string DEFAULT '' NOT NULL,
+				[[created]]          timestamp NOT NULL DEFAULT now():::TIMESTAMP,
+				[[updated]]          timestamp NOT NULL DEFAULT now():::TIMESTAMP
 			);
 
 			CREATE TABLE {{_collections}} (
-				[[id]]         TEXT PRIMARY KEY NOT NULL,
+				[[id]]         string NOT NULL DEFAULT uuid_generate_v4()::string PRIMARY KEY,
 				[[system]]     BOOLEAN DEFAULT FALSE NOT NULL,
-				[[type]]       TEXT DEFAULT "base" NOT NULL,
-				[[name]]       TEXT UNIQUE NOT NULL,
-				[[schema]]     JSON DEFAULT "[]" NOT NULL,
-				[[indexes]]    JSON DEFAULT "[]" NOT NULL,
-				[[listRule]]   TEXT DEFAULT NULL,
-				[[viewRule]]   TEXT DEFAULT NULL,
-				[[createRule]] TEXT DEFAULT NULL,
-				[[updateRule]] TEXT DEFAULT NULL,
-				[[deleteRule]] TEXT DEFAULT NULL,
-				[[options]]    JSON DEFAULT "{}" NOT NULL,
-				[[created]]    TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%fZ')) NOT NULL,
-				[[updated]]    TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%fZ')) NOT NULL
+				[[type]]       string DEFAULT 'base' NOT NULL,
+				[[name]]       string UNIQUE NOT NULL,
+				[[schema]]     string DEFAULT '[]' NOT NULL,
+				[[indexes]]    string DEFAULT '[]' NOT NULL,
+				[[listRule]]   string DEFAULT NULL,
+				[[viewRule]]   string DEFAULT NULL,
+				[[createRule]] string DEFAULT NULL,
+				[[updateRule]] string DEFAULT NULL,
+				[[deleteRule]] string DEFAULT NULL,
+				[[options]]    string DEFAULT '{}' NOT NULL,
+				[[created]]     timestamp NOT NULL DEFAULT now():::TIMESTAMP,
+				[[updated]]     timestamp NOT NULL DEFAULT now():::TIMESTAMP
 			);
 
 			CREATE TABLE {{_params}} (
-				[[id]]      TEXT PRIMARY KEY NOT NULL,
-				[[key]]     TEXT UNIQUE NOT NULL,
-				[[value]]   JSON DEFAULT NULL,
-				[[created]] TEXT DEFAULT "" NOT NULL,
-				[[updated]] TEXT DEFAULT "" NOT NULL
+				[[id]]      string NOT NULL DEFAULT uuid_generate_v4()::string PRIMARY KEY,
+				[[key]]     string UNIQUE NOT NULL,
+				[[value]]   string DEFAULT NULL,
+				[[created]]  timestamp NOT NULL DEFAULT now():::TIMESTAMP,
+				[[updated]]  timestamp NOT NULL DEFAULT now():::TIMESTAMP
 			);
 
 			CREATE TABLE {{_externalAuths}} (
-				[[id]]           TEXT PRIMARY KEY NOT NULL,
-				[[collectionId]] TEXT NOT NULL,
-				[[recordId]]     TEXT NOT NULL,
-				[[provider]]     TEXT NOT NULL,
-				[[providerId]]   TEXT NOT NULL,
-				[[created]]      TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%fZ')) NOT NULL,
-				[[updated]]      TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%fZ')) NOT NULL,
+				[[id]]           string NOT NULL DEFAULT uuid_generate_v4()::string  PRIMARY KEY,
+				[[collectionId]] string NOT NULL,
+				[[recordId]]     string NOT NULL,
+				[[provider]]     string NOT NULL,
+				[[providerId]]   string NOT NULL,
+				[[created]]      timestamp NOT NULL DEFAULT now():::TIMESTAMP,
+				[[updated]]       timestamp NOT NULL DEFAULT now():::TIMESTAMP,
 				---
 				FOREIGN KEY ([[collectionId]]) REFERENCES {{_collections}} ([[id]]) ON UPDATE CASCADE ON DELETE CASCADE
 			);
 
-			CREATE UNIQUE INDEX _externalAuths_record_provider_idx on {{_externalAuths}} ([[collectionId]], [[recordId]], [[provider]]);
-			CREATE UNIQUE INDEX _externalAuths_provider_providerId_idx on {{_externalAuths}} ([[provider]], [[providerId]]);
 		`).Execute()
 		if tablesErr != nil {
 			return tablesErr
 		}
-
 		dao := daos.New(db)
 
 		// inserts default settings

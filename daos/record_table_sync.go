@@ -24,20 +24,20 @@ func (dao *Dao) SyncRecordTableSchema(newCollection *models.Collection, oldColle
 		// -----------------------------------------------------------
 		if oldCollection == nil {
 			cols := map[string]string{
-				schema.FieldNameId:      "TEXT PRIMARY KEY DEFAULT ('r'||lower(hex(randomblob(7)))) NOT NULL",
-				schema.FieldNameCreated: "TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%fZ')) NOT NULL",
-				schema.FieldNameUpdated: "TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%fZ')) NOT NULL",
+				schema.FieldNameId:      "string NOT NULL DEFAULT uuid_generate_v4()::string  PRIMARY KEY",
+				schema.FieldNameCreated: "timestamp NOT NULL DEFAULT now():::TIMESTAMP",
+				schema.FieldNameUpdated: "timestamp NOT NULL DEFAULT now():::TIMESTAMP",
 			}
 
 			if newCollection.IsAuth() {
-				cols[schema.FieldNameUsername] = "TEXT NOT NULL"
-				cols[schema.FieldNameEmail] = "TEXT DEFAULT '' NOT NULL"
+				cols[schema.FieldNameUsername] = "string NOT NULL"
+				cols[schema.FieldNameEmail] = "string DEFAULT '' NOT NULL"
 				cols[schema.FieldNameEmailVisibility] = "BOOLEAN DEFAULT FALSE NOT NULL"
 				cols[schema.FieldNameVerified] = "BOOLEAN DEFAULT FALSE NOT NULL"
-				cols[schema.FieldNameTokenKey] = "TEXT NOT NULL"
-				cols[schema.FieldNamePasswordHash] = "TEXT NOT NULL"
-				cols[schema.FieldNameLastResetSentAt] = "TEXT DEFAULT '' NOT NULL"
-				cols[schema.FieldNameLastVerificationSentAt] = "TEXT DEFAULT '' NOT NULL"
+				cols[schema.FieldNameTokenKey] = "string NOT NULL"
+				cols[schema.FieldNamePasswordHash] = "string NOT NULL"
+				cols[schema.FieldNameLastResetSentAt] = "string DEFAULT '' NOT NULL"
+				cols[schema.FieldNameLastVerificationSentAt] = "string DEFAULT '' NOT NULL"
 			}
 
 			// ensure that the new collection has an id
@@ -173,14 +173,6 @@ func (dao *Dao) normalizeSingleVsMultipleFieldChanges(newCollection, oldCollecti
 	}
 
 	return dao.RunInTransaction(func(txDao *Dao) error {
-		// temporary disable the schema error checks to prevent view and trigger errors
-		// when "altering" (aka. deleting and recreating) the non-normalized columns
-		if _, err := txDao.DB().NewQuery("PRAGMA writable_schema = ON").Execute(); err != nil {
-			return err
-		}
-		// executed with defer to make sure that the pragma is always reverted
-		// in case of an error and when nested transactions are used
-		defer txDao.DB().NewQuery("PRAGMA writable_schema = RESET").Execute()
 
 		for _, newField := range newCollection.Schema.Fields() {
 			// allow to continue even if there is no old field for the cases
@@ -288,9 +280,7 @@ func (dao *Dao) normalizeSingleVsMultipleFieldChanges(newCollection, oldCollecti
 		}
 
 		// revert the pragma and reload the schema
-		_, revertErr := txDao.DB().NewQuery("PRAGMA writable_schema = RESET").Execute()
-
-		return revertErr
+		return nil
 	})
 }
 

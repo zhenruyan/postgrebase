@@ -11,23 +11,19 @@ func init() {
 	LogsMigrations.Register(func(db dbx.Builder) (err error) {
 		_, err = db.NewQuery(`
 			CREATE TABLE {{_requests}} (
-				[[id]]        TEXT PRIMARY KEY NOT NULL,
-				[[url]]       TEXT DEFAULT "" NOT NULL,
-				[[method]]    TEXT DEFAULT "get" NOT NULL,
-				[[status]]    INTEGER DEFAULT 200 NOT NULL,
-				[[auth]]      TEXT DEFAULT "guest" NOT NULL,
-				[[ip]]        TEXT DEFAULT "127.0.0.1" NOT NULL,
-				[[referer]]   TEXT DEFAULT "" NOT NULL,
-				[[userAgent]] TEXT DEFAULT "" NOT NULL,
-				[[meta]]      JSON DEFAULT "{}" NOT NULL,
-				[[created]]   TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%fZ')) NOT NULL,
-				[[updated]]   TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%fZ')) NOT NULL
+				[[id]]        string NOT NULL DEFAULT uuid_generate_v4()::string,
+				[[url]]       string DEFAULT '' NOT NULL,
+				[[method]]    string DEFAULT 'get' NOT NULL,
+				[[status]]    int DEFAULT 200 NOT NULL,
+				[[auth]]      string DEFAULT 'guest' NOT NULL,
+				[[ip]]        string DEFAULT '127.0.0.1' NOT NULL,
+				[[referer]]   string DEFAULT '' NOT NULL,
+				[[userAgent]] string DEFAULT '' NOT NULL,
+				[[meta]]      JSON DEFAULT '{}' NOT NULL,
+				[[created]]   timestamp NOT NULL DEFAULT now():::TIMESTAMP,
+				[[updated]]   timestamp NOT NULL DEFAULT now():::TIMESTAMP,
+				CONSTRAINT "primary" PRIMARY KEY (id)
 			);
-
-			CREATE INDEX _request_status_idx on {{_requests}} ([[status]]);
-			CREATE INDEX _request_auth_idx on {{_requests}} ([[auth]]);
-			CREATE INDEX _request_ip_idx on {{_requests}} ([[ip]]);
-			CREATE INDEX _request_created_hour_idx on {{_requests}} (strftime('%Y-%m-%d %H:00:00', [[created]]));
 		`).Execute()
 
 		return err

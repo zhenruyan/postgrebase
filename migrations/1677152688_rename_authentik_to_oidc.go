@@ -9,7 +9,7 @@ func init() {
 	AppMigrations.Register(func(db dbx.Builder) error {
 		_, err := db.NewQuery(`
 			UPDATE {{_params}}
-			SET [[value]] = replace([[value]], '"authentikAuth":', '"oidcAuth":')
+			SET [[value]] = replace([[value]]:::string, '"authentikAuth":', '"oidcAuth":')
 			WHERE [[key]] = 'settings'
 		`).Execute()
 
@@ -17,7 +17,7 @@ func init() {
 	}, func(db dbx.Builder) error {
 		_, err := db.NewQuery(`
 			UPDATE {{_params}}
-			SET [[value]] = replace([[value]], '"oidcAuth":', '"authentikAuth":')
+			SET [[value]] = replace([[value]]:::string, '"oidcAuth":', '"authentikAuth":')
 			WHERE [[key]] = 'settings'
 		`).Execute()
 
