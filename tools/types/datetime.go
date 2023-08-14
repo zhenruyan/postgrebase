@@ -48,7 +48,7 @@ func (d DateTime) String() string {
 	if d.IsZero() {
 		return ""
 	}
-	return d.Time().UTC().Format(DefaultDateLayout)
+	return d.Time().Format(DefaultDateLayout)
 }
 
 // MarshalJSON implements the [json.Marshaler] interface.

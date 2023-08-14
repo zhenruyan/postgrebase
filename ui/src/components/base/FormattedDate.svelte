@@ -9,7 +9,7 @@
 {#if date}
     <div class="datetime">
         <div class="date">{dateOnly}</div>
-        <div class="time">{timeOnly} UTC</div>
+        <div class="time">{timeOnly}</div>
     </div>
 {:else}
     <span class="txt txt-hint">N/A</span>

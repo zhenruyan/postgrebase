@@ -72,7 +72,7 @@ func (form *RecordPasswordResetRequest) Submit(interceptors ...InterceptorFunc[*
 		return err
 	}
 
-	now := time.Now().UTC()
+	now := time.Now()
 	lastResetSentAt := authRecord.LastResetSentAt().Time()
 	if now.Sub(lastResetSentAt).Seconds() < form.resendThreshold {
 		return errors.New("You've already requested a password reset.")

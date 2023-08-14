@@ -50,7 +50,7 @@ func (app *BaseApp) CreateBackup(ctx context.Context, name string) error {
 	if name == "" {
 		name = fmt.Sprintf(
 			"pb_backup_%s.zip",
-			time.Now().UTC().Format("20060102150405"),
+			time.Now().Format("20060102150405"),
 		)
 	}
 
@@ -253,7 +253,7 @@ func (app *BaseApp) initAutobackupHooks() error {
 			name := fmt.Sprintf(
 				"%s%s.zip",
 				autoPrefix,
-				time.Now().UTC().Format("20060102150405"),
+				time.Now().Format("20060102150405"),
 			)
 
 			if err := app.CreateBackup(context.Background(), name); err != nil && app.IsDebug() {

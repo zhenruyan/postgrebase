@@ -39,7 +39,7 @@ func (dao *Dao) RequestsStats(expr dbx.Expression) ([]*RequestsStatsItem, error)
 	result := []*RequestsStatsItem{}
 
 	query := dao.RequestQuery().
-		Select("count(id) as total", "to_char(created,'yyyy-MM-dd HH24') as date").
+		Select("count(id) as total", "concat(to_char(created,'yyyy-MM-dd HH24'),':00:00.000') as date").
 		GroupBy("date")
 
 	if expr != nil {
@@ -56,7 +56,7 @@ func (dao *Dao) DeleteOldRequests(createdBefore time.Time) error {
 	m := models.Request{}
 	tableName := m.TableName()
 
-	formattedDate := createdBefore.UTC().Format(types.DefaultDateLayout)
+	formattedDate := createdBefore.Format(types.DefaultDateLayout)
 	expr := dbx.NewExp("[[created]] <= {:date}", dbx.Params{"date": formattedDate})
 
 	_, err := dao.NonconcurrentDB().Delete(tableName, expr).Execute()
