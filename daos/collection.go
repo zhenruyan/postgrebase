@@ -177,7 +177,7 @@ func (dao *Dao) SaveCollection(collection *models.Collection) error {
 		}
 	}
 
-	txErr := dao.RunInTransaction(func(txDao *Dao) error {
+	txErr := func(txDao *Dao) error {
 		// set default collection type
 		if collection.Type == "" {
 			collection.Type = models.CollectionTypeBase
@@ -201,7 +201,7 @@ func (dao *Dao) SaveCollection(collection *models.Collection) error {
 		}
 
 		return nil
-	})
+	}(dao)
 
 	if txErr != nil {
 		return txErr
@@ -230,123 +230,122 @@ func (dao *Dao) ImportCollections(
 		return errors.New("No collections to import")
 	}
 
-	return dao.RunInTransaction(func(txDao *Dao) error {
-		existingCollections := []*models.Collection{}
-		if err := txDao.CollectionQuery().OrderBy("updated ASC").All(&existingCollections); err != nil {
-			return err
-		}
-		mappedExisting := make(map[string]*models.Collection, len(existingCollections))
-		for _, existing := range existingCollections {
-			mappedExisting[existing.GetId()] = existing
+	existingCollections := []*models.Collection{}
+	if err := dao.CollectionQuery().OrderBy("updated ASC").All(&existingCollections); err != nil {
+		return err
+	}
+	mappedExisting := make(map[string]*models.Collection, len(existingCollections))
+	for _, existing := range existingCollections {
+		mappedExisting[existing.GetId()] = existing
+	}
+
+	mappedImported := make(map[string]*models.Collection, len(importedCollections))
+	for _, imported := range importedCollections {
+		// generate id if not set
+		if !imported.HasId() {
+			imported.MarkAsNew()
+			imported.RefreshId()
 		}
 
-		mappedImported := make(map[string]*models.Collection, len(importedCollections))
-		for _, imported := range importedCollections {
-			// generate id if not set
-			if !imported.HasId() {
-				imported.MarkAsNew()
-				imported.RefreshId()
+		// set default type if missing
+		if imported.Type == "" {
+			imported.Type = models.CollectionTypeBase
+		}
+
+		if existing, ok := mappedExisting[imported.GetId()]; ok {
+			imported.MarkAsNotNew()
+
+			// preserve original created date
+			if !existing.Created.IsZero() {
+				imported.Created = existing.Created
 			}
 
-			// set default type if missing
-			if imported.Type == "" {
-				imported.Type = models.CollectionTypeBase
-			}
-
-			if existing, ok := mappedExisting[imported.GetId()]; ok {
-				imported.MarkAsNotNew()
-
-				// preserve original created date
-				if !existing.Created.IsZero() {
-					imported.Created = existing.Created
+			// extend existing schema
+			if !deleteMissing {
+				schema, _ := existing.Schema.Clone()
+				for _, f := range imported.Schema.Fields() {
+					schema.AddField(f) // add or replace
 				}
+				imported.Schema = *schema
+			}
+		} else {
+			imported.MarkAsNew()
+		}
 
-				// extend existing schema
-				if !deleteMissing {
-					schema, _ := existing.Schema.Clone()
-					for _, f := range imported.Schema.Fields() {
-						schema.AddField(f) // add or replace
-					}
-					imported.Schema = *schema
+		mappedImported[imported.GetId()] = imported
+	}
+
+	// delete old collections not available in the new configuration
+	// (before saving the imports in case a deleted collection name is being reused)
+	if deleteMissing {
+		for _, existing := range existingCollections {
+			if mappedImported[existing.GetId()] != nil {
+				continue // exist
+			}
+
+			if existing.System {
+				return fmt.Errorf("System collection %q cannot be deleted.", existing.Name)
+			}
+
+			// delete the related records table or view
+			if existing.IsView() {
+				if err := dao.DeleteView(existing.Name); err != nil {
+					return err
 				}
 			} else {
-				imported.MarkAsNew()
-			}
-
-			mappedImported[imported.GetId()] = imported
-		}
-
-		// delete old collections not available in the new configuration
-		// (before saving the imports in case a deleted collection name is being reused)
-		if deleteMissing {
-			for _, existing := range existingCollections {
-				if mappedImported[existing.GetId()] != nil {
-					continue // exist
-				}
-
-				if existing.System {
-					return fmt.Errorf("System collection %q cannot be deleted.", existing.Name)
-				}
-
-				// delete the related records table or view
-				if existing.IsView() {
-					if err := txDao.DeleteView(existing.Name); err != nil {
-						return err
-					}
-				} else {
-					if err := txDao.DeleteTable(existing.Name); err != nil {
-						return err
-					}
-				}
-
-				// delete the collection
-				if err := txDao.Delete(existing); err != nil {
+				if err := dao.DeleteTable(existing.Name); err != nil {
 					return err
 				}
 			}
-		}
 
-		// upsert imported collections
-		for _, imported := range importedCollections {
-			if err := txDao.Save(imported); err != nil {
+			// delete the collection
+			if err := dao.Delete(existing); err != nil {
 				return err
 			}
 		}
+	}
 
-		// sync record tables
-		for _, imported := range importedCollections {
-			if imported.IsView() {
-				continue
-			}
+	// upsert imported collections
+	for _, imported := range importedCollections {
+		if err := dao.Save(imported); err != nil {
+			return err
+		}
+	}
 
-			existing := mappedExisting[imported.GetId()]
-
-			if err := txDao.SyncRecordTableSchema(imported, existing); err != nil {
-				return err
-			}
+	// sync record tables
+	for _, imported := range importedCollections {
+		if imported.IsView() {
+			continue
 		}
 
-		// sync views
-		for _, imported := range importedCollections {
-			if !imported.IsView() {
-				continue
-			}
+		existing := mappedExisting[imported.GetId()]
 
-			existing := mappedExisting[imported.GetId()]
+		if err := dao.SyncRecordTableSchema(imported, existing); err != nil {
+			return err
+		}
+	}
 
-			if err := txDao.saveViewCollection(imported, existing); err != nil {
-				return err
-			}
+	// sync views
+	for _, imported := range importedCollections {
+		if !imported.IsView() {
+			continue
 		}
 
-		if afterSync != nil {
-			if err := afterSync(txDao, mappedImported, mappedExisting); err != nil {
-				return err
-			}
-		}
+		existing := mappedExisting[imported.GetId()]
 
-		return nil
-	})
+		if err := dao.saveViewCollection(imported, existing); err != nil {
+			return err
+		}
+	}
+
+	if afterSync != nil {
+		if err := afterSync(dao, mappedImported, mappedExisting); err != nil {
+			return err
+		}
+	}
+
+	return nil
+
 }
 
 // saveViewCollection persists the provided View collection changes:

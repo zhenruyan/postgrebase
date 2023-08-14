@@ -53,9 +53,7 @@ func (idx Index) Build() string {
 
 	str.WriteString("INDEX ")
 
-	if idx.Optional {
-		str.WriteString("IF NOT EXISTS ")
-	}
+	str.WriteString("IF NOT EXISTS ")
 
 	if idx.SchemaName != "" {
 		str.WriteString("\"")

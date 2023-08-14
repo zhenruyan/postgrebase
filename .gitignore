@@ -16,3 +16,5 @@ coverage.out
 README.html
 CHANGELOG.html
 LICENSE.html
+pb_data
+pb_migrations

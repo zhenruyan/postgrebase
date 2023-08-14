@@ -20,6 +20,10 @@ import (
 	"github.com/spf13/cast"
 )
 
+func init() {
+	log.SetFlags(log.Llongfile)
+}
+
 const trailedAdminPath = "/_/"
 
 // InitApi creates a configured echo instance with registered

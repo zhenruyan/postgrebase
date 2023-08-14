@@ -19,152 +19,151 @@ import (
 //
 // If `oldCollection` is null, then only `newCollection` is used to create the record table.
 func (dao *Dao) SyncRecordTableSchema(newCollection *models.Collection, oldCollection *models.Collection) error {
-	return dao.RunInTransaction(func(txDao *Dao) error {
-		// create
-		// -----------------------------------------------------------
-		if oldCollection == nil {
-			cols := map[string]string{
-				schema.FieldNameId:      "string NOT NULL DEFAULT uuid_generate_v4()::string  PRIMARY KEY",
-				schema.FieldNameCreated: "timestamp NOT NULL DEFAULT now():::TIMESTAMP",
-				schema.FieldNameUpdated: "timestamp NOT NULL DEFAULT now():::TIMESTAMP",
-			}
+	// create
+	// -----------------------------------------------------------
+	if oldCollection == nil {
+		cols := map[string]string{
+			schema.FieldNameId:      "string NOT NULL DEFAULT uuid_generate_v4()::string  PRIMARY KEY",
+			schema.FieldNameCreated: "timestamp NOT NULL DEFAULT now():::TIMESTAMP",
+			schema.FieldNameUpdated: "timestamp NOT NULL DEFAULT now():::TIMESTAMP",
+		}
 
-			if newCollection.IsAuth() {
-				cols[schema.FieldNameUsername] = "string NOT NULL"
-				cols[schema.FieldNameEmail] = "string DEFAULT '' NOT NULL"
-				cols[schema.FieldNameEmailVisibility] = "BOOLEAN DEFAULT FALSE NOT NULL"
-				cols[schema.FieldNameVerified] = "BOOLEAN DEFAULT FALSE NOT NULL"
-				cols[schema.FieldNameTokenKey] = "string NOT NULL"
-				cols[schema.FieldNamePasswordHash] = "string NOT NULL"
-				cols[schema.FieldNameLastResetSentAt] = "string DEFAULT '' NOT NULL"
-				cols[schema.FieldNameLastVerificationSentAt] = "string DEFAULT '' NOT NULL"
-			}
+		if newCollection.IsAuth() {
+			cols[schema.FieldNameUsername] = "string NOT NULL"
+			cols[schema.FieldNameEmail] = "string DEFAULT '' NOT NULL"
+			cols[schema.FieldNameEmailVisibility] = "BOOLEAN DEFAULT FALSE NOT NULL"
+			cols[schema.FieldNameVerified] = "BOOLEAN DEFAULT FALSE NOT NULL"
+			cols[schema.FieldNameTokenKey] = "string NOT NULL"
+			cols[schema.FieldNamePasswordHash] = "string NOT NULL"
+			cols[schema.FieldNameLastResetSentAt] = "string DEFAULT '' NOT NULL"
+			cols[schema.FieldNameLastVerificationSentAt] = "string DEFAULT '' NOT NULL"
+		}
 
-			// ensure that the new collection has an id
-			if !newCollection.HasId() {
-				newCollection.RefreshId()
-				newCollection.MarkAsNew()
-			}
+		// ensure that the new collection has an id
+		if !newCollection.HasId() {
+			newCollection.RefreshId()
+			newCollection.MarkAsNew()
+		}
 
-			tableName := newCollection.Name
+		tableName := newCollection.Name
 
-			// add schema field definitions
-			for _, field := range newCollection.Schema.Fields() {
-				cols[field.Name] = field.ColDefinition()
-			}
+		// add schema field definitions
+		for _, field := range newCollection.Schema.Fields() {
+			cols[field.Name] = field.ColDefinition()
+		}
 
-			// create table
-			if _, err := txDao.DB().CreateTable(tableName, cols).Execute(); err != nil {
-				return err
-			}
+		// create table
+		if _, err := dao.DB().CreateTable(tableName, cols).Execute(); err != nil {
+			return err
+		}
 
-			// add named unique index on the email and tokenKey columns
-			if newCollection.IsAuth() {
-				_, err := txDao.DB().NewQuery(fmt.Sprintf(
-					`
+		// add named unique index on the email and tokenKey columns
+		if newCollection.IsAuth() {
+			_, err := dao.DB().NewQuery(fmt.Sprintf(
+				`
 					CREATE UNIQUE INDEX _%s_username_idx ON {{%s}} ([[username]]);
 					CREATE UNIQUE INDEX _%s_email_idx ON {{%s}} ([[email]]) WHERE [[email]] != '';
 					CREATE UNIQUE INDEX _%s_tokenKey_idx ON {{%s}} ([[tokenKey]]);
 					`,
-					newCollection.Id, tableName,
-					newCollection.Id, tableName,
-					newCollection.Id, tableName,
-				)).Execute()
-				if err != nil {
-					return err
-				}
-			}
-
-			return txDao.createCollectionIndexes(newCollection)
-		}
-
-		// update
-		// -----------------------------------------------------------
-		oldTableName := oldCollection.Name
-		newTableName := newCollection.Name
-		oldSchema := oldCollection.Schema
-		newSchema := newCollection.Schema
-		deletedFieldNames := []string{}
-		renamedFieldNames := map[string]string{}
-
-		// drop old indexes (if any)
-		if err := txDao.dropCollectionIndex(oldCollection); err != nil {
-			return err
-		}
-
-		// check for renamed table
-		if !strings.EqualFold(oldTableName, newTableName) {
-			_, err := txDao.DB().RenameTable("{{"+oldTableName+"}}", "{{"+newTableName+"}}").Execute()
+				newCollection.Id, tableName,
+				newCollection.Id, tableName,
+				newCollection.Id, tableName,
+			)).Execute()
 			if err != nil {
 				return err
 			}
 		}
 
-		// check for deleted columns
-		for _, oldField := range oldSchema.Fields() {
-			if f := newSchema.GetFieldById(oldField.Id); f != nil {
-				continue // exist
-			}
+		return dao.createCollectionIndexes(newCollection)
+	}
 
-			_, err := txDao.DB().DropColumn(newTableName, oldField.Name).Execute()
-			if err != nil {
-				return fmt.Errorf("failed to drop column %s - %w", oldField.Name, err)
-			}
+	// update
+	// -----------------------------------------------------------
+	oldTableName := oldCollection.Name
+	newTableName := newCollection.Name
+	oldSchema := oldCollection.Schema
+	newSchema := newCollection.Schema
+	deletedFieldNames := []string{}
+	renamedFieldNames := map[string]string{}
 
-			deletedFieldNames = append(deletedFieldNames, oldField.Name)
-		}
+	// drop old indexes (if any)
+	if err := dao.dropCollectionIndex(oldCollection); err != nil {
+		return err
+	}
 
-		// check for new or renamed columns
-		toRename := map[string]string{}
-		for _, field := range newSchema.Fields() {
-			oldField := oldSchema.GetFieldById(field.Id)
-			// Note:
-			// We are using a temporary column name when adding or renaming columns
-			// to ensure that there are no name collisions in case there is
-			// names switch/reuse of existing columns (eg. name, title -> title, name).
-			// This way we are always doing 1 more rename operation but it provides better dev experience.
-
-			if oldField == nil {
-				tempName := field.Name + security.PseudorandomString(5)
-				toRename[tempName] = field.Name
-
-				// add
-				_, err := txDao.DB().AddColumn(newTableName, tempName, field.ColDefinition()).Execute()
-				if err != nil {
-					return fmt.Errorf("failed to add column %s - %w", field.Name, err)
-				}
-			} else if oldField.Name != field.Name {
-				tempName := field.Name + security.PseudorandomString(5)
-				toRename[tempName] = field.Name
-
-				// rename
-				_, err := txDao.DB().RenameColumn(newTableName, oldField.Name, tempName).Execute()
-				if err != nil {
-					return fmt.Errorf("failed to rename column %s - %w", oldField.Name, err)
-				}
-
-				renamedFieldNames[oldField.Name] = field.Name
-			}
-		}
-
-		// set the actual columns name
-		for tempName, actualName := range toRename {
-			_, err := txDao.DB().RenameColumn(newTableName, tempName, actualName).Execute()
-			if err != nil {
-				return err
-			}
-		}
-
-		if err := txDao.normalizeSingleVsMultipleFieldChanges(newCollection, oldCollection); err != nil {
+	// check for renamed table
+	if !strings.EqualFold(oldTableName, newTableName) {
+		_, err := dao.DB().RenameTable("{{"+oldTableName+"}}", "{{"+newTableName+"}}").Execute()
+		if err != nil {
 			return err
 		}
+	}
 
-		if err := txDao.syncRelationDisplayFieldsChanges(newCollection, renamedFieldNames, deletedFieldNames); err != nil {
-			return err
+	// check for deleted columns
+	for _, oldField := range oldSchema.Fields() {
+		if f := newSchema.GetFieldById(oldField.Id); f != nil {
+			continue // exist
 		}
 
-		return txDao.createCollectionIndexes(newCollection)
-	})
+		_, err := dao.DB().DropColumn(newTableName, oldField.Name).Execute()
+		if err != nil {
+			return fmt.Errorf("failed to drop column %s - %w", oldField.Name, err)
+		}
+
+		deletedFieldNames = append(deletedFieldNames, oldField.Name)
+	}
+
+	// check for new or renamed columns
+	toRename := map[string]string{}
+	for _, field := range newSchema.Fields() {
+		oldField := oldSchema.GetFieldById(field.Id)
+		// Note:
+		// We are using a temporary column name when adding or renaming columns
+		// to ensure that there are no name collisions in case there is
+		// names switch/reuse of existing columns (eg. name, title -> title, name).
+		// This way we are always doing 1 more rename operation but it provides better dev experience.
+
+		if oldField == nil {
+			tempName := field.Name + security.PseudorandomString(5)
+			toRename[tempName] = field.Name
+
+			// add
+			_, err := dao.DB().AddColumn(newTableName, tempName, field.ColDefinition()).Execute()
+			if err != nil {
+				return fmt.Errorf("failed to add column %s - %w", field.Name, err)
+			}
+		} else if oldField.Name != field.Name {
+			tempName := field.Name + security.PseudorandomString(5)
+			toRename[tempName] = field.Name
+
+			// rename
+			_, err := dao.DB().RenameColumn(newTableName, oldField.Name, tempName).Execute()
+			if err != nil {
+				return fmt.Errorf("failed to rename column %s - %w", oldField.Name, err)
+			}
+
+			renamedFieldNames[oldField.Name] = field.Name
+		}
+	}
+
+	// set the actual columns name
+	for tempName, actualName := range toRename {
+		_, err := dao.DB().RenameColumn(newTableName, tempName, actualName).Execute()
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := dao.normalizeSingleVsMultipleFieldChanges(newCollection, oldCollection); err != nil {
+		return err
+	}
+
+	if err := dao.syncRelationDisplayFieldsChanges(newCollection, renamedFieldNames, deletedFieldNames); err != nil {
+		return err
+	}
+
+	return dao.createCollectionIndexes(newCollection)
+
 }
 
 func (dao *Dao) normalizeSingleVsMultipleFieldChanges(newCollection, oldCollection *models.Collection) error {
@@ -333,21 +332,18 @@ func (dao *Dao) dropCollectionIndex(collection *models.Collection) error {
 		return nil // views don't have indexes
 	}
 
-	return dao.RunInTransaction(func(txDao *Dao) error {
-		for _, raw := range collection.Indexes {
-			parsed := dbutils.ParseIndex(raw)
-
-			if !parsed.IsValid() {
-				continue
-			}
-
-			if _, err := txDao.DB().NewQuery(fmt.Sprintf(`DROP INDEX IF EXISTS "[[%s]]"`, parsed.IndexName)).Execute(); err != nil {
-				return err
-			}
+	for _, raw := range collection.Indexes {
+		parsed := dbutils.ParseIndex(raw)
+		if !parsed.IsValid() {
+			continue
 		}
+		if _, err := dao.DB().NewQuery(fmt.Sprintf(`DROP INDEX IF EXISTS [[%s]]`, parsed.IndexName)).Execute(); err != nil {
+			return err
+		}
+	}
 
-		return nil
-	})
+	return nil
+
 }
 
 func (dao *Dao) createCollectionIndexes(collection *models.Collection) error {
@@ -355,44 +351,43 @@ func (dao *Dao) createCollectionIndexes(collection *models.Collection) error {
 		return nil // views don't have indexes
 	}
 
-	return dao.RunInTransaction(func(txDao *Dao) error {
-		// drop new indexes in case a duplicated index name is used
-		if err := dao.dropCollectionIndex(collection); err != nil {
-			return err
-		}
-		// upsert new indexes
-		//
-		// note: we are returning validation errors because the indexes cannot be
-		//       validated in a form, aka. before persisting the related collection
-		//       record table changes
-		errs := validation.Errors{}
-		for i, idx := range collection.Indexes {
-			parsed := dbutils.ParseIndex(idx)
+	// drop new indexes in case a duplicated index name is used
+	if err := dao.dropCollectionIndex(collection); err != nil {
+		fmt.Println("drop index error:", err)
+		return err
+	}
+	// upsert new indexes
+	//
+	// note: we are returning validation errors because the indexes cannot be
+	//       validated in a form, aka. before persisting the related collection
+	//       record table changes
+	errs := validation.Errors{}
+	for i, idx := range collection.Indexes {
+		parsed := dbutils.ParseIndex(idx)
 
-			// ensure that the index is always for the current collection
-			parsed.TableName = collection.Name
-
-			if !parsed.IsValid() {
-				errs[strconv.Itoa(i)] = validation.NewError(
-					"validation_invalid_index_expression",
-					"Invalid CREATE INDEX expression.",
-				)
-				continue
-			}
-
-			if _, err := txDao.DB().NewQuery(parsed.Build()).Execute(); err != nil {
-				errs[strconv.Itoa(i)] = validation.NewError(
-					"validation_invalid_index_expression",
-					fmt.Sprintf("Failed to create index %s - %v.", parsed.IndexName, err.Error()),
-				)
-				continue
-			}
+		// ensure that the index is always for the current collection
+		parsed.TableName = collection.Name
+		if !parsed.IsValid() {
+			errs[strconv.Itoa(i)] = validation.NewError(
+				"validation_invalid_index_expression",
+				"Invalid CREATE INDEX expression.",
+			)
+			continue
 		}
 
-		if len(errs) > 0 {
-			return validation.Errors{"indexes": errs}
+		if _, err := dao.DB().NewQuery(parsed.Build()).Execute(); err != nil {
+			errs[strconv.Itoa(i)] = validation.NewError(
+				"validation_invalid_index_expression",
+				fmt.Sprintf("Failed to create index %s - %v.", parsed.IndexName, err.Error()),
+			)
+			continue
 		}
+	}
 
-		return nil
-	})
+	if len(errs) > 0 {
+		return validation.Errors{"indexes": errs}
+	}
+
+	return nil
+
 }
