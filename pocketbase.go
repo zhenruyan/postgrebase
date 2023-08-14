@@ -33,6 +33,8 @@ type PocketBase struct {
 
 	debugFlag         bool
 	dataDirFlag       string
+	dataLogFlag       string
+	dataDataFlag      string
 	encryptionEnvFlag string
 	hideStartBanner   bool
 
@@ -45,6 +47,8 @@ type Config struct {
 	// optional default values for the console flags
 	DefaultDebug         bool
 	DefaultDataDir       string // if not set, it will fallback to "./pb_data"
+	DefaultDataDsn       string // if not set, it will fallback to "postgresql://<username>:<password>@<host>:<port>/<database>?sslmode=verify-full"
+	DefaultLogDsn        string // if not set, it will fallback to "postgresql://<username>:<password>@<host>:<port>/<database>?sslmode=verify-full"
 	DefaultEncryptionEnv string
 
 	// hide the default console server info on app startup
@@ -86,6 +90,16 @@ func NewWithConfig(config Config) *PocketBase {
 		baseDir, _ := inspectRuntime()
 		config.DefaultDataDir = filepath.Join(baseDir, "pb_data")
 	}
+	if config.DefaultDataDsn == "" {
+		config.DefaultDataDsn = "postgresql://root@127.0.0.1:26257/data?sslmode=disable"
+	}
+	if config.DefaultLogDsn == "" {
+		config.DefaultLogDsn = "postgresql://root@127.0.0.1:26257/logs?sslmode=disable"
+	}
+	if config.DefaultDataDir == "" {
+		baseDir, _ := inspectRuntime()
+		config.DefaultDataDir = filepath.Join(baseDir, "pb_data")
+	}
 
 	pb := &PocketBase{
 		RootCmd: &cobra.Command{
@@ -102,6 +116,8 @@ func NewWithConfig(config Config) *PocketBase {
 		},
 		debugFlag:         config.DefaultDebug,
 		dataDirFlag:       config.DefaultDataDir,
+		dataLogFlag:       config.DefaultLogDsn,
+		dataDataFlag:      config.DefaultDataDsn,
 		encryptionEnvFlag: config.DefaultEncryptionEnv,
 		hideStartBanner:   config.HideStartBanner,
 	}
@@ -113,6 +129,8 @@ func NewWithConfig(config Config) *PocketBase {
 	// initialize the app instance
 	pb.appWrapper = &appWrapper{core.NewBaseApp(core.BaseAppConfig{
 		DataDir:          pb.dataDirFlag,
+		LogDsn:           pb.dataLogFlag,
+		DataDsn:          pb.dataDataFlag,
 		EncryptionEnv:    pb.encryptionEnvFlag,
 		IsDebug:          pb.debugFlag,
 		DataMaxOpenConns: config.DataMaxOpenConns,
@@ -187,6 +205,18 @@ func (pb *PocketBase) eagerParseFlags(config *Config) error {
 		"dir",
 		config.DefaultDataDir,
 		"the PocketBase data directory",
+	)
+	pb.RootCmd.PersistentFlags().StringVar(
+		&pb.dataLogFlag,
+		"logDsn",
+		config.DefaultLogDsn,
+		"store logs postgresql dsn(default postgresql://root@127.0.0.1:26257/logs?sslmode=disable)",
+	)
+	pb.RootCmd.PersistentFlags().StringVar(
+		&pb.dataDataFlag,
+		"dataDsn",
+		config.DefaultDataDsn,
+		"store data postgresql dsn(default  postgresql://root@127.0.0.1:26257/data?sslmode=disable)",
 	)
 
 	pb.RootCmd.PersistentFlags().StringVar(

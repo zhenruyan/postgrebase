@@ -42,6 +42,8 @@ type BaseApp struct {
 	// configurable parameters
 	isDebug          bool
 	dataDir          string
+	dataDsn          string
+	logDsn           string
 	encryptionEnv    string
 	dataMaxOpenConns int
 	dataMaxIdleConns int
@@ -174,6 +176,8 @@ type BaseAppConfig struct {
 	DataMaxIdleConns int // default 20
 	LogsMaxOpenConns int // default to 100
 	LogsMaxIdleConns int // default to 5
+	DataDsn          string
+	LogDsn           string
 }
 
 // NewBaseApp creates and returns a new BaseApp instance
@@ -183,6 +187,8 @@ type BaseAppConfig struct {
 func NewBaseApp(config BaseAppConfig) *BaseApp {
 	app := &BaseApp{
 		dataDir:             config.DataDir,
+		dataDsn:             config.DataDsn,
+		logDsn:              config.LogDsn,
 		isDebug:             config.IsDebug,
 		encryptionEnv:       config.EncryptionEnv,
 		dataMaxOpenConns:    config.DataMaxOpenConns,
@@ -982,7 +988,7 @@ func (app *BaseApp) initLogsDB() error {
 		maxIdleConns = app.logsMaxIdleConns
 	}
 
-	concurrentDB, err := connectDB("logs")
+	concurrentDB, err := connectDB(app.logDsn)
 	if err != nil {
 		return err
 	}
@@ -990,7 +996,7 @@ func (app *BaseApp) initLogsDB() error {
 	concurrentDB.DB().SetMaxIdleConns(maxIdleConns)
 	concurrentDB.DB().SetConnMaxIdleTime(5 * time.Minute)
 
-	nonconcurrentDB, err := connectDB("logs")
+	nonconcurrentDB, err := connectDB(app.logDsn)
 	if err != nil {
 		return err
 	}
@@ -1013,7 +1019,7 @@ func (app *BaseApp) initDataDB() error {
 		maxIdleConns = app.dataMaxIdleConns
 	}
 
-	concurrentDB, err := connectDB("data")
+	concurrentDB, err := connectDB(app.dataDsn)
 	if err != nil {
 		return err
 	}
@@ -1021,7 +1027,7 @@ func (app *BaseApp) initDataDB() error {
 	concurrentDB.DB().SetMaxIdleConns(maxIdleConns)
 	concurrentDB.DB().SetConnMaxIdleTime(5 * time.Minute)
 
-	nonconcurrentDB, err := connectDB("data")
+	nonconcurrentDB, err := connectDB(app.dataDsn)
 	if err != nil {
 		return err
 	}

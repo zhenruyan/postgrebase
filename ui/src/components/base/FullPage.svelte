@@ -10,12 +10,12 @@
             <div class="block txt-center m-b-lg">
                 <figure class="logo">
                     <img
-                        src="{import.meta.env.BASE_URL}images/logo.svg"
-                        alt="PocketBase logo"
+                        src="{import.meta.env.BASE_URL}images/logo.png"
+                        alt="PostgresBase logo"
                         width="40"
                         height="40"
                     />
-                    <span class="txt">Pocket<strong>Base</strong></span>
+                    <span class="txt">Postgres<strong>Base</strong></span>
                 </figure>
             </div>
             <div class="clearfix" />
