@@ -43,17 +43,13 @@
                 resetData();
                 for (let item of result) {
                     chartData.push({
-                        x: new Date(item.date),
+                        x: item.date,
                         y: item.total,
                     });
                     totalRequests += item.total;
                 }
 
                 // add current time marker to the chart
-                chartData.push({
-                    x: new Date(),
-                    y: undefined,
-                });
             })
             .catch((err) => {
                 if (!err?.isAbort) {
@@ -114,10 +110,6 @@
                     },
                     x: {
                         type: "time",
-                        time: {
-                            unit: "hour",
-                            tooltipFormat: "DD h a",
-                        },
                         grid: {
                             borderColor: "#dee3e8",
                             color: (c) => (c.tick.major ? "#edf0f3" : ""),
