@@ -43,7 +43,7 @@
                 resetData();
                 for (let item of result) {
                     chartData.push({
-                        x: item.date,
+                        x: new Date(item.date+":00:00"),
                         y: item.total,
                     });
                     totalRequests += item.total;
