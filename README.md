@@ -76,3 +76,10 @@ Flags:
 Use "base.exe [command] --help" for more information about a command.
 
 ```
+
+
+release build
+
+```
+goreleaser.exe release --skip-publish  --snapshot  --rm-dist
+```
