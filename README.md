@@ -14,13 +14,13 @@
 
 The author of PB is really excellent, and PB is a great work.
 
-But we really need to run PB online in high pressure and complex environments. Sqlite cannot handle this scenario, so I am working hard to make it support cockrockdb and postgreSQL for cluster and standalone environments.
+But we really need to run PB online in high pressure and complex environments. Sqlite cannot handle this scenario, so I am working hard to make it support cockroachdb  and postgreSQL for cluster and standalone environments.
 
-Current modification progress, running cockrockdb by default as a single node by default
+Current modification progress, running cockroachdb  by default as a single node by default
 
 Then run PB to install and perform curd operations normally.
 
-run cockrockdb
+run cockroachdb 
 
 ```bash
 
