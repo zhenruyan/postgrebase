@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
-	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/models"
 	"github.com/pocketbase/pocketbase/models/schema"
 	"github.com/pocketbase/pocketbase/tools/dbutils"
@@ -154,133 +153,12 @@ func (dao *Dao) SyncRecordTableSchema(newCollection *models.Collection, oldColle
 		}
 	}
 
-	if err := dao.normalizeSingleVsMultipleFieldChanges(newCollection, oldCollection); err != nil {
-		return err
-	}
-
 	if err := dao.syncRelationDisplayFieldsChanges(newCollection, renamedFieldNames, deletedFieldNames); err != nil {
 		return err
 	}
 
 	return dao.createCollectionIndexes(newCollection)
 
-}
-
-func (dao *Dao) normalizeSingleVsMultipleFieldChanges(newCollection, oldCollection *models.Collection) error {
-	if newCollection.IsView() || oldCollection == nil {
-		return nil // view or not an update
-	}
-
-	return dao.RunInTransaction(func(txDao *Dao) error {
-
-		for _, newField := range newCollection.Schema.Fields() {
-			// allow to continue even if there is no old field for the cases
-			// when a new field is added and there are already inserted data
-			var isOldMultiple bool
-			if oldField := oldCollection.Schema.GetFieldById(newField.Id); oldField != nil {
-				if opt, ok := oldField.Options.(schema.MultiValuer); ok {
-					isOldMultiple = opt.IsMultiple()
-				}
-			}
-
-			var isNewMultiple bool
-			if opt, ok := newField.Options.(schema.MultiValuer); ok {
-				isNewMultiple = opt.IsMultiple()
-			}
-
-			if isOldMultiple == isNewMultiple {
-				continue // no change
-			}
-
-			// update the column definition by:
-			// 1. inserting a new column with the new definition
-			// 2. copy normalized values from the original column to the new one
-			// 3. drop the original column
-			// 4. rename the new column to the original column
-			// -------------------------------------------------------
-
-			originalName := newField.Name
-			tempName := "_" + newField.Name + security.PseudorandomString(5)
-
-			_, err := txDao.DB().AddColumn(newCollection.Name, tempName, newField.ColDefinition()).Execute()
-			if err != nil {
-				return err
-			}
-
-			var copyQuery *dbx.Query
-
-			if !isOldMultiple && isNewMultiple {
-				// single -> multiple (convert to array)
-				copyQuery = txDao.DB().NewQuery(fmt.Sprintf(
-					`UPDATE {{%s}} set [[%s]] = (
-							CASE
-								WHEN COALESCE([[%s]], '') = ''
-								THEN '[]'
-								ELSE (
-									CASE
-										WHEN json_valid([[%s]]) AND json_type([[%s]]) == 'array'
-										THEN [[%s]]
-										ELSE json_array([[%s]])
-									END
-								)
-							END
-						)`,
-					newCollection.Name,
-					tempName,
-					originalName,
-					originalName,
-					originalName,
-					originalName,
-					originalName,
-				))
-			} else {
-				// multiple -> single (keep only the last element)
-				//
-				// note: for file fields the actual file objects are not
-				// deleted allowing additional custom handling via migration
-				copyQuery = txDao.DB().NewQuery(fmt.Sprintf(
-					`UPDATE {{%s}} set [[%s]] = (
-						CASE
-							WHEN COALESCE([[%s]], '[]') = '[]'
-							THEN ''
-							ELSE (
-								CASE
-									WHEN json_valid([[%s]]) AND json_type([[%s]]) == 'array'
-									THEN COALESCE(json_extract([[%s]], '$[#-1]'), '')
-									ELSE [[%s]]
-								END
-							)
-						END
-					)`,
-					newCollection.Name,
-					tempName,
-					originalName,
-					originalName,
-					originalName,
-					originalName,
-					originalName,
-				))
-			}
-
-			// copy the normalized values
-			if _, err := copyQuery.Execute(); err != nil {
-				return err
-			}
-
-			// drop the original column
-			if _, err := txDao.DB().DropColumn(newCollection.Name, originalName).Execute(); err != nil {
-				return err
-			}
-
-			// rename the new column back to the original
-			if _, err := txDao.DB().RenameColumn(newCollection.Name, tempName, originalName).Execute(); err != nil {
-				return err
-			}
-		}
-
-		// revert the pragma and reload the schema
-		return nil
-	})
 }
 
 func (dao *Dao) syncRelationDisplayFieldsChanges(collection *models.Collection, renamedFieldNames map[string]string, deletedFieldNames []string) error {

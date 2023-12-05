@@ -38,7 +38,7 @@ func (dao *Dao) TableColumns(tableName string) ([]string, error) {
 func (dao *Dao) TableInfo(tableName string) ([]*models.TableInfoRow, error) {
 	info := []*models.TableInfoRow{}
 
-	err := dao.DB().NewQuery(`SELECT ordinal_position as cid ,column_name as name,crdb_sql_type as type,
+	sql := `SELECT ordinal_position as cid ,column_name as name,crdb_sql_type as type,
 	CASE WHEN is_nullable='NO' THEN 1
 			  ELSE 0
 		 END as notnull,
@@ -47,7 +47,22 @@ func (dao *Dao) TableInfo(tableName string) ([]*models.TableInfoRow, error) {
 			  ELSE 0
 		 END as pk
 	FROM information_schema.columns
-	WHERE table_name ={:tableName}`).
+	WHERE table_name ={:tableName}`
+
+	sql = `
+	SELECT a.attnum as cid, a.attname AS name, t.typname AS type
+FROM pg_class c, pg_attribute a
+    LEFT JOIN pg_description b
+    ON a.attrelid = b.objoid
+        AND a.attnum = b.objsubid, pg_type t
+WHERE c.relname = {:tableName}
+    AND a.attnum > 0
+    AND a.attrelid = c.oid
+    AND a.atttypid = t.oid
+ORDER BY a.attnum;
+	
+	`
+	err := dao.DB().NewQuery(sql).
 		Bind(dbx.Params{"tableName": tableName}).
 		All(&info)
 	if err != nil {
