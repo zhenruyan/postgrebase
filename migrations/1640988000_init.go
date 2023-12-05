@@ -36,6 +36,9 @@ func Register(
 func init() {
 	AppMigrations.Register(func(db dbx.Builder) error {
 		_, tablesErr := db.NewQuery(`
+		create extension  IF NOT EXISTS  "uuid-ossp";
+
+
 			CREATE TABLE {{_admins}} (
 				[[id]]              text NOT NULL DEFAULT uuid_generate_v4()::text PRIMARY KEY,
 				[[avatar]]          int DEFAULT 0 NOT NULL,

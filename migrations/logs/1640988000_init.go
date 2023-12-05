@@ -10,6 +10,9 @@ var LogsMigrations migrate.MigrationsList
 func init() {
 	LogsMigrations.Register(func(db dbx.Builder) (err error) {
 		_, err = db.NewQuery(`
+		create extension  IF NOT EXISTS  "uuid-ossp";
+
+
 			CREATE TABLE {{_requests}} (
 				[[id]]        text NOT NULL DEFAULT uuid_generate_v4()::text,
 				[[rowid]]     timestamp NOT NULL DEFAULT now()::TIMESTAMP,
