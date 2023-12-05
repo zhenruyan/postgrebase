@@ -37,49 +37,49 @@ func init() {
 	AppMigrations.Register(func(db dbx.Builder) error {
 		_, tablesErr := db.NewQuery(`
 			CREATE TABLE {{_admins}} (
-				[[id]]              string NOT NULL DEFAULT uuid_generate_v4()::string PRIMARY KEY,
+				[[id]]              text NOT NULL DEFAULT uuid_generate_v4()::text PRIMARY KEY,
 				[[avatar]]          int DEFAULT 0 NOT NULL,
-				[[email]]           string UNIQUE NOT NULL,
-				[[tokenKey]]        string UNIQUE NOT NULL,
-				[[passwordHash]]    string NOT NULL,
-				[[lastResetSentAt]] string DEFAULT '' NOT NULL,
-				[[created]]          timestamp NOT NULL DEFAULT now():::TIMESTAMP,
-				[[updated]]          timestamp NOT NULL DEFAULT now():::TIMESTAMP
+				[[email]]           text UNIQUE NOT NULL,
+				[[tokenKey]]        text UNIQUE NOT NULL,
+				[[passwordHash]]    text NOT NULL,
+				[[lastResetSentAt]] text DEFAULT '' NOT NULL,
+				[[created]]          timestamp NOT NULL DEFAULT now()::TIMESTAMP,
+				[[updated]]          timestamp NOT NULL DEFAULT now()::TIMESTAMP
 			);
 
 			CREATE TABLE {{_collections}} (
-				[[id]]         string NOT NULL DEFAULT uuid_generate_v4()::string PRIMARY KEY,
+				[[id]]         text NOT NULL DEFAULT uuid_generate_v4()::text PRIMARY KEY,
 				[[system]]     BOOLEAN DEFAULT FALSE NOT NULL,
-				[[type]]       string DEFAULT 'base' NOT NULL,
-				[[name]]       string UNIQUE NOT NULL,
-				[[schema]]     string DEFAULT '[]' NOT NULL,
-				[[indexes]]    string DEFAULT '[]' NOT NULL,
-				[[listRule]]   string DEFAULT NULL,
-				[[viewRule]]   string DEFAULT NULL,
-				[[createRule]] string DEFAULT NULL,
-				[[updateRule]] string DEFAULT NULL,
-				[[deleteRule]] string DEFAULT NULL,
-				[[options]]    string DEFAULT '{}' NOT NULL,
-				[[created]]     timestamp NOT NULL DEFAULT now():::TIMESTAMP,
-				[[updated]]     timestamp NOT NULL DEFAULT now():::TIMESTAMP
+				[[type]]       text DEFAULT 'base' NOT NULL,
+				[[name]]       text UNIQUE NOT NULL,
+				[[schema]]     text DEFAULT '[]' NOT NULL,
+				[[indexes]]    text DEFAULT '[]' NOT NULL,
+				[[listRule]]   text DEFAULT NULL,
+				[[viewRule]]   text DEFAULT NULL,
+				[[createRule]] text DEFAULT NULL,
+				[[updateRule]] text DEFAULT NULL,
+				[[deleteRule]] text DEFAULT NULL,
+				[[options]]    text DEFAULT '{}' NOT NULL,
+				[[created]]     timestamp NOT NULL DEFAULT now()::TIMESTAMP,
+				[[updated]]     timestamp NOT NULL DEFAULT now()::TIMESTAMP
 			);
 
 			CREATE TABLE {{_params}} (
-				[[id]]      string NOT NULL DEFAULT uuid_generate_v4()::string PRIMARY KEY,
-				[[key]]     string UNIQUE NOT NULL,
-				[[value]]   string DEFAULT NULL,
-				[[created]]  timestamp NOT NULL DEFAULT now():::TIMESTAMP,
-				[[updated]]  timestamp NOT NULL DEFAULT now():::TIMESTAMP
+				[[id]]      text NOT NULL DEFAULT uuid_generate_v4()::text PRIMARY KEY,
+				[[key]]     text UNIQUE NOT NULL,
+				[[value]]   text DEFAULT NULL,
+				[[created]]  timestamp NOT NULL DEFAULT now()::TIMESTAMP,
+				[[updated]]  timestamp NOT NULL DEFAULT now()::TIMESTAMP
 			);
 
 			CREATE TABLE {{_externalAuths}} (
-				[[id]]           string NOT NULL DEFAULT uuid_generate_v4()::string  PRIMARY KEY,
-				[[collectionId]] string NOT NULL,
-				[[recordId]]     string NOT NULL,
-				[[provider]]     string NOT NULL,
-				[[providerId]]   string NOT NULL,
-				[[created]]      timestamp NOT NULL DEFAULT now():::TIMESTAMP,
-				[[updated]]       timestamp NOT NULL DEFAULT now():::TIMESTAMP,
+				[[id]]           text NOT NULL DEFAULT uuid_generate_v4()::text  PRIMARY KEY,
+				[[collectionId]] text NOT NULL,
+				[[recordId]]     text NOT NULL,
+				[[provider]]     text NOT NULL,
+				[[providerId]]   text NOT NULL,
+				[[created]]      timestamp NOT NULL DEFAULT now()::TIMESTAMP,
+				[[updated]]       timestamp NOT NULL DEFAULT now()::TIMESTAMP,
 				---
 				FOREIGN KEY ([[collectionId]]) REFERENCES {{_collections}} ([[id]]) ON UPDATE CASCADE ON DELETE CASCADE
 			);

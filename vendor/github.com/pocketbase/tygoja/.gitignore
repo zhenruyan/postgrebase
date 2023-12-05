@@ -1,0 +1,19 @@
+/.vscode/
+.idea
+
+.DS_Store
+
+# tests coverage
+coverage.out
+
+# test data artifacts
+test/node_modules/
+test/output.json
+
+# plaintask todo files
+*.todo
+
+# generated markdown previews
+README.html
+CHANGELOG.html
+LICENSE.html

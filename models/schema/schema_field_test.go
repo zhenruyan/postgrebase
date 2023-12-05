@@ -63,7 +63,7 @@ func TestSchemaFieldColDefinition(t *testing.T) {
 	}{
 		{
 			schema.SchemaField{Type: schema.FieldTypeText, Name: "test"},
-			"string DEFAULT '' NOT NULL",
+			"text DEFAULT '' NOT NULL",
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeNumber, Name: "test"},
@@ -75,39 +75,39 @@ func TestSchemaFieldColDefinition(t *testing.T) {
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeEmail, Name: "test"},
-			"string DEFAULT '' NOT NULL",
+			"text DEFAULT '' NOT NULL",
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeUrl, Name: "test"},
-			"string DEFAULT '' NOT NULL",
+			"text DEFAULT '' NOT NULL",
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeEditor, Name: "test"},
-			"string DEFAULT '' NOT NULL",
+			"text DEFAULT '' NOT NULL",
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeDate, Name: "test"},
-			"string DEFAULT '' NOT NULL",
+			"text DEFAULT '' NOT NULL",
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeJson, Name: "test"},
-			"string DEFAULT NULL",
+			"text DEFAULT NULL",
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeSelect, Name: "test"},
-			"string DEFAULT '' NOT NULL",
+			"text DEFAULT '' NOT NULL",
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeSelect, Name: "test_multiple", Options: &schema.SelectOptions{MaxSelect: 2}},
-			"string DEFAULT '[]' NOT NULL",
+			"text DEFAULT '[]' NOT NULL",
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeFile, Name: "test"},
-			"string DEFAULT '' NOT NULL",
+			"text DEFAULT '' NOT NULL",
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeFile, Name: "test_multiple", Options: &schema.FileOptions{MaxSelect: 2}},
-			"string DEFAULT '[]' NOT NULL",
+			"text DEFAULT '[]' NOT NULL",
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeRelation, Name: "test", Options: &schema.RelationOptions{MaxSelect: types.Pointer(1)}},
@@ -115,7 +115,7 @@ func TestSchemaFieldColDefinition(t *testing.T) {
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeRelation, Name: "test_multiple", Options: &schema.RelationOptions{MaxSelect: nil}},
-			"string DEFAULT '[]' NOT NULL",
+			"text DEFAULT '[]' NOT NULL",
 		},
 	}
 

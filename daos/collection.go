@@ -39,7 +39,7 @@ func (dao *Dao) FindCollectionByNameOrId(nameOrId string) (*models.Collection, e
 	model := &models.Collection{}
 
 	err := dao.CollectionQuery().
-		AndWhere(dbx.NewExp("[[id]] = {:id} OR LOWER([[name]])={:name}", dbx.Params{
+		AndWhere(dbx.NewExp("[[id]] = {:id} OR [[name]]={:name}", dbx.Params{
 			"id":   nameOrId,
 			"name": strings.ToLower(nameOrId),
 		})).
@@ -64,7 +64,7 @@ func (dao *Dao) IsCollectionNameUnique(name string, excludeIds ...string) bool {
 
 	query := dao.CollectionQuery().
 		Select("count(*)").
-		AndWhere(dbx.NewExp("LOWER([[name]])={:name}", dbx.Params{"name": strings.ToLower(name)})).
+		AndWhere(dbx.NewExp("[[name]]={:name}", dbx.Params{"name": strings.ToLower(name)})).
 		Limit(1)
 
 	if uniqueExcludeIds := list.NonzeroUniques(excludeIds); len(uniqueExcludeIds) > 0 {

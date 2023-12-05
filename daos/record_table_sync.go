@@ -23,20 +23,20 @@ func (dao *Dao) SyncRecordTableSchema(newCollection *models.Collection, oldColle
 	// -----------------------------------------------------------
 	if oldCollection == nil {
 		cols := map[string]string{
-			schema.FieldNameId:      "string NOT NULL DEFAULT uuid_generate_v4()::string  PRIMARY KEY",
-			schema.FieldNameCreated: "timestamp NOT NULL DEFAULT now():::TIMESTAMP",
-			schema.FieldNameUpdated: "timestamp NOT NULL DEFAULT now():::TIMESTAMP",
+			schema.FieldNameId:      "text NOT NULL DEFAULT uuid_generate_v4()::text  PRIMARY KEY",
+			schema.FieldNameCreated: "timestamp NOT NULL DEFAULT now()::TIMESTAMP",
+			schema.FieldNameUpdated: "timestamp NOT NULL DEFAULT now()::TIMESTAMP",
 		}
 
 		if newCollection.IsAuth() {
-			cols[schema.FieldNameUsername] = "string NOT NULL"
-			cols[schema.FieldNameEmail] = "string DEFAULT '' NOT NULL"
+			cols[schema.FieldNameUsername] = "text NOT NULL"
+			cols[schema.FieldNameEmail] = "text DEFAULT '' NOT NULL"
 			cols[schema.FieldNameEmailVisibility] = "BOOLEAN DEFAULT FALSE NOT NULL"
 			cols[schema.FieldNameVerified] = "BOOLEAN DEFAULT FALSE NOT NULL"
-			cols[schema.FieldNameTokenKey] = "string NOT NULL"
-			cols[schema.FieldNamePasswordHash] = "string NOT NULL"
-			cols[schema.FieldNameLastResetSentAt] = "string DEFAULT '' NOT NULL"
-			cols[schema.FieldNameLastVerificationSentAt] = "string DEFAULT '' NOT NULL"
+			cols[schema.FieldNameTokenKey] = "text NOT NULL"
+			cols[schema.FieldNamePasswordHash] = "text NOT NULL"
+			cols[schema.FieldNameLastResetSentAt] = "text DEFAULT '' NOT NULL"
+			cols[schema.FieldNameLastVerificationSentAt] = "text DEFAULT '' NOT NULL"
 		}
 
 		// ensure that the new collection has an id
