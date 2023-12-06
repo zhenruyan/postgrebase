@@ -1,11 +1,11 @@
 <script>
-    import { createEventDispatcher, onDestroy } from "svelte";
-    import ApiClient from "@/utils/ApiClient";
-    import CommonHelper from "@/utils/CommonHelper";
+    import Field from "@/components/base/Field.svelte";
+    import OverlayPanel from "@/components/base/OverlayPanel.svelte";
     import { setErrors } from "@/stores/errors";
     import { addInfoToast, addSuccessToast } from "@/stores/toasts";
-    import OverlayPanel from "@/components/base/OverlayPanel.svelte";
-    import Field from "@/components/base/Field.svelte";
+    import ApiClient from "@/utils/ApiClient";
+    import CommonHelper from "@/utils/CommonHelper";
+    import { createEventDispatcher, onDestroy } from "svelte";
 
     const dispatch = createEventDispatcher();
 
@@ -67,7 +67,7 @@
     class="backup-create-panel"
     beforeOpen={() => {
         if (isSubmitting) {
-            addInfoToast("A backup has already been started, please wait.");
+            addInfoToast("请稍等，正在进行备份");
             return false;
         }
 
@@ -76,7 +76,7 @@
     beforeHide={() => {
         if (isSubmitting) {
             addInfoToast(
-                "The backup was started but may take a while to complete. You can come back later.",
+                "备份的定时任务已启动 。",
                 4500
             );
         }
@@ -88,7 +88,7 @@
     on:hide
 >
     <svelte:fragment slot="header">
-        <h4 class="center txt-break">Initialize new backup</h4>
+        <h4 class="center txt-break">初始化一个新备份</h4>
     </svelte:fragment>
 
     <div class="alert alert-info">
@@ -97,19 +97,17 @@
         </div>
         <div class="content">
             <p>
-                Please note that during the backup other concurrent write requests may fail since the
-                database will be temporary "locked" (this usually happens only during the ZIP generation).
+               备份会导致性能收到影响。
             </p>
             <p class="txt-bold">
-                If you are using S3 storage for the collections file upload, you'll have to backup them
-                separately since they are not locally stored and will not be included in the final backup!
+                云端的备份不会被备份到zip中
             </p>
         </div>
     </div>
 
     <form id={formId} autocomplete="off" on:submit|preventDefault={submit}>
         <Field class="form-field m-0" name="name" let:uniqueId>
-            <label for={uniqueId}>Backup name</label>
+            <label for={uniqueId}>备份名</label>
             <input
                 type="text"
                 id={uniqueId}
@@ -117,13 +115,13 @@
                 pattern="^[a-z0-9_-]+\.zip$"
                 bind:value={name}
             />
-            <em class="help-block">Must be in the format [a-z0-9_-].zip</em>
+            <em class="help-block">格式需要如此 [a-z0-9_-].zip</em>
         </Field>
     </form>
 
     <svelte:fragment slot="footer">
         <button type="button" class="btn btn-transparent" on:click={hide} disabled={isSubmitting}>
-            <span class="txt">Cancel</span>
+            <span class="txt">取消</span>
         </button>
         <button
             type="submit"
@@ -132,7 +130,7 @@
             class:btn-loading={isSubmitting}
             disabled={isSubmitting}
         >
-            <span class="txt">Start backup</span>
+            <span class="txt">立即开始</span>
         </button>
     </svelte:fragment>
 </OverlayPanel>

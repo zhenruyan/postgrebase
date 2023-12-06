@@ -162,7 +162,7 @@
         {/if}
 
         <div class="content">
-            <p class="section-title">Avatar</p>
+            <p class="section-title">头像</p>
             <div class="flex flex-gap-xs flex-wrap">
                 {#each [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as index}
                     <button
@@ -216,7 +216,7 @@
                         <Field class="form-field required" name="passwordConfirm" let:uniqueId>
                             <label for={uniqueId}>
                                 <i class="ri-lock-line" />
-                                <span class="txt">Password confirm</span>
+                                <span class="txt">密码验证</span>
                             </label>
                             <input
                                 type="password"

@@ -1,11 +1,11 @@
 <script>
-    import { createEventDispatcher } from "svelte";
-    import ApiClient from "@/utils/ApiClient";
-    import CommonHelper from "@/utils/CommonHelper";
-    import { addSuccessToast } from "@/stores/toasts";
-    import { confirm } from "@/stores/confirmation";
     import OverlayPanel from "@/components/base/OverlayPanel.svelte";
     import CollectionsDiffTable from "@/components/collections/CollectionsDiffTable.svelte";
+    import { confirm } from "@/stores/confirmation";
+    import { addSuccessToast } from "@/stores/toasts";
+    import ApiClient from "@/utils/ApiClient";
+    import CommonHelper from "@/utils/CommonHelper";
+    import { createEventDispatcher } from "svelte";
 
     const dispatch = createEventDispatcher();
 
@@ -129,7 +129,7 @@
     on:hide
 >
     <svelte:fragment slot="header">
-        <h4 class="center txt-break">Side-by-side diff</h4>
+        <h4 class="center txt-break">变更详情</h4>
     </svelte:fragment>
 
     {#each pairs as pair}
@@ -137,7 +137,7 @@
     {/each}
 
     <svelte:fragment slot="footer">
-        <button type="button" class="btn btn-transparent" on:click={hide} disabled={isImporting}>Close</button
+        <button type="button" class="btn btn-transparent" on:click={hide} disabled={isImporting}>取消</button
         >
         <button
             type="button"
@@ -146,7 +146,7 @@
             disabled={isImporting}
             on:click={() => submitConfirm()}
         >
-            <span class="txt">Confirm and import</span>
+            <span class="txt">最终确认</span>
         </button>
     </svelte:fragment>
 </OverlayPanel>

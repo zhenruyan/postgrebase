@@ -86,7 +86,7 @@
 <PageWrapper>
     <header class="page-header">
         <nav class="breadcrumbs">
-            <div class="breadcrumb-item">Settings</div>
+            <div class="breadcrumb-item">设置</div>
             <div class="breadcrumb-item">{$pageTitle}</div>
         </nav>
     </header>

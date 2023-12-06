@@ -1,29 +1,29 @@
 <script>
+    import tooltip from "@/actions/tooltip";
+    import Field from "@/components/base/Field.svelte";
+    import OverlayPanel from "@/components/base/OverlayPanel.svelte";
+    import Toggler from "@/components/base/Toggler.svelte";
+    import ExternalAuthsList from "@/components/records/ExternalAuthsList.svelte";
+    import AuthFields from "@/components/records/fields/AuthFields.svelte";
+    import BoolField from "@/components/records/fields/BoolField.svelte";
+    import DateField from "@/components/records/fields/DateField.svelte";
+    import EditorField from "@/components/records/fields/EditorField.svelte";
+    import EmailField from "@/components/records/fields/EmailField.svelte";
+    import FileField from "@/components/records/fields/FileField.svelte";
+    import JsonField from "@/components/records/fields/JsonField.svelte";
+    import NumberField from "@/components/records/fields/NumberField.svelte";
+    import RelationField from "@/components/records/fields/RelationField.svelte";
+    import SelectField from "@/components/records/fields/SelectField.svelte";
+    import TextField from "@/components/records/fields/TextField.svelte";
+    import UrlField from "@/components/records/fields/UrlField.svelte";
+    import { confirm } from "@/stores/confirmation";
+    import { setErrors } from "@/stores/errors";
+    import { addSuccessToast } from "@/stores/toasts";
+    import ApiClient from "@/utils/ApiClient";
+    import CommonHelper from "@/utils/CommonHelper";
+    import { Record } from "pocketbase";
     import { createEventDispatcher, tick } from "svelte";
     import { slide } from "svelte/transition";
-    import { Record } from "pocketbase";
-    import CommonHelper from "@/utils/CommonHelper";
-    import ApiClient from "@/utils/ApiClient";
-    import tooltip from "@/actions/tooltip";
-    import { setErrors } from "@/stores/errors";
-    import { confirm } from "@/stores/confirmation";
-    import { addSuccessToast } from "@/stores/toasts";
-    import Field from "@/components/base/Field.svelte";
-    import Toggler from "@/components/base/Toggler.svelte";
-    import OverlayPanel from "@/components/base/OverlayPanel.svelte";
-    import AuthFields from "@/components/records/fields/AuthFields.svelte";
-    import TextField from "@/components/records/fields/TextField.svelte";
-    import NumberField from "@/components/records/fields/NumberField.svelte";
-    import BoolField from "@/components/records/fields/BoolField.svelte";
-    import EmailField from "@/components/records/fields/EmailField.svelte";
-    import UrlField from "@/components/records/fields/UrlField.svelte";
-    import DateField from "@/components/records/fields/DateField.svelte";
-    import SelectField from "@/components/records/fields/SelectField.svelte";
-    import JsonField from "@/components/records/fields/JsonField.svelte";
-    import FileField from "@/components/records/fields/FileField.svelte";
-    import RelationField from "@/components/records/fields/RelationField.svelte";
-    import EditorField from "@/components/records/fields/EditorField.svelte";
-    import ExternalAuthsList from "@/components/records/ExternalAuthsList.svelte";
 
     const dispatch = createEventDispatcher();
     const formId = "record_" + CommonHelper.randomString(5);
@@ -191,7 +191,7 @@
 
         request
             .then((result) => {
-                addSuccessToast(isNew ? "Successfully created record." : "Successfully updated record.");
+                addSuccessToast(isNew ? "成功创建一条记录." : "成功更新一条记录.");
 
                 deleteDraft();
 
@@ -217,12 +217,12 @@
             return; // nothing to delete
         }
 
-        confirm(`Do you really want to delete the selected record?`, () => {
+        confirm(`是否删除`, () => {
             return ApiClient.collection(original.collectionId)
                 .delete(original.id)
                 .then(() => {
                     hide();
-                    addSuccessToast("Successfully deleted record.");
+                    addSuccessToast("成功删除");
                     dispatch("delete", original);
                 })
                 .catch((err) => {
@@ -291,11 +291,11 @@
             return;
         }
 
-        confirm(`Do you really want to sent verification email to ${original.email}?`, () => {
+        confirm(`是否发送验证邮件到： ${original.email}?`, () => {
             return ApiClient.collection(collection.id)
                 .requestVerification(original.email)
                 .then(() => {
-                    addSuccessToast(`Successfully sent verification email to ${original.email}.`);
+                    addSuccessToast(`成功发送到： ${original.email}.`);
                 })
                 .catch((err) => {
                     ApiClient.error(err);
@@ -308,11 +308,11 @@
             return;
         }
 
-        confirm(`Do you really want to sent password reset email to ${original.email}?`, () => {
+        confirm(`是否发送密码重置邮件到： ${original.email}?`, () => {
             return ApiClient.collection(collection.id)
                 .requestPasswordReset(original.email)
                 .then(() => {
-                    addSuccessToast(`Successfully sent password reset email to ${original.email}.`);
+                    addSuccessToast(`成功发送密码重置邮件到： ${original.email}.`);
                 })
                 .catch((err) => {
                     ApiClient.error(err);
@@ -322,7 +322,7 @@
 
     function duplicateConfirm() {
         if (hasChanges) {
-            confirm("You have unsaved changes. Do you really want to discard them?", () => {
+            confirm("是否不保存就退出", () => {
                 duplicate();
             });
         } else {
@@ -373,7 +373,7 @@
     "
     beforeHide={() => {
         if (hasChanges && confirmClose) {
-            confirm("You have unsaved changes. Do you really want to close the panel?", () => {
+            confirm("是否不保存就退出 ?", () => {
                 confirmClose = false;
                 hide();
             });
@@ -391,8 +391,8 @@
 >
     <svelte:fragment slot="header">
         <h4 class="panel-title">
-            {isNew ? "New" : "Edit"}
-            <strong>{collection?.name}</strong> record
+            {isNew ? "新建" : "修改"}
+            <strong>{collection?.name}</strong> 记录
         </h4>
 
         {#if !isNew}
@@ -407,7 +407,7 @@
                             on:click={() => sendVerificationEmail()}
                         >
                             <i class="ri-mail-check-line" />
-                            <span class="txt">Send verification email</span>
+                            <span class="txt">发送验证邮件</span>
                         </button>
                     {/if}
                     {#if collection.$isAuth && original.email}
@@ -417,12 +417,12 @@
                             on:click={() => sendPasswordResetEmail()}
                         >
                             <i class="ri-mail-lock-line" />
-                            <span class="txt">Send password reset email</span>
+                            <span class="txt">发送密码重置邮件</span>
                         </button>
                     {/if}
                     <button type="button" class="dropdown-item closable" on:click={() => duplicateConfirm()}>
                         <i class="ri-file-copy-line" />
-                        <span class="txt">Duplicate</span>
+                        <span class="txt">复制</span>
                     </button>
                     <button
                         type="button"
@@ -430,7 +430,7 @@
                         on:click|preventDefault|stopPropagation={() => deleteConfirm()}
                     >
                         <i class="ri-delete-bin-7-line" />
-                        <span class="txt">Delete</span>
+                        <span class="txt">删除</span>
                     </button>
                 </Toggler>
             </button>
@@ -444,7 +444,7 @@
                     class:active={activeTab === tabFormKey}
                     on:click={() => (activeTab = tabFormKey)}
                 >
-                    Account
+                    用户数据
                 </button>
                 <button
                     type="button"
@@ -452,7 +452,7 @@
                     class:active={activeTab === tabProviderKey}
                     on:click={() => (activeTab = tabProviderKey)}
                 >
-                    Authorized providers
+                    第三方登录（默认关闭）
                 </button>
             </div>
         {/if}
@@ -473,13 +473,13 @@
                             <i class="ri-information-line" />
                         </div>
                         <div class="flex flex-gap-xs">
-                            The record has previous unsaved changes.
+                           当前记录存在草稿
                             <button
                                 type="button"
                                 class="btn btn-sm btn-secondary"
                                 on:click={() => restoreDraft()}
                             >
-                                Restore draft
+                                恢复草稿
                             </button>
                         </div>
                         <button
@@ -573,7 +573,7 @@
 
     <svelte:fragment slot="footer">
         <button type="button" class="btn btn-transparent" disabled={isSaving} on:click={() => hide()}>
-            <span class="txt">Cancel</span>
+            <span class="txt">取消</span>
         </button>
 
         <button
@@ -583,7 +583,7 @@
             class:btn-loading={isSaving}
             disabled={!canSave || isSaving}
         >
-            <span class="txt">{isNew ? "Create" : "Save changes"}</span>
+            <span class="txt">{isNew ? "创建" : "保存"}</span>
         </button>
     </svelte:fragment>
 </OverlayPanel>

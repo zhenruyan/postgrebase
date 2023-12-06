@@ -78,7 +78,7 @@
             </Field>
 
             <button type="button" class="btn btn-sm btn-transparent btn-hint m-l-auto" on:click={clear}>
-                <span class="txt">Clear all fields</span>
+                <span class="txt">清空</span>
             </button>
         </div>
 
@@ -109,7 +109,7 @@
 
     <svelte:fragment slot="footer">
         <button type="button" class="btn btn-transparent" on:click={hide} disabled={isSubmitting}>
-            Close
+            取消
         </button>
         <button
             type="submit"
@@ -118,7 +118,7 @@
             class:btn-loading={isSubmitting}
             disabled={!hasChanges || isSubmitting}
         >
-            <span class="txt">Save changes</span>
+            <span class="txt">应用</span>
         </button>
     </svelte:fragment>
 </OverlayPanel>

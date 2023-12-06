@@ -1,18 +1,18 @@
 <script>
-    import { createEventDispatcher } from "svelte";
-    import { fly } from "svelte/transition";
-    import ApiClient from "@/utils/ApiClient";
-    import CommonHelper from "@/utils/CommonHelper";
     import tooltip from "@/actions/tooltip";
-    import { confirm } from "@/stores/confirmation";
-    import { addSuccessToast } from "@/stores/toasts";
-    import SortHeader from "@/components/base/SortHeader.svelte";
-    import Toggler from "@/components/base/Toggler.svelte";
-    import Field from "@/components/base/Field.svelte";
     import CopyIcon from "@/components/base/CopyIcon.svelte";
+    import Field from "@/components/base/Field.svelte";
     import FormattedDate from "@/components/base/FormattedDate.svelte";
     import HorizontalScroller from "@/components/base/HorizontalScroller.svelte";
+    import SortHeader from "@/components/base/SortHeader.svelte";
+    import Toggler from "@/components/base/Toggler.svelte";
     import RecordFieldValue from "@/components/records/RecordFieldValue.svelte";
+    import { confirm } from "@/stores/confirmation";
+    import { addSuccessToast } from "@/stores/toasts";
+    import ApiClient from "@/utils/ApiClient";
+    import CommonHelper from "@/utils/CommonHelper";
+    import { createEventDispatcher } from "svelte";
+    import { fly } from "svelte/transition";
 
     const dispatch = createEventDispatcher();
     const sortRegex = /^([\+\-])?(\w+)$/;
@@ -207,9 +207,9 @@
     }
 
     function deleteSelectedConfirm() {
-        const msg = `Do you really want to delete the selected ${
-            totalBulkSelected === 1 ? "record" : "records"
-        }?`;
+        const msg = `你要删除选中的 ${
+            totalBulkSelected 
+        } 个记录?`;
 
         confirm(msg, deleteSelected);
     }
@@ -229,7 +229,7 @@
         return Promise.all(promises)
             .then(() => {
                 addSuccessToast(
-                    `Successfully deleted the selected ${totalBulkSelected === 1 ? "record" : "records"}.`
+                    `成功删除选中的 ${totalBulkSelected} 条记录 .`
                 );
                 deselectAllRecords();
             })
@@ -480,14 +480,14 @@
                 {:else}
                     <tr>
                         <td colspan="99" class="txt-center txt-hint p-xs">
-                            <h6>No records found.</h6>
+                            <h6>暂无数据.</h6>
                             {#if filter?.length}
                                 <button
                                     type="button"
                                     class="btn btn-hint btn-expanded m-t-sm"
                                     on:click={() => (filter = "")}
                                 >
-                                    <span class="txt">Clear filters</span>
+                                    <span class="txt">重置搜索</span>
                                 </button>
                             {:else if !collection?.$isView}
                                 <button
@@ -496,7 +496,7 @@
                                     on:click={() => dispatch("new")}
                                 >
                                     <i class="ri-add-line" />
-                                    <span class="txt">New record</span>
+                                    <span class="txt">新纪录</span>
                                 </button>
                             {/if}
                         </td>
@@ -520,7 +520,7 @@
             class:btn-disabled={isLoading}
             on:click={() => load(currentPage + 1)}
         >
-            <span class="txt">Load more ({totalRecords - records.length})</span>
+            <span class="txt">查看更多 ({totalRecords - records.length})</span>
         </button>
     </div>
 {/if}
@@ -528,8 +528,7 @@
 {#if totalBulkSelected}
     <div class="bulkbar" transition:fly|local={{ duration: 150, y: 5 }}>
         <div class="txt">
-            Selected <strong>{totalBulkSelected}</strong>
-            {totalBulkSelected === 1 ? "record" : "records"}
+            选中了 <strong>{totalBulkSelected}</strong>条记录
         </div>
         <button
             type="button"
@@ -537,7 +536,7 @@
             class:btn-disabled={isDeleting}
             on:click={() => deselectAllRecords()}
         >
-            <span class="txt">Reset</span>
+            <span class="txt">取消选中</span>
         </button>
         <div class="flex-fill" />
         <button
@@ -547,7 +546,7 @@
             class:btn-disabled={isDeleting}
             on:click={() => deleteSelectedConfirm()}
         >
-            <span class="txt">Delete selected</span>
+            <span class="txt">删除选中</span>
         </button>
     </div>
 {/if}

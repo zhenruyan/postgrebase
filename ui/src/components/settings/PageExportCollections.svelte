@@ -1,13 +1,13 @@
 <script>
-    import ApiClient from "@/utils/ApiClient";
-    import CommonHelper from "@/utils/CommonHelper";
+    import CodeBlock from "@/components/base/CodeBlock.svelte";
+    import PageWrapper from "@/components/base/PageWrapper.svelte";
+    import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
     import { pageTitle } from "@/stores/app";
     import { addInfoToast } from "@/stores/toasts";
-    import PageWrapper from "@/components/base/PageWrapper.svelte";
-    import CodeBlock from "@/components/base/CodeBlock.svelte";
-    import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
+    import ApiClient from "@/utils/ApiClient";
+    import CommonHelper from "@/utils/CommonHelper";
 
-    $pageTitle = "Export collections";
+    $pageTitle = "导出表结构";
 
     const uniqueId = "export_" + CommonHelper.randomString(5);
 
@@ -54,7 +54,7 @@
 <PageWrapper>
     <header class="page-header">
         <nav class="breadcrumbs">
-            <div class="breadcrumb-item">Settings</div>
+            <div class="breadcrumb-item">设置</div>
             <div class="breadcrumb-item">{$pageTitle}</div>
         </nav>
     </header>
@@ -66,8 +66,7 @@
             {:else}
                 <div class="content txt-xl m-b-base">
                     <p>
-                        Below you'll find your current collections configuration that you could import in
-                        another PostgresBase environment.
+                        导出所有表结构，可以在另一个实例中导入
                     </p>
                 </div>
 
@@ -103,7 +102,7 @@
                     <div class="flex-fill" />
                     <button type="button" class="btn btn-expanded" on:click={() => download()}>
                         <i class="ri-download-line" />
-                        <span class="txt">Download as JSON</span>
+                        <span class="txt">下载</span>
                     </button>
                 </div>
             {/if}

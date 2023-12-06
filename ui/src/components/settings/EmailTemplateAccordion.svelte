@@ -3,13 +3,13 @@
 </script>
 
 <script>
-    import { scale } from "svelte/transition";
     import tooltip from "@/actions/tooltip";
+    import Accordion from "@/components/base/Accordion.svelte";
+    import Field from "@/components/base/Field.svelte";
     import { errors, removeError } from "@/stores/errors";
     import { addInfoToast } from "@/stores/toasts";
     import CommonHelper from "@/utils/CommonHelper";
-    import Field from "@/components/base/Field.svelte";
-    import Accordion from "@/components/base/Accordion.svelte";
+    import { scale } from "svelte/transition";
 
     export let key;
     export let title;
@@ -78,10 +78,10 @@
     </svelte:fragment>
 
     <Field class="form-field required" name="{key}.subject" let:uniqueId>
-        <label for={uniqueId}>Subject</label>
+        <label for={uniqueId}>主题</label>
         <input type="text" id={uniqueId} bind:value={config.subject} spellcheck="false" required />
         <div class="help-block">
-            Available placeholder parameters:
+           可选变量 点击复制:
             <button
                 type="button"
                 class="label label-sm link-primary txt-mono"
@@ -100,10 +100,10 @@
     </Field>
 
     <Field class="form-field required" name="{key}.actionUrl" let:uniqueId>
-        <label for={uniqueId}>Action URL</label>
+        <label for={uniqueId}>点击链接</label>
         <input type="text" id={uniqueId} bind:value={config.actionUrl} spellcheck="false" required />
         <div class="help-block">
-            Available placeholder parameters:
+            可选变量 点击复制:
             <button
                 type="button"
                 class="label label-sm link-primary txt-mono"
@@ -130,7 +130,7 @@
     </Field>
 
     <Field class="form-field m-0 required" name="{key}.body" let:uniqueId>
-        <label for={uniqueId}>Body (HTML)</label>
+        <label for={uniqueId}>正文 (HTML)</label>
 
         {#if editorComponent && !isEditorComponentLoading}
             <svelte:component this={editorComponent} id={uniqueId} language="html" bind:value={config.body} />
@@ -146,7 +146,7 @@
         {/if}
 
         <div class="help-block">
-            Available placeholder parameters:
+            可选变量 点击复制:
             <button
                 type="button"
                 class="label label-sm link-primary txt-mono"

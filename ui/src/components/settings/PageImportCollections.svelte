@@ -1,16 +1,16 @@
 <script>
-    import { tick } from "svelte";
+    import Field from "@/components/base/Field.svelte";
+    import PageWrapper from "@/components/base/PageWrapper.svelte";
+    import ImportPopup from "@/components/settings/ImportPopup.svelte";
+    import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
+    import { pageTitle } from "@/stores/app";
+    import { setErrors } from "@/stores/errors";
+    import { addErrorToast } from "@/stores/toasts";
     import ApiClient from "@/utils/ApiClient";
     import CommonHelper from "@/utils/CommonHelper";
-    import { pageTitle } from "@/stores/app";
-    import { addErrorToast } from "@/stores/toasts";
-    import { setErrors } from "@/stores/errors";
-    import PageWrapper from "@/components/base/PageWrapper.svelte";
-    import Field from "@/components/base/Field.svelte";
-    import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
-    import ImportPopup from "@/components/settings/ImportPopup.svelte";
+    import { tick } from "svelte";
 
-    $pageTitle = "Import collections";
+    $pageTitle = "导入表结构";
 
     let fileInput;
     let importPopup;
@@ -230,7 +230,7 @@
 <PageWrapper>
     <header class="page-header">
         <nav class="breadcrumbs">
-            <div class="breadcrumb-item">Settings</div>
+            <div class="breadcrumb-item">设置</div>
             <div class="breadcrumb-item">{$pageTitle}</div>
         </nav>
     </header>
@@ -254,7 +254,7 @@
 
                 <div class="content txt-xl m-b-base">
                     <p>
-                        Paste below the collections configuration you want to import or
+                        直接粘贴json或者导入文件：
                         <button
                             class="btn btn-outline btn-sm m-l-5"
                             class:btn-loading={isLoadingFile}
@@ -262,7 +262,7 @@
                                 fileInput.click();
                             }}
                         >
-                            <span class="txt">Load from JSON file</span>
+                            <span class="txt">点击上传</span>
                         </button>
                     </p>
                 </div>
@@ -308,13 +308,13 @@
                 {/if}
 
                 {#if isValid && newCollections.length && hasChanges}
-                    <h5 class="section-title">Detected changes</h5>
+                    <h5 class="section-title">变更预览</h5>
 
                     <div class="list">
                         {#if collectionsToDelete.length}
                             {#each collectionsToDelete as collection (collection.id)}
                                 <div class="list-item">
-                                    <span class="label label-danger list-label">Deleted</span>
+                                    <span class="label label-danger list-label">删除</span>
                                     <strong>{collection.name}</strong>
                                     {#if collection.id}
                                         <small class="txt-hint">({collection.id})</small>
@@ -326,7 +326,7 @@
                         {#if collectionsToUpdate.length}
                             {#each collectionsToUpdate as pair (pair.old.id + pair.new.id)}
                                 <div class="list-item">
-                                    <span class="label label-warning list-label">Changed</span>
+                                    <span class="label label-warning list-label">修改</span>
                                     <div class="inline-flex flex-gap-5">
                                         {#if pair.old.name !== pair.new.name}
                                             <strong class="txt-strikethrough txt-hint">{pair.old.name}</strong
@@ -347,7 +347,7 @@
                         {#if collectionsToAdd.length}
                             {#each collectionsToAdd as collection (collection.id)}
                                 <div class="list-item">
-                                    <span class="label label-success list-label">Added</span>
+                                    <span class="label label-success list-label">添加</span>
                                     <strong>{collection.name}</strong>
                                     {#if collection.id}
                                         <small class="txt-hint">({collection.id})</small>
@@ -365,9 +365,7 @@
                         </div>
                         <div class="content">
                             <string>
-                                Some of the imported collections share the same name and/or fields but are
-                                imported with different IDs. You can replace them in the import if you want
-                                to.
+                               重名可能导致被替换
                             </string>
                         </div>
                         <button
@@ -375,7 +373,7 @@
                             class="btn btn-warning btn-sm btn-outline"
                             on:click={() => replaceIds()}
                         >
-                            <span class="txt">Replace with original ids</span>
+                            <span class="txt">通过ids 替换</span>
                         </button>
                     </div>
                 {/if}
@@ -383,7 +381,7 @@
                 <div class="flex m-t-base">
                     {#if !!schemas}
                         <button type="button" class="btn btn-transparent link-hint" on:click={() => clear()}>
-                            <span class="txt">Clear</span>
+                            <span class="txt">清空</span>
                         </button>
                     {/if}
                     <div class="flex-fill" />
@@ -393,7 +391,7 @@
                         disabled={!canImport}
                         on:click={() => importPopup?.show(oldCollections, newCollections, deleteMissing)}
                     >
-                        <span class="txt">Review</span>
+                        <span class="txt">确定</span>
                     </button>
                 </div>
             {/if}

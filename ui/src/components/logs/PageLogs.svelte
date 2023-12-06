@@ -1,13 +1,13 @@
 <script>
-    import { pageTitle } from "@/stores/app";
-    import CommonHelper from "@/utils/CommonHelper";
     import Field from "@/components/base/Field.svelte";
     import PageWrapper from "@/components/base/PageWrapper.svelte";
-    import Searchbar from "@/components/base/Searchbar.svelte";
     import RefreshButton from "@/components/base/RefreshButton.svelte";
-    import LogsList from "@/components/logs/LogsList.svelte";
-    import LogsChart from "@/components/logs/LogsChart.svelte";
+    import Searchbar from "@/components/base/Searchbar.svelte";
     import LogViewPanel from "@/components/logs/LogViewPanel.svelte";
+    import LogsChart from "@/components/logs/LogsChart.svelte";
+    import LogsList from "@/components/logs/LogsList.svelte";
+    import { pageTitle } from "@/stores/app";
+    import CommonHelper from "@/utils/CommonHelper";
 
     const ADMIN_LOGS_LOCAL_STORAGE_KEY = "includeAdminLogs";
 
@@ -23,7 +23,7 @@
         "created",
     ];
 
-    $pageTitle = "Request logs";
+    $pageTitle = "请求日志";
 
     let logPanel;
     let filter = "";

@@ -8,7 +8,7 @@
     import ApiClient from "@/utils/ApiClient";
     import CommonHelper from "@/utils/CommonHelper";
 
-    $pageTitle = "Application settings";
+    $pageTitle = "应用设置";
 
     let originalFormSettings = {};
     let formSettings = {};

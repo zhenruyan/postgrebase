@@ -1,11 +1,11 @@
 <script>
-    import ApiClient from "@/utils/ApiClient";
-    import CommonHelper from "@/utils/CommonHelper";
-    import { pageTitle } from "@/stores/app";
-    import { addSuccessToast } from "@/stores/toasts";
     import PageWrapper from "@/components/base/PageWrapper.svelte";
     import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
     import TokenField from "@/components/settings/TokenField.svelte";
+    import { pageTitle } from "@/stores/app";
+    import { addSuccessToast } from "@/stores/toasts";
+    import ApiClient from "@/utils/ApiClient";
+    import CommonHelper from "@/utils/CommonHelper";
 
     const recordTokensList = [
         { key: "recordAuthToken", label: "Auth record authentication token" },
@@ -21,7 +21,7 @@
         { key: "adminFileToken", label: "Admins protected file access token" },
     ];
 
-    $pageTitle = "Token options";
+    $pageTitle = "Token 设置";
 
     let originalFormSettings = {};
     let formSettings = {};
@@ -90,7 +90,7 @@
 <PageWrapper>
     <header class="page-header">
         <nav class="breadcrumbs">
-            <div class="breadcrumb-item">Settings</div>
+            <div class="breadcrumb-item">设置</div>
             <div class="breadcrumb-item">{$pageTitle}</div>
         </nav>
     </header>

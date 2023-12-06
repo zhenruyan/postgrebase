@@ -1,20 +1,20 @@
 <script>
-    import { replace, querystring } from "svelte-spa-router";
-    import ApiClient from "@/utils/ApiClient";
-    import CommonHelper from "@/utils/CommonHelper";
-    import { pageTitle } from "@/stores/app";
-    import { admin as loggedAdmin } from "@/stores/admin";
-    import PageWrapper from "@/components/base/PageWrapper.svelte";
-    import Searchbar from "@/components/base/Searchbar.svelte";
-    import RefreshButton from "@/components/base/RefreshButton.svelte";
-    import SortHeader from "@/components/base/SortHeader.svelte";
+    import AdminUpsertPanel from "@/components/admins/AdminUpsertPanel.svelte";
+    import CopyIcon from "@/components/base/CopyIcon.svelte";
     import FormattedDate from "@/components/base/FormattedDate.svelte";
     import HorizontalScroller from "@/components/base/HorizontalScroller.svelte";
-    import CopyIcon from "@/components/base/CopyIcon.svelte";
+    import PageWrapper from "@/components/base/PageWrapper.svelte";
+    import RefreshButton from "@/components/base/RefreshButton.svelte";
+    import Searchbar from "@/components/base/Searchbar.svelte";
+    import SortHeader from "@/components/base/SortHeader.svelte";
     import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
-    import AdminUpsertPanel from "@/components/admins/AdminUpsertPanel.svelte";
+    import { admin as loggedAdmin } from "@/stores/admin";
+    import { pageTitle } from "@/stores/app";
+    import ApiClient from "@/utils/ApiClient";
+    import CommonHelper from "@/utils/CommonHelper";
+    import { querystring, replace } from "svelte-spa-router";
 
-    $pageTitle = "Admins";
+    $pageTitle = "管理员管理";
 
     const queryParams = new URLSearchParams($querystring);
 
@@ -73,7 +73,7 @@
 <PageWrapper>
     <header class="page-header">
         <nav class="breadcrumbs">
-            <div class="breadcrumb-item">Settings</div>
+            <div class="breadcrumb-item">设置</div>
             <div class="breadcrumb-item">{$pageTitle}</div>
         </nav>
 
@@ -83,13 +83,13 @@
 
         <button type="button" class="btn btn-expanded" on:click={() => adminUpsertPanel?.show()}>
             <i class="ri-add-line" />
-            <span class="txt">New admin</span>
+            <span class="txt">新管理员</span>
         </button>
     </header>
 
     <Searchbar
         value={filter}
-        placeholder={"Search term or filter like email='test@example.com'"}
+        placeholder={"搜索可以参考这样去写 email='test@example.com'"}
         extraAutocompleteKeys={["email"]}
         on:submit={(e) => (filter = e.detail)}
     />
@@ -150,7 +150,7 @@
                                 <img
                                     src="{import.meta.env.BASE_URL}images/avatars/avatar{admin.avatar ||
                                         0}.svg"
-                                    alt="Admin avatar"
+                                    alt="头像"
                                 />
                             </figure>
                         </td>
