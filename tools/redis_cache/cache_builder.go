@@ -40,35 +40,9 @@ func (r *RedisCache[T]) Get(ctx context.Context, key string) (T, error) {
 	return obj, err
 }
 
-// func (r *RedisCache[T]) Delete(ctx context.Context, keys ...string) error {
-// 	if err := r.client.Del(ctx, keys...).Err(); err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }
-
-// func (r *RedisCache[T]) Batch(ctx context.Context, keys ...string) []T,error {
-// 	cmd := r.client.MGet(ctx, keys...)
-// 	if cmd.Err() != nil {
-// 		return nil
-// 	}
-
-// 	results := make([][]byte, 0, len(keys))
-
-// 	convertFun := func(in any) ([]byte, bool) {
-// 		if in == nil {
-// 			return nil, false
-// 		}
-// 		if cacheVal, ok := in.(string); ok {
-// 			return []byte(cacheVal), true
-// 		}
-// 		return nil, false
-// 	}
-
-// 	for _, cacheVal := range cmd.Val() {
-// 		if val, ok := convertFun(cacheVal); ok {
-// 			results = append(results, val)
-// 		}
-// 	}
-// 	return results
-// }
+func (r *RedisCache[T]) Delete(ctx context.Context, keys ...string) error {
+	if err := r.client.Del(ctx, keys...).Err(); err != nil {
+		return err
+	}
+	return nil
+}
