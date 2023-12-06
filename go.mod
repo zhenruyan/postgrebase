@@ -19,7 +19,8 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/pocketbase/dbx v1.10.0
 	github.com/pocketbase/tygoja v0.0.0-20230618203136-2f8d57768be1
-	github.com/spf13/cast v1.5.1
+	github.com/redis/go-redis/v9 v9.3.0
+	github.com/spf13/cast v1.6.0
 	github.com/spf13/cobra v1.7.0
 	gocloud.dev v0.32.0
 	golang.org/x/crypto v0.12.0
@@ -50,6 +51,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.15.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.21.2 // indirect
 	github.com/aws/smithy-go v1.14.1 // indirect
+	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/dlclark/regexp2 v1.10.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect

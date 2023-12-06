@@ -35,6 +35,7 @@ type PocketBase struct {
 	dataDirFlag       string
 	dataLogFlag       string
 	dataDataFlag      string
+	redisFlag         string
 	encryptionEnvFlag string
 	hideStartBanner   bool
 
@@ -49,6 +50,7 @@ type Config struct {
 	DefaultDataDir       string // if not set, it will fallback to "./pb_data"
 	DefaultDataDsn       string // if not set, it will fallback to "postgresql://<username>:<password>@<host>:<port>/<database>?sslmode=verify-full"
 	DefaultLogDsn        string // if not set, it will fallback to "postgresql://<username>:<password>@<host>:<port>/<database>?sslmode=verify-full"
+	RedisDsn             string //redis://<user>:<pass>@localhost:6379/<db>
 	DefaultEncryptionEnv string
 
 	// hide the default console server info on app startup
@@ -96,6 +98,9 @@ func NewWithConfig(config Config) *PocketBase {
 	if config.DefaultLogDsn == "" {
 		config.DefaultLogDsn = "postgresql://root@127.0.0.1:26257/logs?sslmode=disable"
 	}
+	if config.RedisDsn == "" {
+		config.RedisDsn = "redis://localhost:6379/0"
+	}
 	if config.DefaultDataDir == "" {
 		baseDir, _ := inspectRuntime()
 		config.DefaultDataDir = filepath.Join(baseDir, "pb_data")
@@ -116,6 +121,7 @@ func NewWithConfig(config Config) *PocketBase {
 		},
 		debugFlag:         config.DefaultDebug,
 		dataDirFlag:       config.DefaultDataDir,
+		redisFlag:         config.RedisDsn,
 		dataLogFlag:       config.DefaultLogDsn,
 		dataDataFlag:      config.DefaultDataDsn,
 		encryptionEnvFlag: config.DefaultEncryptionEnv,
@@ -131,6 +137,7 @@ func NewWithConfig(config Config) *PocketBase {
 		DataDir:          pb.dataDirFlag,
 		LogDsn:           pb.dataLogFlag,
 		DataDsn:          pb.dataDataFlag,
+		RedisDsn:         pb.redisFlag,
 		EncryptionEnv:    pb.encryptionEnvFlag,
 		IsDebug:          pb.debugFlag,
 		DataMaxOpenConns: config.DataMaxOpenConns,
@@ -217,6 +224,13 @@ func (pb *PocketBase) eagerParseFlags(config *Config) error {
 		"dataDsn",
 		config.DefaultDataDsn,
 		"store data postgresql dsn(default  postgresql://root@127.0.0.1:26257/data?sslmode=disable)",
+	)
+
+	pb.RootCmd.PersistentFlags().StringVar(
+		&pb.redisFlag,
+		"redisDsn",
+		config.RedisDsn,
+		"Cache data Redis dsn(default  redis://<user>:<pass>@localhost:6379/<db>  redis://localhost:6379/0)",
 	)
 
 	pb.RootCmd.PersistentFlags().StringVar(
