@@ -75,7 +75,7 @@ func (form *AdminUpsert) Validate() error {
 		validation.Field(
 			&form.Password,
 			validation.When(form.admin.IsNew(), validation.Required),
-			validation.Length(10, 72),
+			validation.Length(5, 72),
 		),
 		validation.Field(
 			&form.PasswordConfirm,

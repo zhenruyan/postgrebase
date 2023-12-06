@@ -1,16 +1,16 @@
 <script>
-    import { slide } from "svelte/transition";
-    import ApiClient from "@/utils/ApiClient";
-    import CommonHelper from "@/utils/CommonHelper";
-    import { pageTitle } from "@/stores/app";
-    import { setErrors } from "@/stores/errors";
-    import { removeAllToasts, addWarningToast, addSuccessToast } from "@/stores/toasts";
     import tooltip from "@/actions/tooltip";
     import PageWrapper from "@/components/base/PageWrapper.svelte";
-    import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
     import S3Fields from "@/components/settings/S3Fields.svelte";
+    import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
+    import { pageTitle } from "@/stores/app";
+    import { setErrors } from "@/stores/errors";
+    import { addSuccessToast, addWarningToast, removeAllToasts } from "@/stores/toasts";
+    import ApiClient from "@/utils/ApiClient";
+    import CommonHelper from "@/utils/CommonHelper";
+    import { slide } from "svelte/transition";
 
-    $pageTitle = "Files storage";
+    $pageTitle = "文件存储";
 
     const testRequestKey = "s3_test_request";
 
@@ -94,9 +94,9 @@
     <div class="wrapper">
         <form class="panel" autocomplete="off" on:submit|preventDefault={() => save()}>
             <div class="content txt-xl m-b-base">
-                <p>By default PostgresBase uses the local file system to store uploaded files.</p>
+                <p>默认情况下会直接存储到本地目录</p>
                 <p>
-                    If you have limited disk space, you could optionally connect to a S3 compatible storage.
+                  如果想要更多功能可以使用minio或者aws s3 
                 </p>
             </div>
 
@@ -104,7 +104,7 @@
                 <div class="loader" />
             {:else}
                 <S3Fields
-                    toggleLabel="Use S3 storage"
+                    toggleLabel="使用 S3 协议"
                     originalConfig={originalFormSettings.s3}
                     bind:config={formSettings.s3}
                     bind:isTesting
@@ -117,21 +117,20 @@
                                     <i class="ri-error-warning-line" />
                                 </div>
                                 <div class="content">
-                                    If you have existing uploaded files, you'll have to migrate them manually
-                                    from the
+                                    如果已经存在了附件 想要同步
                                     <strong>
                                         {originalFormSettings.s3?.enabled
-                                            ? "S3 storage"
-                                            : "local file system"}
+                                            ? "S3 协议"
+                                            : "本地目录"}
                                     </strong>
                                     to the
                                     <strong
                                         >{formSettings.s3.enabled
-                                            ? "S3 storage"
-                                            : "local file system"}</strong
+                                            ? "S3 协议"
+                                            : "本地目录"}</strong
                                     >.
                                     <br />
-                                    There are numerous command line tools that can help you, such as:
+                                    可以使用以下工具:
                                     <a
                                         href="https://github.com/rclone/rclone"
                                         target="_blank"
@@ -167,12 +166,12 @@
                                 use:tooltip={testError.data?.message}
                             >
                                 <i class="ri-error-warning-line txt-warning" />
-                                <span class="txt">Failed to establish S3 connection</span>
+                                <span class="txt">无法链接s3</span>
                             </div>
                         {:else}
                             <div class="label label-sm label-success entrance-right">
                                 <i class="ri-checkbox-circle-line txt-success" />
-                                <span class="txt">S3 connected successfully</span>
+                                <span class="txt">S3链接成功</span>
                             </div>
                         {/if}
                     {/if}
@@ -184,7 +183,7 @@
                             disabled={isSaving}
                             on:click={() => reset()}
                         >
-                            <span class="txt">Reset</span>
+                            <span class="txt">重置</span>
                         </button>
                     {/if}
 
@@ -195,7 +194,7 @@
                         disabled={!hasChanges || isSaving}
                         on:click={() => save()}
                     >
-                        <span class="txt">Save changes</span>
+                        <span class="txt">保存</span>
                     </button>
                 </div>
             {/if}

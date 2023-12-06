@@ -1,7 +1,7 @@
 <script>
-    import { createEventDispatcher } from "svelte";
-    import ApiClient from "@/utils/ApiClient";
     import Field from "@/components/base/Field.svelte";
+    import ApiClient from "@/utils/ApiClient";
+    import { createEventDispatcher } from "svelte";
 
     const dispatch = createEventDispatcher();
 
@@ -37,11 +37,11 @@
 
 <form class="block" autocomplete="off" on:submit|preventDefault={submit}>
     <div class="content txt-center m-b-base">
-        <h4>Create your first admin account in order to continue</h4>
+        <h4>创建第一个管理员账号</h4>
     </div>
 
     <Field class="form-field required" name="email" let:uniqueId>
-        <label for={uniqueId}>Email</label>
+        <label for={uniqueId}>邮箱</label>
         <!-- svelte-ignore a11y-autofocus -->
         <input type="email" autocomplete="off" id={uniqueId} bind:value={email} required autofocus />
     </Field>
@@ -51,17 +51,17 @@
         <input
             type="password"
             autocomplete="new-password"
-            minlength="10"
+            minlength="5"
             id={uniqueId}
             bind:value={password}
             required
         />
-        <div class="help-block">Minimum 10 characters.</div>
+        <div class="help-block">最小五个字符</div>
     </Field>
 
     <Field class="form-field required" name="passwordConfirm" let:uniqueId>
-        <label for={uniqueId}>Password confirm</label>
-        <input type="password" minlength="10" id={uniqueId} bind:value={passwordConfirm} required />
+        <label for={uniqueId}>重新验证密码</label>
+        <input type="password" minlength="5" id={uniqueId} bind:value={passwordConfirm} required />
     </Field>
 
     <button
@@ -70,7 +70,7 @@
         class:btn-disabled={isLoading}
         class:btn-loading={isLoading}
     >
-        <span class="txt">Create and login</span>
+        <span class="txt">创建并登录</span>
         <i class="ri-arrow-right-line" />
     </button>
 </form>

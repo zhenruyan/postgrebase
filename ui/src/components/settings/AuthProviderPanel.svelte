@@ -1,12 +1,12 @@
 <script>
-    import { createEventDispatcher } from "svelte";
-    import ApiClient from "@/utils/ApiClient";
-    import CommonHelper from "@/utils/CommonHelper";
+    import Field from "@/components/base/Field.svelte";
+    import OverlayPanel from "@/components/base/OverlayPanel.svelte";
+    import RedactedPasswordInput from "@/components/base/RedactedPasswordInput.svelte";
     import { setErrors } from "@/stores/errors";
     import { addSuccessToast } from "@/stores/toasts";
-    import OverlayPanel from "@/components/base/OverlayPanel.svelte";
-    import Field from "@/components/base/Field.svelte";
-    import RedactedPasswordInput from "@/components/base/RedactedPasswordInput.svelte";
+    import ApiClient from "@/utils/ApiClient";
+    import CommonHelper from "@/utils/CommonHelper";
+    import { createEventDispatcher } from "svelte";
 
     const dispatch = createEventDispatcher();
 
@@ -74,7 +74,7 @@
         <div class="flex m-b-base">
             <Field class="form-field form-field-toggle m-b-0" name="{provider.key}.enabled" let:uniqueId>
                 <input type="checkbox" id={uniqueId} bind:checked={config.enabled} />
-                <label for={uniqueId}>Enable</label>
+                <label for={uniqueId}>启用</label>
             </Field>
 
             <button type="button" class="btn btn-sm btn-transparent btn-hint m-l-auto" on:click={clear}>

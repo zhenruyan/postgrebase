@@ -1,22 +1,22 @@
 <script>
-    import { createEventDispatcher, tick } from "svelte";
-    import { scale } from "svelte/transition";
-    import { Collection } from "pocketbase";
-    import CommonHelper from "@/utils/CommonHelper";
-    import ApiClient from "@/utils/ApiClient";
-    import { errors, setErrors, removeError } from "@/stores/errors";
-    import { confirm } from "@/stores/confirmation";
-    import { removeAllToasts, addSuccessToast } from "@/stores/toasts";
-    import { addCollection, removeCollection } from "@/stores/collections";
     import tooltip from "@/actions/tooltip";
     import Field from "@/components/base/Field.svelte";
-    import Toggler from "@/components/base/Toggler.svelte";
     import OverlayPanel from "@/components/base/OverlayPanel.svelte";
-    import CollectionFieldsTab from "@/components/collections/CollectionFieldsTab.svelte";
-    import CollectionRulesTab from "@/components/collections/CollectionRulesTab.svelte";
-    import CollectionQueryTab from "@/components/collections/CollectionQueryTab.svelte";
+    import Toggler from "@/components/base/Toggler.svelte";
     import CollectionAuthOptionsTab from "@/components/collections/CollectionAuthOptionsTab.svelte";
+    import CollectionFieldsTab from "@/components/collections/CollectionFieldsTab.svelte";
+    import CollectionQueryTab from "@/components/collections/CollectionQueryTab.svelte";
+    import CollectionRulesTab from "@/components/collections/CollectionRulesTab.svelte";
     import CollectionUpdateConfirm from "@/components/collections/CollectionUpdateConfirm.svelte";
+    import { addCollection, removeCollection } from "@/stores/collections";
+    import { confirm } from "@/stores/confirmation";
+    import { errors, removeError, setErrors } from "@/stores/errors";
+    import { addSuccessToast, removeAllToasts } from "@/stores/toasts";
+    import ApiClient from "@/utils/ApiClient";
+    import CommonHelper from "@/utils/CommonHelper";
+    import { Collection } from "pocketbase";
+    import { createEventDispatcher, tick } from "svelte";
+    import { scale } from "svelte/transition";
 
     const TAB_SCHEMA = "schema";
     const TAB_RULES = "api_rules";
@@ -149,8 +149,8 @@
 
                 addSuccessToast(
                     collection.$isNew
-                        ? "Successfully created collection."
-                        : "Successfully updated collection."
+                        ? "建表成功."
+                        : "更新成功."
                 );
 
                 dispatch("save", {
@@ -186,12 +186,12 @@
             return; // nothing to delete
         }
 
-        confirm(`Do you really want to delete collection "${original?.name}" and all its records?`, () => {
+        confirm(`是否要删除 "${original?.name}" 表 并清空其中数据?`, () => {
             return ApiClient.collections
                 .delete(original?.id)
                 .then(() => {
                     hide();
-                    addSuccessToast(`Successfully deleted collection "${original?.name}".`);
+                    addSuccessToast(`成功删除 "${original?.name}"表.`);
                     dispatch("delete", original);
                     removeCollection(original);
                 })
@@ -214,7 +214,7 @@
 
     function duplicateConfirm() {
         if (hasChanges) {
-            confirm("You have unsaved changes. Do you really want to discard them?", () => {
+            confirm("不保存 直接取消么?", () => {
                 duplicate();
             });
         } else {
@@ -264,7 +264,7 @@
     overlayClose={!isSaving}
     beforeHide={() => {
         if (hasChanges && confirmClose) {
-            confirm("You have unsaved changes. Do you really want to close the panel?", () => {
+            confirm("不保存直接取消?", () => {
                 confirmClose = false;
                 hide();
             });
@@ -277,7 +277,7 @@
 >
     <svelte:fragment slot="header">
         <h4 class="upsert-panel-title">
-            {collection.$isNew ? "New collection" : "Edit collection"}
+            {collection.$isNew ? "新建表结构" : "修改表结构"}
         </h4>
 
         {#if !collection.$isNew && !collection.system}
@@ -287,7 +287,7 @@
                 <Toggler class="dropdown dropdown-right m-t-5">
                     <button type="button" class="dropdown-item closable" on:click={() => duplicateConfirm()}>
                         <i class="ri-file-copy-line" />
-                        <span class="txt">Duplicate</span>
+                        <span class="txt">复制</span>
                     </button>
                     <button
                         type="button"
@@ -295,7 +295,7 @@
                         on:click|preventDefault|stopPropagation={() => deleteConfirm()}
                     >
                         <i class="ri-delete-bin-7-line" />
-                        <span class="txt">Delete</span>
+                        <span class="txt">删除</span>
                     </button>
                 </Toggler>
             </button>
@@ -361,7 +361,7 @@
                 </div>
 
                 {#if collection.system}
-                    <div class="help-block">System collection</div>
+                    <div class="help-block">系统表</div>
                 {/if}
             </Field>
 
@@ -375,7 +375,7 @@
                 class:active={activeTab === TAB_SCHEMA}
                 on:click={() => changeTab(TAB_SCHEMA)}
             >
-                <span class="txt">{collection?.$isView ? "Query" : "Fields"}</span>
+                <span class="txt">{collection?.$isView ? "视图查询语句" : "表字段元素"}</span>
                 {#if !CommonHelper.isEmpty(schemaTabError)}
                     <i
                         class="ri-error-warning-fill txt-danger"
@@ -391,7 +391,7 @@
                 class:active={activeTab === TAB_RULES}
                 on:click={() => changeTab(TAB_RULES)}
             >
-                <span class="txt">API Rules</span>
+                <span class="txt">鉴权（默认打开）</span>
                 {#if !CommonHelper.isEmpty($errors?.listRule) || !CommonHelper.isEmpty($errors?.viewRule) || !CommonHelper.isEmpty($errors?.createRule) || !CommonHelper.isEmpty($errors?.updateRule) || !CommonHelper.isEmpty($errors?.deleteRule) || !CommonHelper.isEmpty($errors?.options?.manageRule)}
                     <i
                         class="ri-error-warning-fill txt-danger"
@@ -408,7 +408,7 @@
                     class:active={activeTab === TAB_OPTIONS}
                     on:click={() => changeTab(TAB_OPTIONS)}
                 >
-                    <span class="txt">Options</span>
+                    <span class="txt">更多设置</span>
                     {#if !CommonHelper.isEmpty($errors?.options) && !$errors?.options?.manageRule}
                         <i
                             class="ri-error-warning-fill txt-danger"
@@ -446,7 +446,7 @@
 
     <svelte:fragment slot="footer">
         <button type="button" class="btn btn-transparent" disabled={isSaving} on:click={() => hide()}>
-            <span class="txt">Cancel</span>
+            <span class="txt">取消</span>
         </button>
         <button
             type="button"
@@ -455,7 +455,7 @@
             disabled={!canSave || isSaving}
             on:click={() => saveConfirm()}
         >
-            <span class="txt">{collection.$isNew ? "Create" : "Save changes"}</span>
+            <span class="txt">{collection.$isNew ? "创建" : "保存"}</span>
         </button>
     </svelte:fragment>
 </OverlayPanel>
