@@ -1,14 +1,14 @@
 <script>
+    import tooltip from "@/actions/tooltip";
+    import Field from "@/components/base/Field.svelte";
+    import PageWrapper from "@/components/base/PageWrapper.svelte";
+    import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
+    import { appName, hideControls, pageTitle } from "@/stores/app";
+    import { addSuccessToast } from "@/stores/toasts";
     import ApiClient from "@/utils/ApiClient";
     import CommonHelper from "@/utils/CommonHelper";
-    import { pageTitle, appName, hideControls } from "@/stores/app";
-    import { addSuccessToast } from "@/stores/toasts";
-    import tooltip from "@/actions/tooltip";
-    import PageWrapper from "@/components/base/PageWrapper.svelte";
-    import Field from "@/components/base/Field.svelte";
-    import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
 
-    $pageTitle = "Application settings";
+    $pageTitle = "应用设置";
 
     let originalFormSettings = {};
     let formSettings = {};
@@ -75,8 +75,8 @@
 <PageWrapper>
     <header class="page-header">
         <nav class="breadcrumbs">
-            <div class="breadcrumb-item">Settings</div>
-            <div class="breadcrumb-item">Application</div>
+            <div class="breadcrumb-item">系统管理</div>
+            <div class="breadcrumb-item">应用设置</div>
         </nav>
     </header>
 
@@ -88,7 +88,7 @@
                 <div class="grid">
                     <div class="col-lg-6">
                         <Field class="form-field required" name="meta.appName" let:uniqueId>
-                            <label for={uniqueId}>Application name</label>
+                            <label for={uniqueId}>应用名</label>
                             <input
                                 type="text"
                                 id={uniqueId}
@@ -100,24 +100,24 @@
 
                     <div class="col-lg-6">
                         <Field class="form-field required" name="meta.appUrl" let:uniqueId>
-                            <label for={uniqueId}>Application URL</label>
+                            <label for={uniqueId}>应用地址 </label>
                             <input type="text" id={uniqueId} required bind:value={formSettings.meta.appUrl} />
                         </Field>
                     </div>
 
                     <Field class="form-field required" name="logs.maxDays" let:uniqueId>
-                        <label for={uniqueId}>Logs max days retention</label>
+                        <label for={uniqueId}>日志最大保留天数</label>
                         <input type="number" id={uniqueId} required bind:value={formSettings.logs.maxDays} />
                     </Field>
 
                     <Field class="form-field form-field-toggle" name="meta.hideControls" let:uniqueId>
                         <input type="checkbox" id={uniqueId} bind:checked={formSettings.meta.hideControls} />
                         <label for={uniqueId}>
-                            <span class="txt">Hide collection create and edit controls</span>
+                            <span class="txt">禁用修改表结构</span>
                             <i
                                 class="ri-information-line link-hint"
                                 use:tooltip={{
-                                    text: `This could prevent making accidental schema changes when in production environment.`,
+                                    text: `当你选择禁用后，表结构设置相关按钮会隐藏.`,
                                     position: "right",
                                 }}
                             />
@@ -133,7 +133,7 @@
                                 disabled={isSaving}
                                 on:click={() => reset()}
                             >
-                                <span class="txt">Cancel</span>
+                                <span class="txt">取消</span>
                             </button>
                         {/if}
                         <button
@@ -143,7 +143,7 @@
                             disabled={!hasChanges || isSaving}
                             on:click={() => save()}
                         >
-                            <span class="txt">Save changes</span>
+                            <span class="txt">确定</span>
                         </button>
                     </div>
                 </div>

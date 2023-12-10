@@ -1,9 +1,9 @@
 <script>
-    import { link, replace, querystring } from "svelte-spa-router";
-    import FullPage from "@/components/base/FullPage.svelte";
-    import ApiClient from "@/utils/ApiClient";
     import Field from "@/components/base/Field.svelte";
+    import FullPage from "@/components/base/FullPage.svelte";
     import { addErrorToast, removeAllToasts } from "@/stores/toasts";
+    import ApiClient from "@/utils/ApiClient";
+    import { link, querystring, replace } from "svelte-spa-router";
 
     const queryParams = new URLSearchParams($querystring);
 
@@ -36,20 +36,20 @@
 <FullPage>
     <form class="block" on:submit|preventDefault={login}>
         <div class="content txt-center m-b-base">
-            <h4>Admin sign in</h4>
+            <h4>登录</h4>
         </div>
 
         <Field class="form-field required" name="identity" let:uniqueId>
-            <label for={uniqueId}>Email</label>
+            <label for={uniqueId}>邮箱</label>
             <!-- svelte-ignore a11y-autofocus -->
             <input type="email" id={uniqueId} bind:value={email} required autofocus />
         </Field>
 
         <Field class="form-field required" name="password" let:uniqueId>
-            <label for={uniqueId}>Password</label>
+            <label for={uniqueId}>密码</label>
             <input type="password" id={uniqueId} bind:value={password} required />
             <div class="help-block">
-                <a href="/request-password-reset" class="link-hint" use:link>Forgotten password?</a>
+                <a href="/request-password-reset" class="link-hint" use:link>忘记密码 ?</a>
             </div>
         </Field>
 

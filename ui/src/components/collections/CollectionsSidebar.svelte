@@ -1,9 +1,9 @@
 <script>
-    import { link } from "svelte-spa-router";
-    import CommonHelper from "@/utils/CommonHelper";
-    import { hideControls } from "@/stores/app";
-    import { collections, activeCollection, isCollectionsLoading } from "@/stores/collections";
     import CollectionUpsertPanel from "@/components/collections/CollectionUpsertPanel.svelte";
+    import { hideControls } from "@/stores/app";
+    import { activeCollection, collections, isCollectionsLoading } from "@/stores/collections";
+    import CommonHelper from "@/utils/CommonHelper";
+    import { link } from "svelte-spa-router";
 
     let collectionPanel;
     let searchTerm = "";
@@ -50,7 +50,7 @@
                     <i class="ri-close-line" />
                 </button>
             </div>
-            <input type="text" placeholder="Search collections..." bind:value={searchTerm} />
+            <input type="text" placeholder="搜索所有表..." bind:value={searchTerm} />
         </div>
     </header>
 
@@ -74,7 +74,7 @@
             </a>
         {:else}
             {#if normalizedSearch.length}
-                <p class="txt-hint m-t-10 m-b-10 txt-center">No collections found.</p>
+                <p class="txt-hint m-t-10 m-b-10 txt-center">未搜索到表</p>
             {/if}
         {/each}
     </div>
@@ -83,7 +83,7 @@
         <footer class="sidebar-footer">
             <button type="button" class="btn btn-block btn-outline" on:click={() => collectionPanel?.show()}>
                 <i class="ri-add-line" />
-                <span class="txt">New collection</span>
+                <span class="txt">新建表</span>
             </button>
         </footer>
     {/if}

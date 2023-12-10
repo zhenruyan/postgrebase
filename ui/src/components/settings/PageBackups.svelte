@@ -1,20 +1,20 @@
 <script>
-    import { slide } from "svelte/transition";
-    import ApiClient from "@/utils/ApiClient";
-    import CommonHelper from "@/utils/CommonHelper";
+    import tooltip from "@/actions/tooltip";
+    import Field from "@/components/base/Field.svelte";
+    import PageWrapper from "@/components/base/PageWrapper.svelte";
+    import RefreshButton from "@/components/base/RefreshButton.svelte";
+    import Toggler from "@/components/base/Toggler.svelte";
+    import BackupsList from "@/components/settings/BackupsList.svelte";
+    import S3Fields from "@/components/settings/S3Fields.svelte";
+    import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
     import { pageTitle } from "@/stores/app";
     import { removeError } from "@/stores/errors";
     import { addSuccessToast } from "@/stores/toasts";
-    import tooltip from "@/actions/tooltip";
-    import PageWrapper from "@/components/base/PageWrapper.svelte";
-    import Field from "@/components/base/Field.svelte";
-    import Toggler from "@/components/base/Toggler.svelte";
-    import RefreshButton from "@/components/base/RefreshButton.svelte";
-    import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
-    import BackupsList from "@/components/settings/BackupsList.svelte";
-    import S3Fields from "@/components/settings/S3Fields.svelte";
+    import ApiClient from "@/utils/ApiClient";
+    import CommonHelper from "@/utils/CommonHelper";
+    import { slide } from "svelte/transition";
 
-    $pageTitle = "Backups";
+    $pageTitle = "附件备份";
 
     let backupsListComponent;
     let originalFormSettings = {};
@@ -98,7 +98,7 @@
 <PageWrapper>
     <header class="page-header">
         <nav class="breadcrumbs">
-            <div class="breadcrumb-item">Settings</div>
+            <div class="breadcrumb-item">设置</div>
             <div class="breadcrumb-item">{$pageTitle}</div>
         </nav>
     </header>
@@ -106,10 +106,10 @@
     <div class="wrapper">
         <div class="panel" autocomplete="off" on:submit|preventDefault={save}>
             <div class="flex m-b-sm flex-gap-5">
-                <span class="txt-xl">Backup and restore your PocketBase data</span>
+                <span class="txt-xl">备份或者恢复你的附件</span>
                 <RefreshButton
                     class="btn-sm"
-                    tooltip={"Reload backups list"}
+                    tooltip={"刷新"}
                     on:refresh={() => refreshList()}
                 />
             </div>
@@ -125,7 +125,7 @@
                 disabled={isLoading}
                 on:click={() => (showBackupsSettings = !showBackupsSettings)}
             >
-                <span class="txt">Backups options</span>
+                <span class="txt">更多设置</span>
                 {#if showBackupsSettings}
                     <i class="ri-arrow-up-s-line" />
                 {:else}
@@ -142,7 +142,7 @@
                 >
                     <Field class="form-field form-field-toggle m-t-base m-b-0" let:uniqueId>
                         <input type="checkbox" id={uniqueId} required bind:checked={enableAutoBackups} />
-                        <label for={uniqueId}>Enable auto backups</label>
+                        <label for={uniqueId}>开启定时备份</label>
                     </Field>
 
                     {#if enableAutoBackups}
@@ -237,7 +237,7 @@
                     <div class="clearfix m-b-base" />
 
                     <S3Fields
-                        toggleLabel="Store backups in S3 storage"
+                        toggleLabel="使用s3协议存储备份"
                         testFilesystem="backups"
                         configKey="backups.s3"
                         originalConfig={originalFormSettings.backups?.s3}
@@ -275,7 +275,7 @@
                                 disabled={!hasChanges || isSaving}
                                 on:click={() => reset()}
                             >
-                                <span class="txt">Reset</span>
+                                <span class="txt">重置</span>
                             </button>
                         {/if}
 
@@ -286,7 +286,7 @@
                             disabled={!hasChanges || isSaving}
                             on:click={() => save()}
                         >
-                            <span class="txt">Save changes</span>
+                            <span class="txt">保存</span>
                         </button>
                     </div>
                 </form>

@@ -2,7 +2,7 @@
 // -------------------------------------------------------------------
 
 .main-menu {
-    --menuItemSize: 45px;
+    --menuItemSize: 50px;
 
     width: 100%;
     display: flex;
@@ -14,7 +14,10 @@
     color: var(--txtPrimaryColor);
     i {
         font-size: 24px;
-        line-height: 1;
+        line-height: 1.2;
+    }
+    p{
+        font-size: 12px; 
     }
     .menu-item {
         position: relative;

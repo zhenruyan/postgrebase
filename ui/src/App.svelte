@@ -1,20 +1,20 @@
 <script>
     import "./scss/main.scss";
 
-    import Router, { replace, link } from "svelte-spa-router";
-    import active from "svelte-spa-router/active";
-    import routes from "./routes";
-    import ApiClient from "@/utils/ApiClient";
-    import CommonHelper from "@/utils/CommonHelper";
     import tooltip from "@/actions/tooltip";
+    import Confirmation from "@/components/base/Confirmation.svelte";
     import Toasts from "@/components/base/Toasts.svelte";
     import Toggler from "@/components/base/Toggler.svelte";
-    import Confirmation from "@/components/base/Confirmation.svelte";
-    import { pageTitle, appName, hideControls } from "@/stores/app";
     import { admin } from "@/stores/admin";
-    import { setErrors } from "@/stores/errors";
+    import { appName, hideControls, pageTitle } from "@/stores/app";
     import { resetConfirmation } from "@/stores/confirmation";
+    import { setErrors } from "@/stores/errors";
+    import ApiClient from "@/utils/ApiClient";
+    import CommonHelper from "@/utils/CommonHelper";
     import TinyMCE from "@tinymce/tinymce-svelte";
+    import Router, { link, replace } from "svelte-spa-router";
+    import active from "svelte-spa-router/active";
+    import routes from "./routes";
 
     let oldLocation = undefined;
 
@@ -85,15 +85,22 @@
             </a>
 
             <nav class="main-menu">
+               
                 <a
                     href="/collections"
                     class="menu-item"
                     aria-label="Collections"
                     use:link
                     use:active={{ path: "/collections/?.*", className: "current-route" }}
-                    use:tooltip={{ text: "Collections", position: "right" }}
+                    use:tooltip={{ text: "表结构", position: "right" }}
                 >
-                    <i class="ri-database-2-line" />
+                <div>
+                    <div>
+                        <i class="ri-database-2-line" />
+                    </div>
+                    <p>表结构</p>
+                </div>
+            
                 </a>
                 <a
                     href="/logs"
@@ -101,9 +108,16 @@
                     aria-label="Logs"
                     use:link
                     use:active={{ path: "/logs/?.*", className: "current-route" }}
-                    use:tooltip={{ text: "Logs", position: "right" }}
+                    use:tooltip={{ text: "访问日志", position: "right" }}
                 >
-                    <i class="ri-line-chart-line" />
+             
+                <div>
+                    <div>
+                        <i class="ri-line-chart-line" />
+                    </div>
+                    <p>日志</p>
+                </div>
+                   
                 </a>
                 <a
                     href="/settings"
@@ -111,9 +125,13 @@
                     aria-label="Settings"
                     use:link
                     use:active={{ path: "/settings/?.*", className: "current-route" }}
-                    use:tooltip={{ text: "Settings", position: "right" }}
-                >
-                    <i class="ri-tools-line" />
+                    use:tooltip={{ text: "设置", position: "right" }}
+                >   
+                <div>
+                    <div><i class="ri-tools-line" /></div>
+                    <p>设置</p>
+                </div>
+                    
                 </a>
             </nav>
 
@@ -125,12 +143,12 @@
                 <Toggler class="dropdown dropdown-nowrap dropdown-upside dropdown-left">
                     <a href="/settings/admins" class="dropdown-item closable" use:link>
                         <i class="ri-shield-user-line" />
-                        <span class="txt">Manage admins</span>
+                        <span class="txt">管理用户</span>
                     </a>
                     <hr />
                     <button type="button" class="dropdown-item closable" on:click={logout}>
                         <i class="ri-logout-circle-line" />
-                        <span class="txt">Logout</span>
+                        <span class="txt">退出登录</span>
                     </button>
                 </Toggler>
             </figure>

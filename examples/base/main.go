@@ -10,9 +10,6 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/plugins/ghupdate"
-	"github.com/pocketbase/pocketbase/plugins/jsvm"
-	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 )
 
 func main() {
@@ -92,23 +89,20 @@ func main() {
 	// Plugins and hooks:
 	// ---------------------------------------------------------------
 
-	// load jsvm (hooks and migrations)
-	jsvm.MustRegister(app, jsvm.Config{
-		MigrationsDir: migrationsDir,
-		HooksDir:      hooksDir,
-		HooksWatch:    hooksWatch,
-		HooksPoolSize: hooksPool,
-	})
+	// // load jsvm (hooks and migrations)
+	// jsvm.MustRegister(app, jsvm.Config{
+	// 	MigrationsDir: migrationsDir,
+	// 	HooksDir:      hooksDir,
+	// 	HooksWatch:    hooksWatch,
+	// 	HooksPoolSize: hooksPool,
+	// })
 
-	// migrate command (with js templates)
-	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
-		TemplateLang: migratecmd.TemplateLangJS,
-		Automigrate:  automigrate,
-		Dir:          migrationsDir,
-	})
-
-	// GitHub selfupdate
-	ghupdate.MustRegister(app, app.RootCmd, ghupdate.Config{})
+	// // migrate command (with js templates)
+	// migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
+	// 	TemplateLang: migratecmd.TemplateLangJS,
+	// 	Automigrate:  automigrate,
+	// 	Dir:          migrationsDir,
+	// })
 
 	app.OnAfterBootstrap().Add(func(e *core.BootstrapEvent) error {
 		app.Dao().ModelQueryTimeout = time.Duration(queryTimeout) * time.Second

@@ -1,10 +1,10 @@
 <script>
-    import { link, replace } from "svelte-spa-router";
+    import Field from "@/components/base/Field.svelte";
+    import FullPage from "@/components/base/FullPage.svelte";
+    import { addSuccessToast } from "@/stores/toasts";
     import ApiClient from "@/utils/ApiClient";
     import CommonHelper from "@/utils/CommonHelper";
-    import { addSuccessToast } from "@/stores/toasts";
-    import FullPage from "@/components/base/FullPage.svelte";
-    import Field from "@/components/base/Field.svelte";
+    import { link, replace } from "svelte-spa-router";
 
     export let params;
 
@@ -23,7 +23,7 @@
 
         try {
             await ApiClient.admins.confirmPasswordReset(params?.token, newPassword, newPasswordConfirm);
-            addSuccessToast("Successfully set a new admin password.");
+            addSuccessToast("成功设置新的密码");
             replace("/");
         } catch (err) {
             ApiClient.error(err);
@@ -37,7 +37,7 @@
     <form class="m-b-base" on:submit|preventDefault={submit}>
         <div class="content txt-center m-b-sm">
             <h4 class="m-b-xs">
-                Reset your admin password
+                重置管理员密码
                 {#if email}
                     for <strong class="txt-nowrap">{email}</strong>
                 {/if}
@@ -45,22 +45,22 @@
         </div>
 
         <Field class="form-field required" name="password" let:uniqueId>
-            <label for={uniqueId}>New password</label>
+            <label for={uniqueId}>新密码</label>
             <!-- svelte-ignore a11y-autofocus -->
             <input type="password" id={uniqueId} required autofocus bind:value={newPassword} />
         </Field>
 
         <Field class="form-field required" name="passwordConfirm" let:uniqueId>
-            <label for={uniqueId}>New password confirm</label>
+            <label for={uniqueId}>验证新密码</label>
             <input type="password" id={uniqueId} required bind:value={newPasswordConfirm} />
         </Field>
 
         <button type="submit" class="btn btn-lg btn-block" class:btn-loading={isLoading} disabled={isLoading}>
-            <span class="txt">Set new password</span>
+            <span class="txt">设置新密码</span>
         </button>
     </form>
 
     <div class="content txt-center">
-        <a href="/login" class="link-hint" use:link>Back to login</a>
+        <a href="/login" class="link-hint" use:link>返回到登录页面</a>
     </div>
 </FullPage>

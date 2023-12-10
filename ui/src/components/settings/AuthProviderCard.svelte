@@ -16,7 +16,7 @@
     <div class="title">{provider.title}</div>
     <em class="txt-hint txt-sm m-r-auto">({provider.key.slice(0, -4)})</em>
     {#if config.enabled}
-        <div class="label label-success">Enabled</div>
+        <div class="label label-success">启用</div>
     {/if}
     <button
         type="button"

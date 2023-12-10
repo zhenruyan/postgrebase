@@ -1,12 +1,12 @@
 <script>
-    import ApiClient from "@/utils/ApiClient";
-    import { pageTitle } from "@/stores/app";
     import PageWrapper from "@/components/base/PageWrapper.svelte";
-    import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
     import AuthProviderCard from "@/components/settings/AuthProviderCard.svelte";
+    import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
     import providersList from "@/providers.js";
+    import { pageTitle } from "@/stores/app";
+    import ApiClient from "@/utils/ApiClient";
 
-    $pageTitle = "Auth providers";
+    $pageTitle = "第三方登录";
 
     let isLoading = false;
     let formSettings = {};
@@ -45,7 +45,7 @@
 <PageWrapper>
     <header class="page-header">
         <nav class="breadcrumbs">
-            <div class="breadcrumb-item">Settings</div>
+            <div class="breadcrumb-item">设置</div>
             <div class="breadcrumb-item">{$pageTitle}</div>
         </nav>
     </header>

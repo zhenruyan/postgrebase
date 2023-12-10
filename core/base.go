@@ -22,6 +22,7 @@ import (
 	"github.com/pocketbase/pocketbase/tools/routine"
 	"github.com/pocketbase/pocketbase/tools/store"
 	"github.com/pocketbase/pocketbase/tools/subscriptions"
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -43,6 +44,7 @@ type BaseApp struct {
 	isDebug          bool
 	dataDir          string
 	dataDsn          string
+	redisDsn         string
 	logDsn           string
 	encryptionEnv    string
 	dataMaxOpenConns int
@@ -52,6 +54,7 @@ type BaseApp struct {
 
 	// internals
 	cache               *store.Store[any]
+	redisCache          *redis.Client
 	settings            *settings.Settings
 	dao                 *daos.Dao
 	logsDao             *daos.Dao
@@ -177,6 +180,7 @@ type BaseAppConfig struct {
 	LogsMaxOpenConns int // default to 100
 	LogsMaxIdleConns int // default to 5
 	DataDsn          string
+	RedisDsn         string
 	LogDsn           string
 }
 
@@ -188,6 +192,7 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 	app := &BaseApp{
 		dataDir:             config.DataDir,
 		dataDsn:             config.DataDsn,
+		redisDsn:            config.RedisDsn,
 		logDsn:              config.LogDsn,
 		isDebug:             config.IsDebug,
 		encryptionEnv:       config.EncryptionEnv,
@@ -1048,6 +1053,11 @@ func (app *BaseApp) initDataDB() error {
 	}
 
 	app.dao = app.createDaoWithHooks(concurrentDB, nonconcurrentDB)
+
+	return nil
+}
+
+func (app *BaseApp) initRedis() error {
 
 	return nil
 }
