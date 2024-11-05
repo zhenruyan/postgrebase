@@ -2,7 +2,7 @@
   "name": "pocketbase-admin",
   "private": true,
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 10.0.1.2",
     "build": "vite build",
     "preview": "vite preview"
   },

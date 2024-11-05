@@ -45,7 +45,6 @@ type BaseApp struct {
 	dataDir          string
 	dataDsn          string
 	redisDsn         string
-	logDsn           string
 	encryptionEnv    string
 	dataMaxOpenConns int
 	dataMaxIdleConns int
@@ -181,7 +180,6 @@ type BaseAppConfig struct {
 	LogsMaxIdleConns int // default to 5
 	DataDsn          string
 	RedisDsn         string
-	LogDsn           string
 }
 
 // NewBaseApp creates and returns a new BaseApp instance
@@ -193,7 +191,6 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 		dataDir:             config.DataDir,
 		dataDsn:             config.DataDsn,
 		redisDsn:            config.RedisDsn,
-		logDsn:              config.LogDsn,
 		isDebug:             config.IsDebug,
 		encryptionEnv:       config.EncryptionEnv,
 		dataMaxOpenConns:    config.DataMaxOpenConns,
@@ -347,10 +344,6 @@ func (app *BaseApp) Bootstrap() error {
 	}
 
 	if err := app.initDataDB(); err != nil {
-		return err
-	}
-
-	if err := app.initLogsDB(); err != nil {
 		return err
 	}
 
@@ -982,37 +975,6 @@ func (app *BaseApp) OnCollectionsAfterImportRequest() *hook.Hook[*CollectionsImp
 // -------------------------------------------------------------------
 // Helpers
 // -------------------------------------------------------------------
-
-func (app *BaseApp) initLogsDB() error {
-	maxOpenConns := DefaultLogsMaxOpenConns
-	maxIdleConns := DefaultLogsMaxIdleConns
-	if app.logsMaxOpenConns > 0 {
-		maxOpenConns = app.logsMaxOpenConns
-	}
-	if app.logsMaxIdleConns > 0 {
-		maxIdleConns = app.logsMaxIdleConns
-	}
-
-	concurrentDB, err := connectDB(app.logDsn)
-	if err != nil {
-		return err
-	}
-	concurrentDB.DB().SetMaxOpenConns(maxOpenConns)
-	concurrentDB.DB().SetMaxIdleConns(maxIdleConns)
-	concurrentDB.DB().SetConnMaxIdleTime(5 * time.Minute)
-
-	nonconcurrentDB, err := connectDB(app.logDsn)
-	if err != nil {
-		return err
-	}
-	nonconcurrentDB.DB().SetMaxOpenConns(1)
-	nonconcurrentDB.DB().SetMaxIdleConns(1)
-	nonconcurrentDB.DB().SetConnMaxIdleTime(5 * time.Minute)
-
-	app.logsDao = daos.NewMultiDB(concurrentDB, nonconcurrentDB)
-
-	return nil
-}
 
 func (app *BaseApp) initDataDB() error {
 	maxOpenConns := DefaultDataMaxOpenConns

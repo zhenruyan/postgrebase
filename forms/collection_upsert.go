@@ -27,18 +27,20 @@ type CollectionUpsert struct {
 	dao        *daos.Dao
 	collection *models.Collection
 
-	Id         string                  `form:"id" json:"id"`
-	Type       string                  `form:"type" json:"type"`
-	Name       string                  `form:"name" json:"name"`
-	System     bool                    `form:"system" json:"system"`
-	Schema     schema.Schema           `form:"schema" json:"schema"`
-	Indexes    types.JsonArray[string] `form:"indexes" json:"indexes"`
-	ListRule   *string                 `form:"listRule" json:"listRule"`
-	ViewRule   *string                 `form:"viewRule" json:"viewRule"`
-	CreateRule *string                 `form:"createRule" json:"createRule"`
-	UpdateRule *string                 `form:"updateRule" json:"updateRule"`
-	DeleteRule *string                 `form:"deleteRule" json:"deleteRule"`
-	Options    types.JsonMap           `form:"options" json:"options"`
+	Id          string                  `form:"id" json:"id"`
+	Type        string                  `form:"type" json:"type"`
+	Name        string                  `form:"name" json:"name"`
+	DisplayName *string                 `form:"displayName" json:"displayName"`
+	Project     *string                 `form:"project" json:"project"`
+	System      bool                    `form:"system" json:"system"`
+	Schema      schema.Schema           `form:"schema" json:"schema"`
+	Indexes     types.JsonArray[string] `form:"indexes" json:"indexes"`
+	ListRule    *string                 `form:"listRule" json:"listRule"`
+	ViewRule    *string                 `form:"viewRule" json:"viewRule"`
+	CreateRule  *string                 `form:"createRule" json:"createRule"`
+	UpdateRule  *string                 `form:"updateRule" json:"updateRule"`
+	DeleteRule  *string                 `form:"deleteRule" json:"deleteRule"`
+	Options     types.JsonMap           `form:"options" json:"options"`
 }
 
 // NewCollectionUpsert creates a new [CollectionUpsert] form with initializer
@@ -58,6 +60,8 @@ func NewCollectionUpsert(app core.App, collection *models.Collection) *Collectio
 	form.Id = form.collection.Id
 	form.Type = form.collection.Type
 	form.Name = form.collection.Name
+	form.DisplayName = form.collection.DisplayName
+	form.Project = form.collection.Project
 	form.System = form.collection.System
 	form.Indexes = form.collection.Indexes
 	form.ListRule = form.collection.ListRule
@@ -131,6 +135,12 @@ func (form *CollectionUpsert) Validate() error {
 			validation.Match(collectionNameRegex),
 			validation.By(form.ensureNoSystemNameChange),
 			validation.By(form.checkUniqueName),
+		),
+		validation.Field(
+			&form.DisplayName,
+			validation.Required,
+			validation.Length(1, 255),
+			validation.By(form.ensureNoSystemNameChange),
 		),
 		// validates using the type's own validation rules + some collection's specifics
 		validation.Field(
@@ -534,6 +544,8 @@ func (form *CollectionUpsert) Submit(interceptors ...InterceptorFunc[*models.Col
 		}
 	}
 
+	form.collection.Project = form.Project
+	form.collection.DisplayName = form.DisplayName
 	form.collection.ListRule = form.ListRule
 	form.collection.ViewRule = form.ViewRule
 	form.collection.CreateRule = form.CreateRule

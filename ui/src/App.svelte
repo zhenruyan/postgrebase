@@ -85,7 +85,6 @@
             </a>
 
             <nav class="main-menu">
-               
                 <a
                     href="/collections"
                     class="menu-item"
@@ -94,31 +93,14 @@
                     use:active={{ path: "/collections/?.*", className: "current-route" }}
                     use:tooltip={{ text: "表结构", position: "right" }}
                 >
-                <div>
                     <div>
-                        <i class="ri-database-2-line" />
+                        <div>
+                            <i class="ri-database-2-line" />
+                        </div>
+                        <p>表结构</p>
                     </div>
-                    <p>表结构</p>
-                </div>
-            
                 </a>
-                <a
-                    href="/logs"
-                    class="menu-item"
-                    aria-label="Logs"
-                    use:link
-                    use:active={{ path: "/logs/?.*", className: "current-route" }}
-                    use:tooltip={{ text: "访问日志", position: "right" }}
-                >
-             
-                <div>
-                    <div>
-                        <i class="ri-line-chart-line" />
-                    </div>
-                    <p>日志</p>
-                </div>
-                   
-                </a>
+
                 <a
                     href="/settings"
                     class="menu-item"
@@ -126,12 +108,11 @@
                     use:link
                     use:active={{ path: "/settings/?.*", className: "current-route" }}
                     use:tooltip={{ text: "设置", position: "right" }}
-                >   
-                <div>
-                    <div><i class="ri-tools-line" /></div>
-                    <p>设置</p>
-                </div>
-                    
+                >
+                    <div>
+                        <div><i class="ri-tools-line" /></div>
+                        <p>设置</p>
+                    </div>
                 </a>
             </nav>
 

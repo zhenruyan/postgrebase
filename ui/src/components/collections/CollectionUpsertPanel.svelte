@@ -72,7 +72,7 @@
     // update indexes on collection rename
     $: if (collection?.name && original?.name != collection?.name) {
         collection.indexes = collection.indexes?.map((idx) =>
-            CommonHelper.replaceIndexTableName(idx, collection.name)
+            CommonHelper.replaceIndexTableName(idx, collection.name),
         );
     }
 
@@ -147,11 +147,7 @@
                 confirmClose = false;
                 hide();
 
-                addSuccessToast(
-                    collection.$isNew
-                        ? "建表成功."
-                        : "更新成功."
-                );
+                addSuccessToast(collection.$isNew ? "建表成功." : "更新成功.");
 
                 dispatch("save", {
                     isNew: collection.$isNew,
@@ -329,6 +325,23 @@
                         e.target.value = collection.name;
                     }}
                 />
+                <br />
+
+                <label for={uniqueId}>DisplayName</label>
+                <input
+                    type="text"
+                    id={uniqueId}
+                    disabled={isSystemUpdate}
+                    spellcheck="false"
+                    autofocus={collection.$isNew}
+                    value={collection.displayName}
+                    on:input={(e) => {
+                        collection.displayName = CommonHelper.slugify(e.target.value);
+                        e.target.value = collection.displayName;
+                    }}
+                />
+
+                <!-- <RelationField {field} bind:value={record[field.name]} /> -->
 
                 <div class="form-field-addon">
                     <button

@@ -15,7 +15,6 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/migrations"
-	"github.com/pocketbase/pocketbase/migrations/logs"
 	"github.com/pocketbase/pocketbase/tools/migrate"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
@@ -158,10 +157,6 @@ func runMigrations(app core.App) error {
 		{
 			DB:             app.DB(),
 			MigrationsList: migrations.AppMigrations,
-		},
-		{
-			DB:             app.LogsDB(),
-			MigrationsList: logs.LogsMigrations,
 		},
 	}
 

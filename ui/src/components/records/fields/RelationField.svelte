@@ -73,7 +73,7 @@
                 ApiClient.collection(field?.options?.collectionId).getFullList(batchSize, {
                     filter: filters.join("||"),
                     $autoCancel: false,
-                })
+                }),
             );
         }
 

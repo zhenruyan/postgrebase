@@ -473,7 +473,7 @@
                             <i class="ri-information-line" />
                         </div>
                         <div class="flex flex-gap-xs">
-                           当前记录存在草稿
+                            当前记录存在草稿
                             <button
                                 type="button"
                                 class="btn btn-sm btn-secondary"

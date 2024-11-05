@@ -1,0 +1,2 @@
+import{S as o,i,s as r,e as c,f as u,g as l,y as s,o as f,H as h}from"./index-74848680.js";function d(n){let t;return{c(){t=c("div"),t.innerHTML=`<h3 class="m-b-sm">OAuth登录</h3> 
+    <h5>如果窗口没能自动关闭，那么请手动关掉它。</h5>`,u(t,"class","content txt-hint txt-center p-base")},m(e,a){l(e,t,a)},p:s,i:s,o:s,d(e){e&&f(t)}}}function m(n){return h(()=>{window.close()}),[]}class x extends o{constructor(t){super(),i(this,t,m,d,r,{})}}export{x as default};

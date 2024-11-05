@@ -2,7 +2,6 @@ package forms
 
 import (
 	"os"
-	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/daos"
@@ -76,11 +75,6 @@ func (form *SettingsUpsert) Submit(interceptors ...InterceptorFunc[*settings.Set
 
 			return err
 		}
-
-		// explicitly trigger old logs deletion
-		form.app.LogsDao().DeleteOldRequests(
-			time.Now().AddDate(0, 0, -1*form.Settings.Logs.MaxDays),
-		)
 
 		return nil
 	}, interceptors...)

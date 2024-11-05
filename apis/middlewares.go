@@ -2,20 +2,14 @@ package apis
 
 import (
 	"fmt"
-	"log"
-	"net"
-	"net/http"
 	"strings"
-	"time"
 
 	"github.com/labstack/echo/v5"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/models"
 	"github.com/pocketbase/pocketbase/tokens"
 	"github.com/pocketbase/pocketbase/tools/list"
-	"github.com/pocketbase/pocketbase/tools/routine"
 	"github.com/pocketbase/pocketbase/tools/security"
-	"github.com/pocketbase/pocketbase/tools/types"
 	"github.com/spf13/cast"
 )
 
@@ -286,113 +280,9 @@ func ActivityLogger(app core.App) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			err := next(c)
-
-			logsMaxDays := app.Settings().Logs.MaxDays
-
-			// no logs retention
-			if logsMaxDays == 0 {
-				return err
-			}
-
-			httpRequest := c.Request()
-			httpResponse := c.Response()
-			status := httpResponse.Status
-			meta := types.JsonMap{}
-
-			if err != nil {
-				switch v := err.(type) {
-				case *echo.HTTPError:
-					status = v.Code
-					meta["errorMessage"] = v.Message
-					meta["errorDetails"] = fmt.Sprint(v.Internal)
-				case *ApiError:
-					status = v.Code
-					meta["errorMessage"] = v.Message
-					meta["errorDetails"] = fmt.Sprint(v.RawData())
-				default:
-					status = http.StatusBadRequest
-					meta["errorMessage"] = v.Error()
-				}
-			}
-
-			requestAuth := models.RequestAuthGuest
-			if c.Get(ContextAuthRecordKey) != nil {
-				requestAuth = models.RequestAuthRecord
-			} else if c.Get(ContextAdminKey) != nil {
-				requestAuth = models.RequestAuthAdmin
-			}
-
-			ip, _, _ := net.SplitHostPort(httpRequest.RemoteAddr)
-
-			model := &models.Request{
-				Url:       httpRequest.URL.RequestURI(),
-				Method:    strings.ToUpper(httpRequest.Method),
-				Status:    status,
-				Auth:      requestAuth,
-				UserIp:    realUserIp(httpRequest, ip),
-				RemoteIp:  ip,
-				Referer:   httpRequest.Referer(),
-				UserAgent: httpRequest.UserAgent(),
-				Meta:      meta,
-			}
-			// set timestamp fields before firing a new go routine
-			model.RefreshCreated()
-			model.RefreshUpdated()
-
-			routine.FireAndForget(func() {
-				if err := app.LogsDao().SaveRequest(model); err != nil && app.IsDebug() {
-					log.Println("Log save failed:", err)
-				}
-
-				// Delete old request logs
-				// ---
-				now := time.Now()
-				lastLogsDeletedAt := cast.ToTime(app.Cache().Get("lastLogsDeletedAt"))
-				daysDiff := now.Sub(lastLogsDeletedAt).Hours() * 24
-
-				if daysDiff > float64(logsMaxDays) {
-					deleteErr := app.LogsDao().DeleteOldRequests(now.AddDate(0, 0, -1*logsMaxDays))
-					if deleteErr == nil {
-						app.Cache().Set("lastLogsDeletedAt", now)
-					} else if app.IsDebug() {
-						log.Println("Logs delete failed:", deleteErr)
-					}
-				}
-			})
-
 			return err
 		}
 	}
-}
-
-// Returns the "real" user IP from common proxy headers (or fallbackIp if none is found).
-//
-// The returned IP value shouldn't be trusted if not behind a trusted reverse proxy!
-func realUserIp(r *http.Request, fallbackIp string) string {
-	if ip := r.Header.Get("CF-Connecting-IP"); ip != "" {
-		return ip
-	}
-
-	if ip := r.Header.Get("Fly-Client-IP"); ip != "" {
-		return ip
-	}
-
-	if ip := r.Header.Get("X-Real-IP"); ip != "" {
-		return ip
-	}
-
-	if ipsList := r.Header.Get("X-Forwarded-For"); ipsList != "" {
-		// extract the first non-empty leftmost-ish ip
-		ips := strings.Split(ipsList, ",")
-		for _, ip := range ips {
-			ip = strings.TrimSpace(ip)
-			if ip != "" {
-				return ip
-			}
-		}
-	}
-
-	return fallbackIp
 }
 
 // eagerRequestInfoCache ensures that the request data is cached in the request

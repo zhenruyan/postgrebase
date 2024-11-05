@@ -49,7 +49,6 @@ type Config struct {
 	DefaultDebug         bool
 	DefaultDataDir       string // if not set, it will fallback to "./pb_data"
 	DefaultDataDsn       string // if not set, it will fallback to "postgresql://<username>:<password>@<host>:<port>/<database>?sslmode=verify-full"
-	DefaultLogDsn        string // if not set, it will fallback to "postgresql://<username>:<password>@<host>:<port>/<database>?sslmode=verify-full"
 	RedisDsn             string //redis://<user>:<pass>@localhost:6379/<db>
 	DefaultEncryptionEnv string
 
@@ -95,9 +94,6 @@ func NewWithConfig(config Config) *PocketBase {
 	if config.DefaultDataDsn == "" {
 		config.DefaultDataDsn = "postgresql://root@127.0.0.1:26257/data?sslmode=disable"
 	}
-	if config.DefaultLogDsn == "" {
-		config.DefaultLogDsn = "postgresql://root@127.0.0.1:26257/logs?sslmode=disable"
-	}
 	if config.RedisDsn == "" {
 		config.RedisDsn = "redis://localhost:6379/0"
 	}
@@ -122,7 +118,6 @@ func NewWithConfig(config Config) *PocketBase {
 		debugFlag:         config.DefaultDebug,
 		dataDirFlag:       config.DefaultDataDir,
 		redisFlag:         config.RedisDsn,
-		dataLogFlag:       config.DefaultLogDsn,
 		dataDataFlag:      config.DefaultDataDsn,
 		encryptionEnvFlag: config.DefaultEncryptionEnv,
 		hideStartBanner:   config.HideStartBanner,
@@ -135,7 +130,6 @@ func NewWithConfig(config Config) *PocketBase {
 	// initialize the app instance
 	pb.appWrapper = &appWrapper{core.NewBaseApp(core.BaseAppConfig{
 		DataDir:          pb.dataDirFlag,
-		LogDsn:           pb.dataLogFlag,
 		DataDsn:          pb.dataDataFlag,
 		RedisDsn:         pb.redisFlag,
 		EncryptionEnv:    pb.encryptionEnvFlag,
@@ -213,12 +207,7 @@ func (pb *PocketBase) eagerParseFlags(config *Config) error {
 		config.DefaultDataDir,
 		"the PocketBase data directory",
 	)
-	pb.RootCmd.PersistentFlags().StringVar(
-		&pb.dataLogFlag,
-		"logDsn",
-		config.DefaultLogDsn,
-		"store logs postgresql dsn(default postgresql://root@127.0.0.1:26257/logs?sslmode=disable)",
-	)
+
 	pb.RootCmd.PersistentFlags().StringVar(
 		&pb.dataDataFlag,
 		"dataDsn",

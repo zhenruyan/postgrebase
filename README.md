@@ -67,7 +67,6 @@ Flags:
       --hooksPool int          the total prewarm goja.Runtime instances for the JS app hooks execution (default 50)
       --hooksWatch             auto restart the app on pb_hooks file change (default true)
       --indexFallback          fallback the request to index.html on missing static path (eg. when pretty urls are used with SPA) (default true)
-      --logDsn string          store logs postgresql dsn(default postgresql://root@127.0.0.1:26257/logs?sslmode=disable) (default "postgresql://root@127.0.0.1:26257/logs?sslmode=disable")
       --migrationsDir string   the directory with the user defined migrations
       --publicDir string       the directory to serve static files (default "D:\\src\\postgresqlbaseapi\\pb_public")
       --queryTimeout int       the default SELECT queries timeout in seconds (default 30)

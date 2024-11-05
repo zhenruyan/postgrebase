@@ -131,7 +131,6 @@ func InitApi(app core.App) (*echo.Echo, error) {
 	bindRecordAuthApi(app, api)
 	bindFileApi(app, api)
 	bindRealtimeApi(app, api)
-	bindLogsApi(app, api)
 	bindHealthApi(app, api)
 	bindBackupApi(app, api)
 

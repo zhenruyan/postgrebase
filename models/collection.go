@@ -23,11 +23,13 @@ const (
 type Collection struct {
 	BaseModel
 
-	Name    string                  `db:"name" json:"name"`
-	Type    string                  `db:"type" json:"type"`
-	System  bool                    `db:"system" json:"system"`
-	Schema  schema.Schema           `db:"schema" json:"schema"`
-	Indexes types.JsonArray[string] `db:"indexes" json:"indexes"`
+	Name        string                  `db:"name" json:"name"`
+	Type        string                  `db:"type" json:"type"`
+	System      bool                    `db:"system" json:"system"`
+	Schema      schema.Schema           `db:"schema" json:"schema"`
+	Indexes     types.JsonArray[string] `db:"indexes" json:"indexes"`
+	DisplayName *string                 `db:"display_name" json:"displayName"`
+	Project     *string                 `db:"project" json:"project"`
 
 	// rules
 	ListRule   *string `db:"listRule" json:"listRule"`

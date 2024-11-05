@@ -1,6 +1,7 @@
 package apis
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v5"
@@ -119,6 +120,7 @@ func (api *collectionApi) update(c echo.Context) error {
 
 	form := forms.NewCollectionUpsert(api.app, collection)
 
+	fmt.Println(form.DisplayName)
 	// load request
 	if err := c.Bind(form); err != nil {
 		return NewBadRequestError("Failed to load the submitted data due to invalid formatting.", err)

@@ -55,6 +55,8 @@ func init() {
 				[[system]]     BOOLEAN DEFAULT FALSE NOT NULL,
 				[[type]]       text DEFAULT 'base' NOT NULL,
 				[[name]]       text UNIQUE NOT NULL,
+				[[display_name]]       text DEFAULT  NULL,
+				[[project]]   text DEFAULT NULL,
 				[[schema]]     text DEFAULT '[]' NOT NULL,
 				[[indexes]]    text DEFAULT '[]' NOT NULL,
 				[[listRule]]   text DEFAULT NULL,
@@ -149,7 +151,37 @@ func init() {
 			},
 		)
 
-		return dao.SaveCollection(usersCollection)
+		err := dao.SaveCollection(usersCollection)
+		if err != nil {
+			return err
+		}
+		//
+		ProjectCollection := &models.Collection{}
+		ProjectCollection.MarkAsNew()
+		ProjectCollection.Id = "_pb_project_"
+		ProjectCollection.Name = "project"
+		ProjectCollection.Type = models.CollectionTypeBase
+		ProjectCollection.ListRule = types.Pointer("id = @request.auth.id")
+		ProjectCollection.ViewRule = types.Pointer("id = @request.auth.id")
+		ProjectCollection.CreateRule = types.Pointer("")
+		ProjectCollection.UpdateRule = types.Pointer("id = @request.auth.id")
+		ProjectCollection.DeleteRule = types.Pointer("id = @request.auth.id")
+
+		// set optional default fields
+		ProjectCollection.Schema = schema.NewSchema(
+			&schema.SchemaField{
+				Id:      "project_name",
+				Type:    schema.FieldTypeText,
+				Name:    "name",
+				Options: &schema.TextOptions{},
+			},
+		)
+
+		err = dao.SaveCollection(ProjectCollection)
+		if err != nil {
+			return err
+		}
+		return nil
 	}, func(db dbx.Builder) error {
 		tables := []string{
 			"users",
