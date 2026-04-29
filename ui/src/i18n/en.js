@@ -52,5 +52,21 @@ export default {
     "Token Options": "Tokens",
     "Admin Management": "Admins",
     "Migration": "Migration",
-    "Auth Settings": "Auth"
+    "Auth Settings": "Auth",
+    "App Name": "App Name",
+    "App URL": "App URL",
+    "Disable Collection Modifications": "Disable Collection Modifications",
+    "Hides buttons related to collection schema settings.": "Hides buttons related to collection schema settings.",
+    "Adjust common token options.": "Adjust common token options.",
+    "Record tokens": "Record tokens",
+    "Admin tokens": "Admin tokens",
+    "Auth record authentication token": "Auth record authentication token",
+    "Auth record email verification token": "Auth record email verification token",
+    "Auth record password reset token": "Auth record password reset token",
+    "Auth record email change token": "Auth record email change token",
+    "Records protected file access token": "Records protected file access token",
+    "Admins auth token": "Admins auth token",
+    "Admins password reset token": "Admins password reset token",
+    "Admins protected file access token": "Admins protected file access token",
+    "Save changes": "Save changes"
 };

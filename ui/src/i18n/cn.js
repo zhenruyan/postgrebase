@@ -52,5 +52,21 @@ export default {
     "Token Options": "Token 设置",
     "Admin Management": "管理员管理",
     "Migration": "迁移",
-    "Auth Settings": "Auth设置"
+    "Auth Settings": "Auth设置",
+    "App Name": "应用名",
+    "App URL": "应用地址",
+    "Disable Collection Modifications": "禁用修改表结构",
+    "Hides buttons related to collection schema settings.": "当你选择禁用后，表结构设置相关按钮会隐藏.",
+    "Adjust common token options.": "调整通用 Token 选项。",
+    "Record tokens": "记录 Token",
+    "Admin tokens": "管理员 Token",
+    "Auth record authentication token": "认证记录身份验证 Token",
+    "Auth record email verification token": "认证记录邮箱验证 Token",
+    "Auth record password reset token": "认证记录密码重置 Token",
+    "Auth record email change token": "认证记录邮箱变更 Token",
+    "Records protected file access token": "记录保护文件访问 Token",
+    "Admins auth token": "管理员身份验证 Token",
+    "Admins password reset token": "管理员密码重置 Token",
+    "Admins protected file access token": "管理员保护文件访问 Token",
+    "Save changes": "保存更改"
 };

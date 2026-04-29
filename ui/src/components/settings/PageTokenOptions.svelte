@@ -4,6 +4,7 @@
     import TokenField from "@/components/settings/TokenField.svelte";
     import { pageTitle } from "@/stores/app";
     import { addSuccessToast } from "@/stores/toasts";
+    import { t } from "@/i18n";
     import ApiClient from "@/utils/ApiClient";
     import CommonHelper from "@/utils/CommonHelper";
 
@@ -21,7 +22,7 @@
         { key: "adminFileToken", label: "Admins protected file access token" },
     ];
 
-    $pageTitle = "Token 设置";
+    $pageTitle = $t("Token Options");
 
     let originalFormSettings = {};
     let formSettings = {};
@@ -90,7 +91,7 @@
 <PageWrapper>
     <header class="page-header">
         <nav class="breadcrumbs">
-            <div class="breadcrumb-item">设置</div>
+            <div class="breadcrumb-item">{$t("Settings")}</div>
             <div class="breadcrumb-item">{$pageTitle}</div>
         </nav>
     </header>
@@ -98,17 +99,17 @@
     <div class="wrapper">
         <form class="panel" autocomplete="off" on:submit|preventDefault={save}>
             <div class="content m-b-sm txt-xl">
-                <p>Adjust common token options.</p>
+                <p>{$t("Adjust common token options.")}</p>
             </div>
 
             {#if isLoading}
                 <div class="loader" />
             {:else}
-                <h3 class="section-title">Record tokens</h3>
+                <h3 class="section-title">{$t("Record tokens")}</h3>
                 {#each recordTokensList as token (token.key)}
                     <TokenField
                         key={token.key}
-                        label={token.label}
+                        label={$t(token.label)}
                         bind:duration={formSettings[token.key].duration}
                         bind:secret={formSettings[token.key].secret}
                     />
@@ -116,11 +117,11 @@
 
                 <hr />
 
-                <h3 class="section-title">Admin tokens</h3>
+                <h3 class="section-title">{$t("Admin tokens")}</h3>
                 {#each adminTokensList as token (token.key)}
                     <TokenField
                         key={token.key}
-                        label={token.label}
+                        label={$t(token.label)}
                         bind:duration={formSettings[token.key].duration}
                         bind:secret={formSettings[token.key].secret}
                     />
@@ -135,7 +136,7 @@
                             disabled={isSaving}
                             on:click={() => reset()}
                         >
-                            <span class="txt">Cancel</span>
+                            <span class="txt">{$t("Cancel")}</span>
                         </button>
                     {/if}
                     <button
@@ -145,7 +146,7 @@
                         disabled={!hasChanges || isSaving}
                         on:click={() => save()}
                     >
-                        <span class="txt">Save changes</span>
+                        <span class="txt">{$t("Save changes")}</span>
                     </button>
                 </div>
             {/if}

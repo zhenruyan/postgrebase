@@ -5,10 +5,11 @@
     import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
     import { appName, hideControls, pageTitle } from "@/stores/app";
     import { addSuccessToast } from "@/stores/toasts";
+    import { t } from "@/i18n";
     import ApiClient from "@/utils/ApiClient";
     import CommonHelper from "@/utils/CommonHelper";
 
-    $pageTitle = "应用设置";
+    $pageTitle = $t("Application");
 
     let originalFormSettings = {};
     let formSettings = {};
@@ -59,7 +60,6 @@
 
         formSettings = {
             meta: settings?.meta || {},
-            logs: settings?.logs || {},
         };
 
         originalFormSettings = JSON.parse(JSON.stringify(formSettings));
@@ -75,8 +75,8 @@
 <PageWrapper>
     <header class="page-header">
         <nav class="breadcrumbs">
-            <div class="breadcrumb-item">系统管理</div>
-            <div class="breadcrumb-item">应用设置</div>
+            <div class="breadcrumb-item">{$t("System Management")}</div>
+            <div class="breadcrumb-item">{$pageTitle}</div>
         </nav>
     </header>
 
@@ -88,7 +88,7 @@
                 <div class="grid">
                     <div class="col-lg-6">
                         <Field class="form-field required" name="meta.appName" let:uniqueId>
-                            <label for={uniqueId}>应用名</label>
+                            <label for={uniqueId}>{$t("App Name")}</label>
                             <input
                                 type="text"
                                 id={uniqueId}
@@ -100,24 +100,19 @@
 
                     <div class="col-lg-6">
                         <Field class="form-field required" name="meta.appUrl" let:uniqueId>
-                            <label for={uniqueId}>应用地址 </label>
+                            <label for={uniqueId}>{$t("App URL")} </label>
                             <input type="text" id={uniqueId} required bind:value={formSettings.meta.appUrl} />
                         </Field>
                     </div>
 
-                    <Field class="form-field required" name="logs.maxDays" let:uniqueId>
-                        <label for={uniqueId}>日志最大保留天数</label>
-                        <input type="number" id={uniqueId} required bind:value={formSettings.logs.maxDays} />
-                    </Field>
-
                     <Field class="form-field form-field-toggle" name="meta.hideControls" let:uniqueId>
                         <input type="checkbox" id={uniqueId} bind:checked={formSettings.meta.hideControls} />
                         <label for={uniqueId}>
-                            <span class="txt">禁用修改表结构</span>
+                            <span class="txt">{$t("Disable Collection Modifications")}</span>
                             <i
                                 class="ri-information-line link-hint"
                                 use:tooltip={{
-                                    text: `当你选择禁用后，表结构设置相关按钮会隐藏.`,
+                                    text: $t("Hides buttons related to collection schema settings."),
                                     position: "right",
                                 }}
                             />
@@ -133,7 +128,7 @@
                                 disabled={isSaving}
                                 on:click={() => reset()}
                             >
-                                <span class="txt">取消</span>
+                                <span class="txt">{$t("Cancel")}</span>
                             </button>
                         {/if}
                         <button
@@ -143,7 +138,7 @@
                             disabled={!hasChanges || isSaving}
                             on:click={() => save()}
                         >
-                            <span class="txt">确定</span>
+                            <span class="txt">{$t("Save")}</span>
                         </button>
                     </div>
                 </div>
