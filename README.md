@@ -59,9 +59,6 @@ Flags:
       --encryptionEnv string   the env variable whose value of 32 characters will be used
                                as encryption key for the app settings (default none)
   -h, --help                   help for base.exe
-      --hooksDir string        the directory with the JS app hooks
-      --hooksPool int          the total prewarm goja.Runtime instances for the JS app hooks execution (default 50)
-      --hooksWatch             auto restart the app on pb_hooks file change (default true)
       --indexFallback          fallback the request to index.html on missing static path (eg. when pretty urls are used with SPA) (default true)
       --migrationsDir string   the directory with the user defined migrations
       --publicDir string       the directory to serve static files (default "D:\\src\\postgresqlbaseapi\\pb_public")

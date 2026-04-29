@@ -4,6 +4,7 @@
     import OverlayPanel from "@/components/base/OverlayPanel.svelte";
     import Toggler from "@/components/base/Toggler.svelte";
     import CollectionAuthOptionsTab from "@/components/collections/CollectionAuthOptionsTab.svelte";
+    import CollectionCacheTab from "@/components/collections/CollectionCacheTab.svelte";
     import CollectionFieldsTab from "@/components/collections/CollectionFieldsTab.svelte";
     import CollectionQueryTab from "@/components/collections/CollectionQueryTab.svelte";
     import CollectionRulesTab from "@/components/collections/CollectionRulesTab.svelte";
@@ -13,6 +14,7 @@
     import { errors, removeError, setErrors } from "@/stores/errors";
     import { addSuccessToast, removeAllToasts } from "@/stores/toasts";
     import { admin } from "@/stores/admin";
+    import { t } from "@/i18n";
     import ApiClient from "@/utils/ApiClient";
     import CommonHelper from "@/utils/CommonHelper";
     import { Collection } from "pocketbase";
@@ -21,6 +23,7 @@
 
     const TAB_SCHEMA = "schema";
     const TAB_RULES = "api_rules";
+    const TAB_CACHE = "cache";
     const TAB_OPTIONS = "options";
 
     const TYPE_BASE = "base";
@@ -443,6 +446,15 @@
                 {/if}
             </button>
 
+            <button
+                type="button"
+                class="tab-item"
+                class:active={activeTab === TAB_CACHE}
+                on:click={() => changeTab(TAB_CACHE)}
+            >
+                <span class="txt">{$t("Cache")}</span>
+            </button>
+
             {#if collection.$isAuth}
                 <button
                     type="button"
@@ -476,6 +488,12 @@
         {#if activeTab === TAB_RULES}
             <div class="tab-item active">
                 <CollectionRulesTab bind:collection />
+            </div>
+        {/if}
+
+        {#if activeTab === TAB_CACHE}
+            <div class="tab-item active">
+                <CollectionCacheTab bind:collection />
             </div>
         {/if}
 

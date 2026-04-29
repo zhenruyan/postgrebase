@@ -19,30 +19,6 @@ func main() {
 	// Optional plugin flags:
 	// ---------------------------------------------------------------
 
-	var hooksDir string
-	app.RootCmd.PersistentFlags().StringVar(
-		&hooksDir,
-		"hooksDir",
-		"",
-		"the directory with the JS app hooks",
-	)
-
-	var hooksWatch bool
-	app.RootCmd.PersistentFlags().BoolVar(
-		&hooksWatch,
-		"hooksWatch",
-		true,
-		"auto restart the app on pb_hooks file change",
-	)
-
-	var hooksPool int
-	app.RootCmd.PersistentFlags().IntVar(
-		&hooksPool,
-		"hooksPool",
-		50,
-		"the total prewarm goja.Runtime instances for the JS app hooks execution",
-	)
-
 	var migrationsDir string
 	app.RootCmd.PersistentFlags().StringVar(
 		&migrationsDir,

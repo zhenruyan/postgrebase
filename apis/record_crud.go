@@ -35,6 +35,10 @@ func bindRecordCrudApi(app core.App, rg *echo.Group) {
 	subGroup.DELETE("/records/:id", api.delete, LoadCollectionContext(app, models.CollectionTypeBase, models.CollectionTypeAuth))
 }
 
+func (api *recordApi) getCacheKey(collection *models.Collection, suffix string) string {
+	return "pb_cache:" + collection.Id + ":" + suffix
+}
+
 type recordApi struct {
 	app core.App
 }

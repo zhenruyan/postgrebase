@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -54,6 +55,7 @@ type BaseApp struct {
 	// internals
 	cache               *store.Store[any]
 	redisCache          *redis.Client
+	redisContext        context.Context
 	settings            *settings.Settings
 	dao                 *daos.Dao
 	logsDao             *daos.Dao
@@ -198,6 +200,7 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 		logsMaxOpenConns:    config.LogsMaxOpenConns,
 		logsMaxIdleConns:    config.LogsMaxIdleConns,
 		cache:               store.New[any](nil),
+		redisContext:        context.Background(),
 		settings:            settings.New(),
 		subscriptionsBroker: subscriptions.NewBroker(),
 
@@ -344,6 +347,10 @@ func (app *BaseApp) Bootstrap() error {
 	}
 
 	if err := app.initDataDB(); err != nil {
+		return err
+	}
+
+	if err := app.initRedis(); err != nil {
 		return err
 	}
 
@@ -1020,6 +1027,28 @@ func (app *BaseApp) initDataDB() error {
 }
 
 func (app *BaseApp) initRedis() error {
+	if app.redisDsn == "" {
+		return nil
+	}
+
+	opt, err := redis.ParseURL(app.redisDsn)
+	if err != nil {
+		return err
+	}
+
+	app.redisCache = redis.NewClient(opt)
+
+	// test connection
+	ctx, cancel := context.WithTimeout(app.redisContext, 5*time.Second)
+	defer cancel()
+	if _, err := app.redisCache.Ping(ctx).Result(); err != nil {
+		app.redisCache = nil // disable redis if connection fails
+		if app.IsDebug() {
+			color.Red("Redis connection failed: %v", err)
+		}
+	} else if app.IsDebug() {
+		color.Green("Redis connected successfully")
+	}
 
 	return nil
 }
@@ -1130,4 +1159,49 @@ func (app *BaseApp) registerDefaultHooks() {
 	if err := app.initAutobackupHooks(); err != nil && app.IsDebug() {
 		log.Println(err)
 	}
+
+	app.OnModelAfterCreate().Add(func(e *ModelEvent) error {
+		return app.clearRedisCache(e.Model)
+	})
+
+	app.OnModelAfterUpdate().Add(func(e *ModelEvent) error {
+		return app.clearRedisCache(e.Model)
+	})
+
+	app.OnModelAfterDelete().Add(func(e *ModelEvent) error {
+		return app.clearRedisCache(e.Model)
+	})
+}
+
+func (app *BaseApp) clearRedisCache(m models.Model) error {
+	if app.redisCache == nil {
+		return nil
+	}
+
+	// Only clear cache for Records
+	record, ok := m.(*models.Record)
+	if !ok {
+		return nil
+	}
+
+	collection := record.Collection()
+	if collection == nil {
+		return nil
+	}
+
+	if !collection.CacheEnabled && !collection.ListCacheEnabled && !collection.SearchCacheEnabled {
+		return nil
+	}
+
+	ctx := context.Background()
+	pattern := fmt.Sprintf("pb_cache:%s:*", collection.Id)
+
+	// In a real scenario, we would use SCAN to find keys.
+	// For simplicity and standard PB behavior of "clearing collection cache":
+	iter := app.redisCache.Scan(ctx, 0, pattern, 0).Iterator()
+	for iter.Next(ctx) {
+		app.redisCache.Del(ctx, iter.Val())
+	}
+
+	return iter.Err()
 }

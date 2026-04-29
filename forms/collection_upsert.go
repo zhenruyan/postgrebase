@@ -32,6 +32,10 @@ type CollectionUpsert struct {
 	Name        string                  `form:"name" json:"name"`
 	DisplayName *string                 `form:"displayName" json:"displayName"`
 	Project     *string                 `form:"project" json:"project"`
+	CacheEnabled      bool              `form:"cacheEnabled" json:"cacheEnabled"`
+	ListCacheEnabled   bool              `form:"listCacheEnabled" json:"listCacheEnabled"`
+	SearchCacheEnabled bool              `form:"searchCacheEnabled" json:"searchCacheEnabled"`
+	CacheDuration     int               `form:"cacheDuration" json:"cacheDuration"`
 	System      bool                    `form:"system" json:"system"`
 	Schema      schema.Schema           `form:"schema" json:"schema"`
 	Indexes     types.JsonArray[string] `form:"indexes" json:"indexes"`
@@ -62,6 +66,10 @@ func NewCollectionUpsert(app core.App, collection *models.Collection) *Collectio
 	form.Name = form.collection.Name
 	form.DisplayName = form.collection.DisplayName
 	form.Project = form.collection.Project
+	form.CacheEnabled = form.collection.CacheEnabled
+	form.ListCacheEnabled = form.collection.ListCacheEnabled
+	form.SearchCacheEnabled = form.collection.SearchCacheEnabled
+	form.CacheDuration = form.collection.CacheDuration
 	form.System = form.collection.System
 	form.Indexes = form.collection.Indexes
 	form.ListRule = form.collection.ListRule
@@ -546,12 +554,19 @@ func (form *CollectionUpsert) Submit(interceptors ...InterceptorFunc[*models.Col
 
 	form.collection.Project = form.Project
 	form.collection.DisplayName = form.DisplayName
+	form.collection.CacheEnabled = form.CacheEnabled
+	form.collection.ListCacheEnabled = form.ListCacheEnabled
+	form.collection.SearchCacheEnabled = form.SearchCacheEnabled
+	form.collection.CacheDuration = form.CacheDuration
 	form.collection.ListRule = form.ListRule
 	form.collection.ViewRule = form.ViewRule
 	form.collection.CreateRule = form.CreateRule
 	form.collection.UpdateRule = form.UpdateRule
 	form.collection.DeleteRule = form.DeleteRule
-	form.collection.SetOptions(form.Options)
+
+	if err := form.collection.SetOptions(form.Options); err != nil {
+		return err
+	}
 
 	return runInterceptors(form.collection, func(collection *models.Collection) error {
 		return form.dao.SaveCollection(collection)

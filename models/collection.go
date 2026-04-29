@@ -31,6 +31,12 @@ type Collection struct {
 	DisplayName *string                 `db:"display_name" json:"displayName"`
 	Project     *string                 `db:"project" json:"project"`
 
+	// cache settings
+	CacheEnabled      bool `db:"cache_enabled" json:"cacheEnabled"`
+	ListCacheEnabled   bool `db:"list_cache_enabled" json:"listCacheEnabled"`
+	SearchCacheEnabled bool `db:"search_cache_enabled" json:"searchCacheEnabled"`
+	CacheDuration     int  `db:"cache_duration" json:"cacheDuration"` // in seconds
+
 	// rules
 	ListRule   *string `db:"listRule" json:"listRule"`
 	ViewRule   *string `db:"viewRule" json:"viewRule"`
