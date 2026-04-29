@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PostgresBase - The Enterprise PocketBase Fork</title>
+    <!-- Material Symbols & Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <style>
+        :root {
+            --md-sys-color-primary: #6750A4;
+            --md-sys-color-on-primary: #FFFFFF;
+            --md-sys-color-primary-container: #EADDFF;
+            --md-sys-color-on-primary-container: #21005D;
+            --md-sys-color-secondary: #625B71;
+            --md-sys-color-surface: #FEF7FF;
+            --md-sys-color-on-surface: #1D1B20;
+            --md-sys-color-surface-variant: #E7E0EB;
+            --md-sys-color-on-surface-variant: #49454F;
+            --md-sys-color-outline: #79747E;
+            --radius-large: 28px;
+            --radius-medium: 16px;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--md-sys-color-surface);
+            color: var(--md-sys-color-on-surface);
+            line-height: 1.5;
+        }
+
+        h1, h2, h3 { font-family: 'Google Sans', sans-serif; }
+
+        /* Top App Bar */
+        .top-app-bar {
+            height: 64px;
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            background: var(--md-sys-color-surface);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--md-sys-color-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-links {
+            margin-left: auto;
+            display: flex;
+            gap: 32px;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--md-sys-color-on-surface-variant);
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 80px 24px;
+            text-align: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .hero h1 {
+            font-size: 56px;
+            margin-bottom: 24px;
+            letter-spacing: -0.5px;
+            color: var(--md-sys-color-on-surface);
+        }
+
+        .hero p {
+            font-size: 20px;
+            color: var(--md-sys-color-on-surface-variant);
+            max-width: 700px;
+            margin: 0 auto 40px;
+        }
+
+        /* Buttons (M3 Style) */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 0 24px;
+            height: 40px;
+            border-radius: 20px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-filled {
+            background-color: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+        }
+
+        .btn-filled:hover { box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+
+        .btn-tonal {
+            background-color: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+            margin-left: 12px;
+        }
+
+        /* Feature Grid */
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            padding: 40px 24px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--md-sys-color-surface-variant);
+            padding: 32px;
+            border-radius: var(--radius-large);
+            transition: transform 0.2s;
+        }
+
+        .card:hover { transform: translateY(-4px); }
+
+        .card .icon {
+            color: var(--md-sys-color-primary);
+            font-size: 32px;
+            margin-bottom: 16px;
+        }
+
+        .card h3 { margin: 0 0 12px 0; font-size: 24px; }
+
+        /* Code Block */
+        .code-snippet {
+            background: #1E1B24;
+            color: #E6E1E5;
+            padding: 24px;
+            border-radius: var(--radius-medium);
+            text-align: left;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 14px;
+            max-width: 800px;
+            margin: 40px auto;
+            overflow-x: auto;
+        }
+
+        footer {
+            padding: 64px 24px;
+            text-align: center;
+            border-top: 1px solid var(--md-sys-color-outline);
+            margin-top: 80px;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+
+        .lang-btn {
+            background: var(--md-sys-color-secondary-container);
+            color: var(--md-sys-color-on-secondary-container);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            cursor: pointer;
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 36px; }
+            .nav-links { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="top-app-bar">
+        <a href="index.html" class="logo">
+            <span class="material-symbols-outlined">database</span>
+            PostgresBase
+        </a>
+        <nav class="nav-links">
+            <a href="#features" data-i18n="nav-features">Features</a>
+            <a href="docs.html" data-i18n="nav-docs">Documentation</a>
+            <button id="lang-toggle" class="lang-btn">
+                <span class="material-symbols-outlined" style="font-size: 16px;">translate</span>
+                <span data-i18n="lang-toggle">中文</span>
+            </button>
+            <a href="https://github.com/free/postgresqlbaseapi">GitHub</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <h1 data-i18n="hero-title">PocketBase, but with PostgreSQL & MySQL.</h1>
+            <p data-i18n="hero-subtitle">The open-source backend you love, now enhanced for enterprise high-pressure environments with native SQL support and Redis caching.</p>
+            <div class="actions">
+                <a href="docs.html" class="btn btn-filled" data-i18n="get-started">Get Started</a>
+                <a href="https://github.com/free/postgresqlbaseapi" class="btn btn-tonal" data-i18n="view-github">View GitHub</a>
+            </div>
+
+            <div class="code-snippet">
+                # Install and serve with PostgreSQL<br>
+                ./pb serve --dataDsn "postgresql://user:pass@127.0.0.1:5432/db"
+            </div>
+        </section>
+
+        <section id="features" class="features">
+            <div class="card">
+                <span class="material-symbols-outlined icon">layers</span>
+                <h3 data-i18n="feature-sql-title">PostgreSQL & MySQL</h3>
+                <p data-i18n="feature-sql-desc">Swap SQLite for robust SQL engines. Perfect for clustered environments and high-concurrency scenarios.</p>
+            </div>
+            <div class="card">
+                <span class="material-symbols-outlined icon">bolt</span>
+                <h3 data-i18n="feature-redis-title">Redis Caching</h3>
+                <p data-i18n="feature-redis-desc">Configurable Redis cache for records, lists, and searches. Automatic invalidation on data updates.</p>
+            </div>
+            <div class="card">
+                <span class="material-symbols-outlined icon">folder_shared</span>
+                <h3 data-i18n="feature-projects-title">Project Scoping</h3>
+                <p data-i18n="feature-projects-desc">Organize your collections into logical projects for better management and a cleaner dashboard.</p>
+            </div>
+            <div class="card">
+                <span class="material-symbols-outlined icon">translate</span>
+                <h3 data-i18n="feature-i18n-title">Native I18n</h3>
+                <p data-i18n="feature-i18n-desc">Fully internationalized admin dashboard supporting English and Chinese out of the box.</p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p data-i18n="footer-text">&copy; 2024 PostgresBase API Project. Built on the shoulders of PocketBase.</p>
+    </footer>
+
+    <script src="js/translations.js"></script>
+    <script src="js/i18n.js"></script>
+
+</body>
+</html>

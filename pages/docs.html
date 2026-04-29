@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentation - PostgresBase</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <style>
+        :root {
+            --md-sys-color-primary: #6750A4;
+            --md-sys-color-surface: #FEF7FF;
+            --md-sys-color-surface-container: #F3EDF7;
+            --md-sys-color-on-surface: #1D1B20;
+            --md-sys-color-secondary-container: #E8DEF8;
+            --radius-large: 28px;
+        }
+
+        body {
+            margin: 0;
+            display: flex;
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--md-sys-color-surface);
+            color: var(--md-sys-color-on-surface);
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 300px;
+            background-color: var(--md-sys-color-surface-container);
+            height: 100vh;
+            position: sticky;
+            top: 0;
+            padding: 24px;
+            box-sizing: border-box;
+            border-radius: 0 var(--radius-large) var(--radius-large) 0;
+        }
+
+        .sidebar h2 { font-family: 'Google Sans'; font-size: 18px; margin-bottom: 24px; }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 16px;
+            height: 48px;
+            border-radius: 24px;
+            text-decoration: none;
+            color: var(--md-sys-color-on-surface);
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .nav-item:hover { background: rgba(103, 80, 164, 0.08); }
+        .nav-item.active { background: var(--md-sys-color-secondary-container); }
+
+        /* Main Content */
+        .content {
+            flex: 1;
+            padding: 64px 80px;
+            max-width: 900px;
+        }
+
+        .content h1 { font-family: 'Google Sans'; font-size: 45px; }
+        .content h2 { margin-top: 48px; border-bottom: 1px solid #ddd; padding-bottom: 8px; }
+        
+        pre {
+            background: #f4f4f4;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+
+        code { font-family: 'Roboto Mono', monospace; }
+
+        .lang-btn {
+            background: var(--md-sys-color-secondary-container);
+            color: var(--md-sys-color-on-secondary-container);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            cursor: pointer;
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            width: fit-content;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 900px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; border-radius: 0; }
+            .content { padding: 32px; }
+        }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <h2>PostgresBase Docs</h2>
+        <button id="lang-toggle" class="lang-btn">
+            <span class="material-symbols-outlined" style="font-size: 16px;">translate</span>
+            <span data-i18n="lang-toggle">中文</span>
+        </button>
+        <a href="index.html" class="nav-item">
+            <span class="material-symbols-outlined">home</span> Home
+        </a>
+        <a href="#introduction" class="nav-item active" data-i18n="nav-docs">
+            <span class="material-symbols-outlined">description</span> Introduction
+        </a>
+        <a href="#installation" class="nav-item" data-i18n="docs-install-title">
+            <span class="material-symbols-outlined">download</span> Installation
+        </a>
+        <a href="#redis" class="nav-item" data-i18n="docs-redis-title">
+            <span class="material-symbols-outlined">bolt</span> Redis Cache
+        </a>
+        <a href="#projects" class="nav-item" data-i18n="docs-projects-title">
+            <span class="material-symbols-outlined">folder</span> Projects
+        </a>
+    </aside>
+
+    <main class="content">
+        <section id="introduction">
+            <h1 data-i18n="docs-intro-title">Introduction</h1>
+            <p data-i18n="docs-intro-p1">PostgresBase is a modified version of PocketBase that replaces the default SQLite database with <strong>PostgreSQL</strong> or <strong>MySQL</strong>.</p>
+            <p data-i18n="docs-intro-p2">This project was born out of the need to run PocketBase in highly available, clustered, or high-concurrency environments where SQLite's file-locking mechanism might become a bottleneck.</p>
+        </section>
+
+        <section id="installation">
+            <h2 data-i18n="docs-install-title">Installation</h2>
+            <p data-i18n="docs-install-desc">Download the binary for your platform and run it using a standard DSN string.</p>
+            <h3>PostgreSQL</h3>
+            <pre><code>./pb serve --dataDsn "postgres://user:pass@localhost:5432/dbname?sslmode=disable"</code></pre>
+            <h3>MySQL</h3>
+            <pre><code>./pb serve --dataDsn "mysql://user:pass@tcp(localhost:3306)/dbname"</code></pre>
+        </section>
+
+        <section id="redis">
+            <h2 data-i18n="docs-redis-title">Redis Caching</h2>
+            <p data-i18n="docs-redis-desc">You can enable enterprise-grade caching by providing a Redis DSN:</p>
+            <pre><code>./pb serve --redisDsn "redis://localhost:6379/0"</code></pre>
+            <p data-i18n="docs-redis-p2">Once connected, you can toggle caching for individual collections in the <strong>Cache</strong> tab of the collection settings.</p>
+        </section>
+
+        <section id="projects">
+            <h2 data-i18n="docs-projects-title">Projects</h2>
+            <p data-i18n="docs-projects-desc">Managing hundreds of tables? Use the <strong>Projects</strong> feature to group related collections together. This keeps your sidebar organized and focuses your development workflow.</p>
+        </section>
+    </main>
+
+    <script src="js/translations.js"></script>
+    <script src="js/i18n.js"></script>
+
+</body>
+</html>
