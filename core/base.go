@@ -471,6 +471,11 @@ func (app *BaseApp) SubscriptionsBroker() *subscriptions.Broker {
 	return app.subscriptionsBroker
 }
 
+// RedisCache returns the app Redis client instance.
+func (app *BaseApp) RedisCache() *redis.Client {
+	return app.redisCache
+}
+
 // NewMailClient creates and returns a new SMTP or Sendmail client
 // based on the current app settings.
 func (app *BaseApp) NewMailClient() mailer.Mailer {

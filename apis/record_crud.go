@@ -1,10 +1,12 @@
 package apis
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v5"
 	"github.com/free/postgresqlbaseapi/dbx"
@@ -49,6 +51,25 @@ func (api *recordApi) list(c echo.Context) error {
 		return NewNotFoundError("", "Missing collection context.")
 	}
 
+	records := []*models.Record{}
+
+	// --- Redis Cache Read ---
+	var cacheKey string
+	canCache := api.app.RedisCache() != nil &&
+		((collection.ListCacheEnabled && c.QueryParams().Encode() == "") ||
+			(collection.SearchCacheEnabled && c.QueryParams().Encode() != ""))
+
+	if canCache {
+		cacheKey = api.getCacheKey(collection, "list:"+c.QueryParams().Encode())
+		val, err := api.app.RedisCache().Get(c.Request().Context(), cacheKey).Result()
+		if err == nil {
+			var cachedResult search.Result
+			if err := json.Unmarshal([]byte(val), &cachedResult); err == nil {
+				return c.JSON(http.StatusOK, cachedResult)
+			}
+		}
+	}
+
 	// forbid users and guests to query special filter/sort fields
 	if err := api.checkForForbiddenQueryFields(c); err != nil {
 		return err
@@ -76,8 +97,6 @@ func (api *recordApi) list(c echo.Context) error {
 		searchProvider.AddFilter(search.FilterData(*collection.ListRule))
 	}
 
-	records := []*models.Record{}
-
 	result, err := searchProvider.ParseAndExec(c.QueryParams().Encode(), &records)
 	if err != nil {
 		return NewBadRequestError("Invalid filter parameters.", err)
@@ -98,6 +117,13 @@ func (api *recordApi) list(c echo.Context) error {
 			log.Println(err)
 		}
 
+		// --- Redis Cache Write ---
+		if canCache && e.Result != nil {
+			encoded, _ := json.Marshal(e.Result)
+			duration := time.Duration(collection.CacheDuration) * time.Second
+			api.app.RedisCache().Set(e.HttpContext.Request().Context(), cacheKey, encoded, duration)
+		}
+
 		return e.HttpContext.JSON(http.StatusOK, e.Result)
 	})
 }
@@ -111,6 +137,20 @@ func (api *recordApi) view(c echo.Context) error {
 	recordId := c.PathParam("id")
 	if recordId == "" {
 		return NewNotFoundError("", nil)
+	}
+
+	// --- Redis Cache Read ---
+	var cacheKey string
+	canCache := api.app.RedisCache() != nil && collection.CacheEnabled
+	if canCache {
+		cacheKey = api.getCacheKey(collection, "view:"+recordId)
+		val, err := api.app.RedisCache().Get(c.Request().Context(), cacheKey).Result()
+		if err == nil {
+			var cachedRecord models.Record
+			if err := json.Unmarshal([]byte(val), &cachedRecord); err == nil {
+				return c.JSON(http.StatusOK, cachedRecord)
+			}
+		}
 	}
 
 	requestInfo := RequestInfo(c)
@@ -150,6 +190,13 @@ func (api *recordApi) view(c echo.Context) error {
 
 		if err := EnrichRecord(e.HttpContext, api.app.Dao(), e.Record); err != nil && api.app.IsDebug() {
 			log.Println(err)
+		}
+
+		// --- Redis Cache Write ---
+		if canCache && e.Record != nil {
+			encoded, _ := json.Marshal(e.Record)
+			duration := time.Duration(collection.CacheDuration) * time.Second
+			api.app.RedisCache().Set(e.HttpContext.Request().Context(), cacheKey, encoded, duration)
 		}
 
 		return e.HttpContext.JSON(http.StatusOK, e.Record)

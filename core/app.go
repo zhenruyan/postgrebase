@@ -14,6 +14,7 @@ import (
 	"github.com/free/postgresqlbaseapi/tools/mailer"
 	"github.com/free/postgresqlbaseapi/tools/store"
 	"github.com/free/postgresqlbaseapi/tools/subscriptions"
+	"github.com/redis/go-redis/v9"
 )
 
 // App defines the main PocketBase app interface.
@@ -67,6 +68,9 @@ type App interface {
 
 	// SubscriptionsBroker returns the app realtime subscriptions broker instance.
 	SubscriptionsBroker() *subscriptions.Broker
+
+	// RedisCache returns the app Redis client instance.
+	RedisCache() *redis.Client
 
 	// NewMailClient creates and returns a configured app mail client.
 	NewMailClient() mailer.Mailer
