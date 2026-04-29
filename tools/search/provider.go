@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/pocketbase/dbx"
+	"github.com/free/postgresqlbaseapi/dbx"
 	"golang.org/x/sync/errgroup"
 )
 

@@ -8,9 +8,9 @@ import (
 	"syscall"
 
 	"github.com/fatih/color"
-	"github.com/pocketbase/pocketbase/cmd"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/list"
+	"github.com/free/postgresqlbaseapi/cmd"
+	"github.com/free/postgresqlbaseapi/core"
+	"github.com/free/postgresqlbaseapi/tools/list"
 	"github.com/spf13/cobra"
 )
 
@@ -92,7 +92,7 @@ func NewWithConfig(config Config) *PocketBase {
 		config.DefaultDataDir = filepath.Join(baseDir, "pb_data")
 	}
 	if config.DefaultDataDsn == "" {
-		config.DefaultDataDsn = "postgresql://root@127.0.0.1:26257/data?sslmode=disable"
+		config.DefaultDataDsn = "postgresql://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable"
 	}
 	if config.RedisDsn == "" {
 		config.RedisDsn = "redis://localhost:6379/0"
@@ -212,7 +212,7 @@ func (pb *PocketBase) eagerParseFlags(config *Config) error {
 		&pb.dataDataFlag,
 		"dataDsn",
 		config.DefaultDataDsn,
-		"store data postgresql dsn(default  postgresql://root@127.0.0.1:26257/data?sslmode=disable)",
+		"store data postgresql/mysql dsn (e.g. postgres://user:pass@127.0.0.1:5432/db?sslmode=disable OR mysql://user:pass@tcp(127.0.0.1:3306)/db)",
 	)
 
 	pb.RootCmd.PersistentFlags().StringVar(

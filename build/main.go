@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pocketbase/pocketbase"
-	"github.com/pocketbase/pocketbase/apis"
-	"github.com/pocketbase/pocketbase/core"
+	"github.com/free/postgresqlbaseapi"
+	"github.com/free/postgresqlbaseapi/apis"
+	"github.com/free/postgresqlbaseapi/core"
 )
 
 func main() {

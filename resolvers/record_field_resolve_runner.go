@@ -6,13 +6,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase/models"
-	"github.com/pocketbase/pocketbase/models/schema"
-	"github.com/pocketbase/pocketbase/tools/inflector"
-	"github.com/pocketbase/pocketbase/tools/list"
-	"github.com/pocketbase/pocketbase/tools/search"
-	"github.com/pocketbase/pocketbase/tools/security"
+	"github.com/free/postgresqlbaseapi/dbx"
+	"github.com/free/postgresqlbaseapi/models"
+	"github.com/free/postgresqlbaseapi/models/schema"
+	"github.com/free/postgresqlbaseapi/tools/inflector"
+	"github.com/free/postgresqlbaseapi/tools/list"
+	"github.com/free/postgresqlbaseapi/tools/search"
+	"github.com/free/postgresqlbaseapi/tools/security"
 )
 
 // parseAndRun starts a new one-off RecordFieldResolver.Resolve execution.

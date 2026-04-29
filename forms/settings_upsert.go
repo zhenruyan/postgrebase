@@ -3,9 +3,9 @@ package forms
 import (
 	"os"
 
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/daos"
-	"github.com/pocketbase/pocketbase/models/settings"
+	"github.com/free/postgresqlbaseapi/core"
+	"github.com/free/postgresqlbaseapi/daos"
+	"github.com/free/postgresqlbaseapi/models/settings"
 )
 
 // SettingsUpsert is a [settings.Settings] upsert (create/update) form.

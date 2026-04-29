@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase/models"
-	"github.com/pocketbase/pocketbase/models/schema"
-	"github.com/pocketbase/pocketbase/tools/list"
-	"github.com/pocketbase/pocketbase/tools/types"
+	"github.com/free/postgresqlbaseapi/dbx"
+	"github.com/free/postgresqlbaseapi/models"
+	"github.com/free/postgresqlbaseapi/models/schema"
+	"github.com/free/postgresqlbaseapi/tools/list"
+	"github.com/free/postgresqlbaseapi/tools/types"
 )
 
 func TestNewRecord(t *testing.T) {

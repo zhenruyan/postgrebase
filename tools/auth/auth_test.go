@@ -3,7 +3,7 @@ package auth_test
 import (
 	"testing"
 
-	"github.com/pocketbase/pocketbase/tools/auth"
+	"github.com/free/postgresqlbaseapi/tools/auth"
 )
 
 func TestNewProviderByName(t *testing.T) {

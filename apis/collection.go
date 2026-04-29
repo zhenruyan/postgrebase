@@ -5,10 +5,10 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v5"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/forms"
-	"github.com/pocketbase/pocketbase/models"
-	"github.com/pocketbase/pocketbase/tools/search"
+	"github.com/free/postgresqlbaseapi/core"
+	"github.com/free/postgresqlbaseapi/forms"
+	"github.com/free/postgresqlbaseapi/models"
+	"github.com/free/postgresqlbaseapi/tools/search"
 )
 
 // bindCollectionApi registers the collection api endpoints and the corresponding handlers.
@@ -30,7 +30,7 @@ type collectionApi struct {
 
 func (api *collectionApi) list(c echo.Context) error {
 	fieldResolver := search.NewSimpleFieldResolver(
-		"id", "created", "updated", "name", "system", "type",
+		"id", "created", "updated", "name", "system", "type", "displayName", "project",
 	)
 
 	collections := []*models.Collection{}

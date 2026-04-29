@@ -7,12 +7,12 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v5"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/models"
-	"github.com/pocketbase/pocketbase/models/schema"
-	"github.com/pocketbase/pocketbase/tokens"
-	"github.com/pocketbase/pocketbase/tools/list"
-	"github.com/pocketbase/pocketbase/tools/security"
+	"github.com/free/postgresqlbaseapi/core"
+	"github.com/free/postgresqlbaseapi/models"
+	"github.com/free/postgresqlbaseapi/models/schema"
+	"github.com/free/postgresqlbaseapi/tokens"
+	"github.com/free/postgresqlbaseapi/tools/list"
+	"github.com/free/postgresqlbaseapi/tools/security"
 	"github.com/spf13/cast"
 )
 

@@ -7,6 +7,7 @@
     import Toggler from "@/components/base/Toggler.svelte";
     import { admin } from "@/stores/admin";
     import { appName, hideControls, pageTitle } from "@/stores/app";
+    import { t, locale } from "@/i18n";
     import { resetConfirmation } from "@/stores/confirmation";
     import { setErrors } from "@/stores/errors";
     import ApiClient from "@/utils/ApiClient";
@@ -66,6 +67,10 @@
     function logout() {
         ApiClient.logout();
     }
+
+    function toggleLocale() {
+        locale.set($locale === "cn" ? "en" : "cn");
+    }
 </script>
 
 <svelte:head>
@@ -91,13 +96,29 @@
                     aria-label="Collections"
                     use:link
                     use:active={{ path: "/collections/?.*", className: "current-route" }}
-                    use:tooltip={{ text: "表结构", position: "right" }}
+                    use:tooltip={{ text: $t("Table Structure"), position: "right" }}
                 >
                     <div>
                         <div>
                             <i class="ri-database-2-line" />
                         </div>
-                        <p>表结构</p>
+                        <p>{$t("Table Structure")}</p>
+                    </div>
+                </a>
+
+                <a
+                    href="/projects"
+                    class="menu-item"
+                    aria-label="Projects"
+                    use:link
+                    use:active={{ path: "/projects/?.*", className: "current-route" }}
+                    use:tooltip={{ text: $t("Projects"), position: "right" }}
+                >
+                    <div>
+                        <div>
+                            <i class="ri-folders-line" />
+                        </div>
+                        <p>{$t("Projects")}</p>
                     </div>
                 </a>
 
@@ -107,11 +128,11 @@
                     aria-label="Settings"
                     use:link
                     use:active={{ path: "/settings/?.*", className: "current-route" }}
-                    use:tooltip={{ text: "设置", position: "right" }}
+                    use:tooltip={{ text: $t("Settings"), position: "right" }}
                 >
                     <div>
                         <div><i class="ri-tools-line" /></div>
-                        <p>设置</p>
+                        <p>{$t("Settings")}</p>
                     </div>
                 </a>
             </nav>
@@ -122,14 +143,19 @@
                     alt="Avatar"
                 />
                 <Toggler class="dropdown dropdown-nowrap dropdown-upside dropdown-left">
+                    <button type="button" class="dropdown-item" on:click={toggleLocale}>
+                        <i class="ri-translate" />
+                        <span class="txt">{$locale === "cn" ? "English" : "中文"}</span>
+                    </button>
+                    <hr />
                     <a href="/settings/admins" class="dropdown-item closable" use:link>
                         <i class="ri-shield-user-line" />
-                        <span class="txt">管理用户</span>
+                        <span class="txt">{$t("Admin Management")}</span>
                     </a>
                     <hr />
                     <button type="button" class="dropdown-item closable" on:click={logout}>
                         <i class="ri-logout-circle-line" />
-                        <span class="txt">退出登录</span>
+                        <span class="txt">{$t("Logout")}</span>
                     </button>
                 </Toggler>
             </figure>

@@ -9,7 +9,34 @@ import (
 )
 
 // DefaultDateLayout specifies the default app date strings layout.
-const DefaultDateLayout = "2006-01-02 15:04:05.000Z"
+const DefaultDateLayout = "2006-01-02 15:04:05.000"
+
+// DateTime represents a [time.Time] instance in UTC that is wrapped
+// and serialized using the app default date layout.
+type DateTime struct {
+	t time.Time
+}
+
+// Time returns the internal [time.Time] instance.
+func (d DateTime) Time() time.Time {
+	return d.t.UTC()
+}
+
+// IsZero checks whether the current DateTime instance has zero time value.
+func (d DateTime) IsZero() bool {
+	return d.t.IsZero()
+}
+
+// String serializes the current DateTime instance into a formatted
+// UTC date string.
+//
+// The zero value is serialized to an empty string.
+func (d DateTime) String() string {
+	if d.IsZero() {
+		return ""
+	}
+	return d.Time().Format(DefaultDateLayout)
+}
 
 // NowDateTime returns new DateTime instance with the current local time.
 func NowDateTime() DateTime {
@@ -22,33 +49,6 @@ func ParseDateTime(value any) (DateTime, error) {
 	d := DateTime{}
 	err := d.Scan(value)
 	return d, err
-}
-
-// DateTime represents a [time.Time] instance in UTC that is wrapped
-// and serialized using the app default date layout.
-type DateTime struct {
-	t time.Time
-}
-
-// Time returns the internal [time.Time] instance.
-func (d DateTime) Time() time.Time {
-	return d.t
-}
-
-// IsZero checks whether the current DateTime instance has zero time value.
-func (d DateTime) IsZero() bool {
-	return d.Time().IsZero()
-}
-
-// String serializes the current DateTime instance into a formatted
-// UTC date string.
-//
-// The zero value is serialized to an empty string.
-func (d DateTime) String() string {
-	if d.IsZero() {
-		return ""
-	}
-	return d.Time().Format(DefaultDateLayout)
 }
 
 // MarshalJSON implements the [json.Marshaler] interface.

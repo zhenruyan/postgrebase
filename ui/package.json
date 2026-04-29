@@ -2,7 +2,7 @@
   "name": "pocketbase-admin",
   "private": true,
   "scripts": {
-    "dev": "vite --host 10.0.1.2",
+    "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -28,12 +28,12 @@
     "chart.js": "^3.7.1",
     "chartjs-adapter-luxon": "^1.2.0",
     "luxon": "^2.3.2",
-    "pocketbase": "^0.16.0",
     "prismjs": "^1.28.0",
     "sass": "^1.45.0",
     "svelte": "^3.44.0",
     "svelte-flatpickr": "^3.2.6",
     "svelte-spa-router": "^3.2.0",
+    "typescript": "^5.0.0",
     "vite": "^4.0.4"
   }
 }

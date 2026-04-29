@@ -4,8 +4,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/pocketbase/pocketbase/apis"
-	"github.com/pocketbase/pocketbase/core"
+	"github.com/free/postgresqlbaseapi/apis"
+	"github.com/free/postgresqlbaseapi/core"
 	"github.com/spf13/cobra"
 )
 

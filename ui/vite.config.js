@@ -26,6 +26,8 @@ export default defineConfig({
     resolve: {
         alias: {
             '@': __dirname + '/src',
+            '@sdk': __dirname + '/src/pocketbase-sdk',
+            'pocketbase': __dirname + '/src/pocketbase-sdk/index.ts',
         }
     },
 })

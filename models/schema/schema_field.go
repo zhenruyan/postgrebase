@@ -8,9 +8,9 @@ import (
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
-	"github.com/pocketbase/pocketbase/tools/filesystem"
-	"github.com/pocketbase/pocketbase/tools/list"
-	"github.com/pocketbase/pocketbase/tools/types"
+	"github.com/free/postgresqlbaseapi/tools/filesystem"
+	"github.com/free/postgresqlbaseapi/tools/list"
+	"github.com/free/postgresqlbaseapi/tools/types"
 	"github.com/spf13/cast"
 )
 
@@ -140,19 +140,34 @@ type SchemaField struct {
 }
 
 // ColDefinition returns the field db column type definition as string.
-func (f *SchemaField) ColDefinition() string {
+func (f *SchemaField) ColDefinition(driverName string) string {
 	switch f.Type {
 	case FieldTypeNumber:
+		if driverName == "mysql" {
+			return "DECIMAL(10,4) DEFAULT 0 NOT NULL"
+		}
 		return "NUMERIC DEFAULT 0 NOT NULL"
 	case FieldTypeBool:
+		if driverName == "mysql" {
+			return "TINYINT(1) DEFAULT 0 NOT NULL"
+		}
 		return "BOOLEAN DEFAULT FALSE NOT NULL"
 	case FieldTypeJson:
+		if driverName == "mysql" {
+			return "JSON DEFAULT NULL"
+		}
 		return "text DEFAULT NULL"
 	default:
 		if opt, ok := f.Options.(MultiValuer); ok && opt.IsMultiple() {
+			if driverName == "mysql" {
+				return "JSON NOT NULL"
+			}
 			return "text DEFAULT '[]' NOT NULL"
 		}
 
+		if driverName == "mysql" {
+			return "VARCHAR(255) DEFAULT '' NOT NULL"
+		}
 		return "text DEFAULT '' NOT NULL"
 	}
 }

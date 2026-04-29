@@ -14,23 +14,19 @@
 
 The author of PB is really excellent, and PB is a great work.
 
-But we really need to run PB online in high pressure and complex environments. Sqlite cannot handle this scenario, so I am working hard to make it support cockroachdb  and postgreSQL for cluster and standalone environments.
+But we really need to run PB online in high pressure and complex environments. Sqlite cannot handle this scenario, so I am working hard to make it support postgreSQL for cluster and standalone environments.
 
-Current modification progress, running cockroachdb  by default as a single node by default
+Current modification progress, running postgreSQL by default.
 
 Then run PB to install and perform curd operations normally.
 
-run cockroachdb 
+run postgresql 
 
 ```bash
-
-cockroach start-single-node --insecure
-
-cockroach sql --insecure
-
-CREATE DATABASE logs;
-CREATE DATABASE data;
-
+# Start your postgresql instance and create the database
+# For example, using psql
+psql -U postgres
+CREATE DATABASE postgres;
 ```
 
 build  pb
@@ -57,7 +53,7 @@ Available Commands:
 
 Flags:
       --automigrate            enable/disable auto migrations (default true)
-      --dataDsn string         store data postgresql dsn(default  postgresql://root@127.0.0.1:26257/data?sslmode=disable) (default "postgresql://root@127.0.0.1:26257/data?sslmode=disable")
+      --dataDsn string         store data postgresql dsn(default  postgresql://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable) (default "postgresql://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable")
       --debug                  enable debug mode, aka. showing more detailed logs
       --dir string             the PocketBase data directory (default "D:\\src\\postgresqlbaseapi\\pb_data")
       --encryptionEnv string   the env variable whose value of 32 characters will be used

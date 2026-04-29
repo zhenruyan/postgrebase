@@ -3,7 +3,7 @@ package subscriptions
 import (
 	"sync"
 
-	"github.com/pocketbase/pocketbase/tools/security"
+	"github.com/free/postgresqlbaseapi/tools/security"
 )
 
 // Message defines a client's channel data.

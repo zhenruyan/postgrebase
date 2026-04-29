@@ -1,7 +1,7 @@
 package models
 
 import (
-	"github.com/pocketbase/pocketbase/tools/types"
+	"github.com/free/postgresqlbaseapi/tools/types"
 )
 
 var _ Model = (*Param)(nil)

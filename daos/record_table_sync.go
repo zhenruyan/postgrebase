@@ -6,11 +6,11 @@ import (
 	"strings"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
-	"github.com/pocketbase/pocketbase/models"
-	"github.com/pocketbase/pocketbase/models/schema"
-	"github.com/pocketbase/pocketbase/tools/dbutils"
-	"github.com/pocketbase/pocketbase/tools/list"
-	"github.com/pocketbase/pocketbase/tools/security"
+	"github.com/free/postgresqlbaseapi/models"
+	"github.com/free/postgresqlbaseapi/models/schema"
+	"github.com/free/postgresqlbaseapi/tools/dbutils"
+	"github.com/free/postgresqlbaseapi/tools/list"
+	"github.com/free/postgresqlbaseapi/tools/security"
 )
 
 // SyncRecordTableSchema compares the two provided collections
@@ -18,24 +18,47 @@ import (
 //
 // If `oldCollection` is null, then only `newCollection` is used to create the record table.
 func (dao *Dao) SyncRecordTableSchema(newCollection *models.Collection, oldCollection *models.Collection) error {
+	driver := dao.DB().DriverName()
+
 	// create
 	// -----------------------------------------------------------
 	if oldCollection == nil {
-		cols := map[string]string{
-			schema.FieldNameId:      "text NOT NULL DEFAULT uuid_generate_v4()::text  PRIMARY KEY",
-			schema.FieldNameCreated: "timestamp NOT NULL DEFAULT now()::TIMESTAMP",
-			schema.FieldNameUpdated: "timestamp NOT NULL DEFAULT now()::TIMESTAMP",
+		var cols map[string]string
+
+		if driver == "mysql" {
+			cols = map[string]string{
+				schema.FieldNameId:      "VARCHAR(150) NOT NULL PRIMARY KEY",
+				schema.FieldNameCreated: "DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) NOT NULL",
+				schema.FieldNameUpdated: "DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) NOT NULL",
+			}
+		} else {
+			cols = map[string]string{
+				schema.FieldNameId:      "text NOT NULL DEFAULT uuid_generate_v4()::text  PRIMARY KEY",
+				schema.FieldNameCreated: "timestamp NOT NULL DEFAULT now()::TIMESTAMP",
+				schema.FieldNameUpdated: "timestamp NOT NULL DEFAULT now()::TIMESTAMP",
+			}
 		}
 
 		if newCollection.IsAuth() {
-			cols[schema.FieldNameUsername] = "text NOT NULL"
-			cols[schema.FieldNameEmail] = "text DEFAULT '' NOT NULL"
-			cols[schema.FieldNameEmailVisibility] = "BOOLEAN DEFAULT FALSE NOT NULL"
-			cols[schema.FieldNameVerified] = "BOOLEAN DEFAULT FALSE NOT NULL"
-			cols[schema.FieldNameTokenKey] = "text NOT NULL"
-			cols[schema.FieldNamePasswordHash] = "text NOT NULL"
-			cols[schema.FieldNameLastResetSentAt] = "text DEFAULT '' NOT NULL"
-			cols[schema.FieldNameLastVerificationSentAt] = "text DEFAULT '' NOT NULL"
+			if driver == "mysql" {
+				cols[schema.FieldNameUsername] = "VARCHAR(255) NOT NULL"
+				cols[schema.FieldNameEmail] = "VARCHAR(255) DEFAULT '' NOT NULL"
+				cols[schema.FieldNameEmailVisibility] = "TINYINT(1) DEFAULT 0 NOT NULL"
+				cols[schema.FieldNameVerified] = "TINYINT(1) DEFAULT 0 NOT NULL"
+				cols[schema.FieldNameTokenKey] = "VARCHAR(255) NOT NULL"
+				cols[schema.FieldNamePasswordHash] = "VARCHAR(255) NOT NULL"
+				cols[schema.FieldNameLastResetSentAt] = "VARCHAR(255) DEFAULT '' NOT NULL"
+				cols[schema.FieldNameLastVerificationSentAt] = "VARCHAR(255) DEFAULT '' NOT NULL"
+			} else {
+				cols[schema.FieldNameUsername] = "text NOT NULL"
+				cols[schema.FieldNameEmail] = "text DEFAULT '' NOT NULL"
+				cols[schema.FieldNameEmailVisibility] = "BOOLEAN DEFAULT FALSE NOT NULL"
+				cols[schema.FieldNameVerified] = "BOOLEAN DEFAULT FALSE NOT NULL"
+				cols[schema.FieldNameTokenKey] = "text NOT NULL"
+				cols[schema.FieldNamePasswordHash] = "text NOT NULL"
+				cols[schema.FieldNameLastResetSentAt] = "text DEFAULT '' NOT NULL"
+				cols[schema.FieldNameLastVerificationSentAt] = "text DEFAULT '' NOT NULL"
+			}
 		}
 
 		// ensure that the new collection has an id
@@ -48,7 +71,7 @@ func (dao *Dao) SyncRecordTableSchema(newCollection *models.Collection, oldColle
 
 		// add schema field definitions
 		for _, field := range newCollection.Schema.Fields() {
-			cols[field.Name] = field.ColDefinition()
+			cols[field.Name] = field.ColDefinition(driver)
 		}
 
 		// create table
@@ -58,18 +81,28 @@ func (dao *Dao) SyncRecordTableSchema(newCollection *models.Collection, oldColle
 
 		// add named unique index on the email and tokenKey columns
 		if newCollection.IsAuth() {
-			_, err := dao.DB().NewQuery(fmt.Sprintf(
-				`
-					CREATE UNIQUE INDEX _%s_username_idx ON {{%s}} ([[username]]);
-					CREATE UNIQUE INDEX _%s_email_idx ON {{%s}} ([[email]]) WHERE [[email]] != '';
-					CREATE UNIQUE INDEX _%s_tokenKey_idx ON {{%s}} ([[tokenKey]]);
-					`,
-				newCollection.Id, tableName,
-				newCollection.Id, tableName,
-				newCollection.Id, tableName,
-			)).Execute()
-			if err != nil {
-				return err
+			if driver == "mysql" {
+				indexStatements := []string{
+					fmt.Sprintf("CREATE UNIQUE INDEX _%s_username_idx ON {{%s}} ([[username]])", newCollection.Id, tableName),
+					fmt.Sprintf("CREATE UNIQUE INDEX _%s_email_idx ON {{%s}} ([[email]])", newCollection.Id, tableName),
+					fmt.Sprintf("CREATE UNIQUE INDEX _%s_tokenKey_idx ON {{%s}} ([[tokenKey]])", newCollection.Id, tableName),
+				}
+				for _, s := range indexStatements {
+					if _, err := dao.DB().NewQuery(s).Execute(); err != nil {
+						return err
+					}
+				}
+			} else {
+				indexStatements := []string{
+					fmt.Sprintf("CREATE UNIQUE INDEX _%s_username_idx ON {{%s}} ([[username]])", newCollection.Id, tableName),
+					fmt.Sprintf("CREATE UNIQUE INDEX _%s_email_idx ON {{%s}} ([[email]]) WHERE [[email]] != ''", newCollection.Id, tableName),
+					fmt.Sprintf("CREATE UNIQUE INDEX _%s_tokenKey_idx ON {{%s}} ([[tokenKey]])", newCollection.Id, tableName),
+				}
+				for _, s := range indexStatements {
+					if _, err := dao.DB().NewQuery(s).Execute(); err != nil {
+						return err
+					}
+				}
 			}
 		}
 
@@ -127,7 +160,7 @@ func (dao *Dao) SyncRecordTableSchema(newCollection *models.Collection, oldColle
 			toRename[tempName] = field.Name
 
 			// add
-			_, err := dao.DB().AddColumn(newTableName, tempName, field.ColDefinition()).Execute()
+			_, err := dao.DB().AddColumn(newTableName, tempName, field.ColDefinition(dao.DB().DriverName())).Execute()
 			if err != nil {
 				return fmt.Errorf("failed to add column %s - %w", field.Name, err)
 			}

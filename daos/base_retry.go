@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pocketbase/dbx"
+	"github.com/free/postgresqlbaseapi/dbx"
 )
 
 // default retries intervals (in ms)

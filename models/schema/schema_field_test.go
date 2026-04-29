@@ -7,8 +7,8 @@ import (
 	"time"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
-	"github.com/pocketbase/pocketbase/models/schema"
-	"github.com/pocketbase/pocketbase/tools/types"
+	"github.com/free/postgresqlbaseapi/models/schema"
+	"github.com/free/postgresqlbaseapi/tools/types"
 )
 
 func TestBaseModelFieldNames(t *testing.T) {
@@ -120,7 +120,7 @@ func TestSchemaFieldColDefinition(t *testing.T) {
 	}
 
 	for i, s := range scenarios {
-		def := s.field.ColDefinition()
+		def := s.field.ColDefinition("postgres")
 		if def != s.expected {
 			t.Errorf("(%d) Expected definition %q, got %q", i, s.expected, def)
 		}

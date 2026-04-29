@@ -7,7 +7,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
-	"github.com/pocketbase/dbx"
+	"github.com/free/postgresqlbaseapi/dbx"
 	"github.com/spf13/cast"
 )
 
@@ -203,10 +203,18 @@ func (r *Runner) Down(toRevertCount int) ([]string, error) {
 }
 
 func (r *Runner) createMigrationsTable() error {
-	rawQuery := fmt.Sprintf(
-		"CREATE TABLE IF NOT EXISTS %v (file VARCHAR(255) PRIMARY KEY NOT NULL, applied bigint NOT NULL)",
-		r.db.QuoteTableName(r.tableName),
-	)
+	var rawQuery string
+	if r.db.DriverName() == "mysql" {
+		rawQuery = fmt.Sprintf(
+			"CREATE TABLE IF NOT EXISTS %v (file VARCHAR(255) PRIMARY KEY, applied BIGINT NOT NULL)",
+			r.db.QuoteTableName(r.tableName),
+		)
+	} else {
+		rawQuery = fmt.Sprintf(
+			"CREATE TABLE IF NOT EXISTS %v (file VARCHAR(255) PRIMARY KEY NOT NULL, applied bigint NOT NULL)",
+			r.db.QuoteTableName(r.tableName),
+		)
+	}
 
 	_, err := r.db.NewQuery(rawQuery).Execute()
 
@@ -214,15 +222,14 @@ func (r *Runner) createMigrationsTable() error {
 }
 
 func (r *Runner) isMigrationApplied(tx dbx.Builder, file string) bool {
-	var exists bool
+	var count int
 
 	err := tx.Select("count(*)").
 		From(r.tableName).
 		Where(dbx.HashExp{"file": file}).
-		Limit(1).
-		Row(&exists)
+		Row(&count)
 
-	return err == nil && exists
+	return err == nil && count > 0
 }
 
 func (r *Runner) saveAppliedMigration(tx dbx.Builder, file string) error {
@@ -243,12 +250,18 @@ func (r *Runner) saveRevertedMigration(tx dbx.Builder, file string) error {
 func (r *Runner) lastAppliedMigrations(limit int) ([]string, error) {
 	var files = make([]string, 0, limit)
 
-	err := r.db.Select("file").
+	query := r.db.Select("file").
 		From(r.tableName).
-		Where(dbx.Not(dbx.HashExp{"applied": nil})).
+		Where(dbx.Not(dbx.HashExp{"applied": nil}))
+
+	if r.db.DriverName() == "mysql" {
+		query.OrderBy("applied DESC")
+	} else {
 		// unify microseconds and seconds applied time for backward compatibility
-		OrderBy("substr(applied||'0000000000000000', 0, 17) DESC").
-		AndOrderBy("file DESC").
+		query.OrderBy("substr(applied||'0000000000000000', 0, 17) DESC")
+	}
+
+	err := query.AndOrderBy("file DESC").
 		Limit(int64(limit)).
 		Column(&files)
 

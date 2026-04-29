@@ -6,14 +6,14 @@ package core
 import (
 	"context"
 
-	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase/daos"
-	"github.com/pocketbase/pocketbase/models/settings"
-	"github.com/pocketbase/pocketbase/tools/filesystem"
-	"github.com/pocketbase/pocketbase/tools/hook"
-	"github.com/pocketbase/pocketbase/tools/mailer"
-	"github.com/pocketbase/pocketbase/tools/store"
-	"github.com/pocketbase/pocketbase/tools/subscriptions"
+	"github.com/free/postgresqlbaseapi/dbx"
+	"github.com/free/postgresqlbaseapi/daos"
+	"github.com/free/postgresqlbaseapi/models/settings"
+	"github.com/free/postgresqlbaseapi/tools/filesystem"
+	"github.com/free/postgresqlbaseapi/tools/hook"
+	"github.com/free/postgresqlbaseapi/tools/mailer"
+	"github.com/free/postgresqlbaseapi/tools/store"
+	"github.com/free/postgresqlbaseapi/tools/subscriptions"
 )
 
 // App defines the main PocketBase app interface.

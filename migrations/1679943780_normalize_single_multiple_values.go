@@ -1,7 +1,7 @@
 package migrations
 
 import (
-	"github.com/pocketbase/dbx"
+	"github.com/free/postgresqlbaseapi/dbx"
 )
 
 // Normalizes old single and multiple values of MultiValuer fields (file, select, relation).

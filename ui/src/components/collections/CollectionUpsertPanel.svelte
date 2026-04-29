@@ -12,6 +12,7 @@
     import { confirm } from "@/stores/confirmation";
     import { errors, removeError, setErrors } from "@/stores/errors";
     import { addSuccessToast, removeAllToasts } from "@/stores/toasts";
+    import { admin } from "@/stores/admin";
     import ApiClient from "@/utils/ApiClient";
     import CommonHelper from "@/utils/CommonHelper";
     import { Collection } from "pocketbase";
@@ -42,6 +43,22 @@
     let activeTab = TAB_SCHEMA;
     let initialFormHash = calculateFormHash(collection);
     let schemaTabError = "";
+
+    let projects = [];
+
+    async function loadProjects() {
+        try {
+            projects = await ApiClient.collection("project").getFullList(200, {
+                sort: "name",
+            });
+        } catch (err) {
+            console.warn("Failed to load projects:", err);
+        }
+    }
+
+    $: if ($admin?.id) {
+        loadProjects();
+    }
 
     $: if ($errors.schema || $errors.options?.query) {
         // extract the direct schema field error, otherwise - return a generic message
@@ -82,6 +99,8 @@
 
     export function show(model) {
         load(model);
+
+        loadProjects(); // 每次打开弹窗都尝试刷新项目列表
 
         confirmClose = true;
 
@@ -165,6 +184,8 @@
     function exportFormData() {
         const data = collection.$export();
         data.schema = data.schema.slice(0);
+        data.displayName = collection.displayName;
+        data.project = collection.project;
 
         // remove deleted fields
         for (let i = data.schema.length - 1; i >= 0; i--) {
@@ -303,80 +324,88 @@
                 canSave && saveConfirm();
             }}
         >
-            <Field
-                class="form-field collection-field-name required m-b-0 {isSystemUpdate ? 'disabled' : ''}"
-                name="name"
-                let:uniqueId
-            >
-                <label for={uniqueId}>Name</label>
-
-                <!-- svelte-ignore a11y-autofocus -->
-                <input
-                    type="text"
-                    id={uniqueId}
-                    required
-                    disabled={isSystemUpdate}
-                    spellcheck="false"
-                    autofocus={collection.$isNew}
-                    placeholder={collection.$isAuth ? `eg. "users"` : `eg. "posts"`}
-                    value={collection.name}
-                    on:input={(e) => {
-                        collection.name = CommonHelper.slugify(e.target.value);
-                        e.target.value = collection.name;
-                    }}
-                />
-                <br />
-
-                <label for={uniqueId}>DisplayName</label>
-                <input
-                    type="text"
-                    id={uniqueId}
-                    disabled={isSystemUpdate}
-                    spellcheck="false"
-                    autofocus={collection.$isNew}
-                    value={collection.displayName}
-                    on:input={(e) => {
-                        collection.displayName = CommonHelper.slugify(e.target.value);
-                        e.target.value = collection.displayName;
-                    }}
-                />
-
-                <!-- <RelationField {field} bind:value={record[field.name]} /> -->
-
-                <div class="form-field-addon">
-                    <button
-                        type="button"
-                        class="btn btn-sm p-r-10 p-l-10 {collection.$isNew
-                            ? 'btn-outline'
-                            : 'btn-transparent'}"
-                        disabled={!collection.$isNew}
-                    >
-                        <!-- empty span for alignment -->
-                        <span />
-                        <span class="txt">Type: {collectionTypes[collection.type] || "N/A"}</span>
-                        {#if collection.$isNew}
-                            <i class="ri-arrow-down-s-fill" />
-                            <Toggler class="dropdown dropdown-right dropdown-nowrap m-t-5">
-                                {#each Object.entries(collectionTypes) as [type, label]}
-                                    <button
-                                        type="button"
-                                        class="dropdown-item closable"
-                                        class:selected={type == collection.type}
-                                        on:click={() => setCollectionType(type)}
-                                    >
-                                        <i class={CommonHelper.getCollectionTypeIcon(type)} />
-                                        <span class="txt">{label} collection</span>
-                                    </button>
-                                {/each}
-                            </Toggler>
-                        {/if}
-                    </button>
+            <div class="grid">
+                <div class="col-lg-6">
+                    <Field class="form-field required" name="displayName" let:uniqueId>
+                        <label for={uniqueId}>显示名称 (支持中文)</label>
+                        <input
+                            type="text"
+                            id={uniqueId}
+                            disabled={isSystemUpdate}
+                            spellcheck="false"
+                            placeholder="例如：文章列表"
+                            value={collection.displayName || ""}
+                            on:input={(e) => {
+                                collection.displayName = e.target.value;
+                            }}
+                        />
+                    </Field>
                 </div>
 
-                {#if collection.system}
-                    <div class="help-block">系统表</div>
-                {/if}
-            </Field>
+                <div class="col-lg-6">
+                    <Field class="form-field required" name="name" let:uniqueId>
+                        <label for={uniqueId}>内部标识 (仅限字母数字下划线)</label>
+                        <input
+                            type="text"
+                            id={uniqueId}
+                            required
+                            disabled={isSystemUpdate}
+                            spellcheck="false"
+                            autofocus={collection.$isNew}
+                            placeholder={collection.$isAuth ? `例如：users` : `例如：posts`}
+                            value={collection.name}
+                            on:input={(e) => {
+                                collection.name = CommonHelper.slugify(e.target.value);
+                                e.target.value = collection.name;
+                            }}
+                        />
+                    </Field>
+                </div>
+
+                <div class="col-lg-6">
+                    <Field class="form-field" name="project" let:uniqueId>
+                        <label for={uniqueId}>所属项目</label>
+                        <select id={uniqueId} disabled={isSystemUpdate} bind:value={collection.project}>
+                            <option value={null}>未分配 (None)</option>
+                            {#each projects as project (project.id)}
+                                <option value={project.id}>{project.name}</option>
+                            {/each}
+                        </select>
+                    </Field>
+                </div>
+
+                <div class="col-lg-6">
+                    <Field class="form-field" name="type" let:uniqueId>
+                        <label for={uniqueId}>表类型</label>
+                        <button
+                            type="button"
+                            id={uniqueId}
+                            class="btn btn-block btn-outline justify-content-start"
+                            disabled={!collection.$isNew}
+                        >
+                            <i class={CommonHelper.getCollectionTypeIcon(collection.type)} />
+                            <span class="txt">类型: {collectionTypes[collection.type] || "N/A"}</span>
+                            {#if collection.$isNew}
+                                <div class="flex-fill" />
+                                <i class="ri-arrow-down-s-fill" />
+                                <Toggler class="dropdown dropdown-right dropdown-nowrap m-t-5">
+                                    {#each Object.entries(collectionTypes) as [type, label]}
+                                        <button
+                                            type="button"
+                                            class="dropdown-item closable"
+                                            class:selected={type == collection.type}
+                                            on:click={() => setCollectionType(type)}
+                                        >
+                                            <i class={CommonHelper.getCollectionTypeIcon(type)} />
+                                            <span class="txt">{label} Collection</span>
+                                        </button>
+                                    {/each}
+                                </Toggler>
+                            {/if}
+                        </button>
+                    </Field>
+                </div>
+            </div>
 
             <input type="submit" class="hidden" tabindex="-1" />
         </form>

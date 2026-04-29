@@ -27,7 +27,7 @@ import (
 	"io/fs"
 	"strings"
 
-	"github.com/pocketbase/pocketbase/tools/store"
+	"github.com/free/postgresqlbaseapi/tools/store"
 )
 
 // NewRegistry creates and initializes a new blank templates registry.

@@ -4,12 +4,12 @@ import (
 	"html/template"
 	"net/mail"
 
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/mails/templates"
-	"github.com/pocketbase/pocketbase/models"
-	"github.com/pocketbase/pocketbase/models/settings"
-	"github.com/pocketbase/pocketbase/tokens"
-	"github.com/pocketbase/pocketbase/tools/mailer"
+	"github.com/free/postgresqlbaseapi/core"
+	"github.com/free/postgresqlbaseapi/mails/templates"
+	"github.com/free/postgresqlbaseapi/models"
+	"github.com/free/postgresqlbaseapi/models/settings"
+	"github.com/free/postgresqlbaseapi/tokens"
+	"github.com/free/postgresqlbaseapi/tools/mailer"
 )
 
 // SendRecordPasswordReset sends a password reset request email to the specified user.
