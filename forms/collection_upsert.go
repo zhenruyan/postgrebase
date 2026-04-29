@@ -200,8 +200,8 @@ func (form *CollectionUpsert) checkUniqueName(value any) error {
 func (form *CollectionUpsert) ensureNoSystemNameChange(value any) error {
 	v, _ := value.(string)
 
-	if !form.collection.IsNew() && form.collection.System && v != form.collection.Name {
-		return validation.NewError("validation_collection_system_name_change", "System collections cannot be renamed.")
+	if !form.collection.IsNew() && (form.collection.System || form.collection.Name == "project") && v != form.collection.Name {
+		return validation.NewError("validation_collection_system_name_change", "System or project collections cannot be renamed.")
 	}
 
 	return nil

@@ -68,5 +68,7 @@ export default {
     "Admins auth token": "管理员身份验证 Token",
     "Admins password reset token": "管理员密码重置 Token",
     "Admins protected file access token": "管理员保护文件访问 Token",
-    "Save changes": "保存更改"
+    "Save changes": "保存更改",
+    "Field Remark": "字段备注",
+    "Optional field remark/comment": "可选的字段备注/说明"
 };

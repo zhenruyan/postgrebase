@@ -142,6 +142,12 @@ type RealtimeSubscribeEvent struct {
 	Subscriptions []string
 }
 
+type RealtimeBroadcastEvent struct {
+	App     App
+	Channel string
+	Payload []byte
+}
+
 // -------------------------------------------------------------------
 // Settings API events data
 // -------------------------------------------------------------------

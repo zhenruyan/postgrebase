@@ -238,6 +238,41 @@ func (api *realtimeApi) unregisterClientsByAuthModel(contextKey string, model mo
 }
 
 func (api *realtimeApi) bindEvents() {
+	// subscribe to global realtime broadcast (for HA)
+	api.app.OnRealtimeBroadcast().Add(func(e *core.RealtimeBroadcastEvent) error {
+		if e.Channel != "realtime" {
+			return nil
+		}
+
+		var data struct {
+			Action       string         `json:"action"`
+			CollectionId string         `json:"collectionId"`
+			RecordData   map[string]any `json:"recordData"`
+		}
+
+		if err := json.Unmarshal(e.Payload, &data); err != nil {
+			return err
+		}
+
+		collection, err := api.app.Dao().FindCollectionByNameOrId(data.CollectionId)
+		if err != nil {
+			return err
+		}
+
+		record := models.NewRecord(collection)
+		// Manually populate record from map
+		for k, v := range data.RecordData {
+			record.Set(k, v)
+		}
+
+		// Ensure ID is set (though it should be in RecordData)
+		if id, ok := data.RecordData["id"].(string); ok {
+			record.SetId(id)
+		}
+
+		return api.localBroadcastRecord(data.Action, record, false)
+	})
+
 	// update the clients that has admin or auth record association
 	api.app.OnModelAfterUpdate().PreAdd(func(e *core.ModelEvent) error {
 		if record := api.resolveRecord(e.Model); record != nil && record.Collection().IsAuth() {
@@ -266,7 +301,7 @@ func (api *realtimeApi) bindEvents() {
 
 	api.app.OnModelAfterCreate().PreAdd(func(e *core.ModelEvent) error {
 		if record := api.resolveRecord(e.Model); record != nil {
-			if err := api.broadcastRecord("create", record, false); err != nil && api.app.IsDebug() {
+			if err := api.publishRecord("create", record); err != nil && api.app.IsDebug() {
 				log.Println(err)
 			}
 		}
@@ -275,7 +310,7 @@ func (api *realtimeApi) bindEvents() {
 
 	api.app.OnModelAfterUpdate().PreAdd(func(e *core.ModelEvent) error {
 		if record := api.resolveRecord(e.Model); record != nil {
-			if err := api.broadcastRecord("update", record, false); err != nil && api.app.IsDebug() {
+			if err := api.publishRecord("update", record); err != nil && api.app.IsDebug() {
 				log.Println(err)
 			}
 		}
@@ -283,17 +318,13 @@ func (api *realtimeApi) bindEvents() {
 	})
 
 	api.app.OnModelBeforeDelete().Add(func(e *core.ModelEvent) error {
-		if record := api.resolveRecord(e.Model); record != nil {
-			if err := api.broadcastRecord("delete", record, true); err != nil && api.app.IsDebug() {
-				log.Println(err)
-			}
-		}
+		// no-op (previously used for dry-cache)
 		return nil
 	})
 
 	api.app.OnModelAfterDelete().Add(func(e *core.ModelEvent) error {
 		if record := api.resolveRecord(e.Model); record != nil {
-			if err := api.broadcastDryCachedRecord("delete", record); err != nil && api.app.IsDebug() {
+			if err := api.publishRecord("delete", record); err != nil && api.app.IsDebug() {
 				log.Println(err)
 			}
 		}
@@ -375,7 +406,22 @@ type recordData struct {
 	Record *models.Record `json:"record"`
 }
 
-func (api *realtimeApi) broadcastRecord(action string, record *models.Record, dryCache bool) error {
+func (api *realtimeApi) publishRecord(action string, record *models.Record) error {
+	collection := record.Collection()
+	if collection == nil {
+		return errors.New("Record collection not set.")
+	}
+
+	data := map[string]any{
+		"action":       action,
+		"collectionId": collection.Id,
+		"recordData":   record,
+	}
+
+	return api.app.Publish("realtime", data)
+}
+
+func (api *realtimeApi) localBroadcastRecord(action string, record *models.Record, dryCache bool) error {
 	collection := record.Collection()
 	if collection == nil {
 		return errors.New("Record collection not set.")

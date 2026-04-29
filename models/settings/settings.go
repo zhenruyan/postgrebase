@@ -28,6 +28,7 @@ type Settings struct {
 	Logs    LogsConfig    `form:"logs" json:"logs"`
 	Smtp    SmtpConfig    `form:"smtp" json:"smtp"`
 	S3      S3Config      `form:"s3" json:"s3"`
+	WebDAV  WebDAVConfig  `form:"webdav" json:"webdav"`
 	Backups BackupsConfig `form:"backups" json:"backups"`
 
 	AdminAuthToken           TokenConfig `form:"adminAuthToken" json:"adminAuthToken"`
@@ -81,13 +82,11 @@ func New() *Settings {
 		Logs: LogsConfig{
 			MaxDays: 5,
 		},
-		Smtp: SmtpConfig{
-			Enabled:  false,
-			Host:     "smtp.example.com",
-			Port:     587,
-			Username: "",
-			Password: "",
-			Tls:      false,
+		S3: S3Config{
+			Enabled: false,
+		},
+		WebDAV: WebDAVConfig{
+			Enabled: false,
 		},
 		Backups: BackupsConfig{
 			CronMaxKeep: 3,
@@ -208,6 +207,7 @@ func (s *Settings) Validate() error {
 		validation.Field(&s.RecordFileToken),
 		validation.Field(&s.Smtp),
 		validation.Field(&s.S3),
+		validation.Field(&s.WebDAV),
 		validation.Field(&s.Backups),
 		validation.Field(&s.GoogleAuth),
 		validation.Field(&s.FacebookAuth),
@@ -266,7 +266,9 @@ func (s *Settings) RedactClone() (*Settings, error) {
 	sensitiveFields := []*string{
 		&clone.Smtp.Password,
 		&clone.S3.Secret,
+		&clone.WebDAV.Password,
 		&clone.Backups.S3.Secret,
+		&clone.Backups.WebDAV.Password,
 		&clone.AdminAuthToken.Secret,
 		&clone.AdminPasswordResetToken.Secret,
 		&clone.AdminFileToken.Secret,
@@ -421,6 +423,24 @@ func (c S3Config) Validate() error {
 
 // -------------------------------------------------------------------
 
+type WebDAVConfig struct {
+	Enabled  bool   `form:"enabled" json:"enabled"`
+	Url      string `form:"url" json:"url"`
+	Username string `form:"username" json:"username"`
+	Password string `form:"password" json:"password"`
+}
+
+// Validate makes WebDAVConfig validatable by implementing [validation.Validatable] interface.
+func (c WebDAVConfig) Validate() error {
+	return validation.ValidateStruct(&c,
+		validation.Field(&c.Url, is.URL, validation.When(c.Enabled, validation.Required)),
+		validation.Field(&c.Username, validation.When(c.Enabled, validation.Required)),
+		validation.Field(&c.Password, validation.When(c.Enabled, validation.Required)),
+	)
+}
+
+// -------------------------------------------------------------------
+
 type BackupsConfig struct {
 	// Cron is a cron expression to schedule auto backups, eg. "* * * * *".
 	//
@@ -435,12 +455,16 @@ type BackupsConfig struct {
 
 	// S3 is an optional S3 storage config specifying where to store the app backups.
 	S3 S3Config `form:"s3" json:"s3"`
+
+	// WebDAV is an optional WebDAV storage config specifying where to store the app backups.
+	WebDAV WebDAVConfig `form:"webdav" json:"webdav"`
 }
 
 // Validate makes BackupsConfig validatable by implementing [validation.Validatable] interface.
 func (c BackupsConfig) Validate() error {
 	return validation.ValidateStruct(&c,
 		validation.Field(&c.S3),
+		validation.Field(&c.WebDAV),
 		validation.Field(&c.Cron, validation.By(checkCronExpression)),
 		validation.Field(
 			&c.CronMaxKeep,

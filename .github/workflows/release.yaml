@@ -1,8 +1,9 @@
-name: basebuild
+name: Release
 
 on:
-  pull_request:
   push:
+    tags:
+      - 'v*'
 
 jobs:
   goreleaser:
@@ -13,36 +14,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: latest
-
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: '>=1.21.0'
-
-      # This step usually is not needed because the /ui/dist is pregenerated locally
-      # but its here to ensure that each release embeds the latest admin ui artifacts.
-      # If the artificats differs, a "dirty error" is thrown - https://goreleaser.com/errors/dirty/
-      - name: Build Admin dashboard UI
-        run: npm --prefix=./ui ci && npm --prefix=./ui run build
-
-      # Temporary disable as the types can have random generated identifiers making it non-deterministic.
-      #
-      # # Similar to the above, the jsvm types are pregenerated locally
-      # # but its here to ensure that it wasn't forgotten to be executed.
-      # - name: Generate jsvm types
-      #   run: go run ./plugins/jsvm/internal/types/types.go
-
-      # The prebuilt golangci-lint doesn't support go 1.18+ yet
-      # https://github.com/golangci/golangci-lint/issues/2649
-      # - name: Run linter
-      #   uses: golangci/golangci-lint-action@v3
-
-      - name: Run tests
-        run: go test ./...
+          go-version: '1.21'
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v3

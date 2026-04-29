@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -94,6 +95,7 @@ type BaseApp struct {
 	onRealtimeAfterMessageSend       *hook.Hook[*RealtimeMessageEvent]
 	onRealtimeBeforeSubscribeRequest *hook.Hook[*RealtimeSubscribeEvent]
 	onRealtimeAfterSubscribeRequest  *hook.Hook[*RealtimeSubscribeEvent]
+	onRealtimeBroadcast              *hook.Hook[*RealtimeBroadcastEvent]
 
 	// settings api event hooks
 	onSettingsListRequest         *hook.Hook[*SettingsListEvent]
@@ -237,6 +239,7 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 		onRealtimeAfterMessageSend:       &hook.Hook[*RealtimeMessageEvent]{},
 		onRealtimeBeforeSubscribeRequest: &hook.Hook[*RealtimeSubscribeEvent]{},
 		onRealtimeAfterSubscribeRequest:  &hook.Hook[*RealtimeSubscribeEvent]{},
+		onRealtimeBroadcast:              &hook.Hook[*RealtimeBroadcastEvent]{},
 
 		// settings API event hooks
 		onSettingsListRequest:         &hook.Hook[*SettingsListEvent]{},
@@ -500,15 +503,25 @@ func (app *BaseApp) NewMailClient() mailer.Mailer {
 // NB! Make sure to call Close() on the returned result
 // after you are done working with it.
 func (app *BaseApp) NewFilesystem() (*filesystem.System, error) {
-	if app.settings != nil && app.settings.S3.Enabled {
-		return filesystem.NewS3(
-			app.settings.S3.Bucket,
-			app.settings.S3.Region,
-			app.settings.S3.Endpoint,
-			app.settings.S3.AccessKey,
-			app.settings.S3.Secret,
-			app.settings.S3.ForcePathStyle,
-		)
+	if app.settings != nil {
+		if app.settings.S3.Enabled {
+			return filesystem.NewS3(
+				app.settings.S3.Bucket,
+				app.settings.S3.Region,
+				app.settings.S3.Endpoint,
+				app.settings.S3.AccessKey,
+				app.settings.S3.Secret,
+				app.settings.S3.ForcePathStyle,
+			)
+		}
+
+		if app.settings.WebDAV.Enabled {
+			return filesystem.NewWebDAV(
+				app.settings.WebDAV.Url,
+				app.settings.WebDAV.Username,
+				app.settings.WebDAV.Password,
+			)
+		}
 	}
 
 	// fallback to local filesystem
@@ -521,15 +534,25 @@ func (app *BaseApp) NewFilesystem() (*filesystem.System, error) {
 // NB! Make sure to call Close() on the returned result
 // after you are done working with it.
 func (app *BaseApp) NewBackupsFilesystem() (*filesystem.System, error) {
-	if app.settings != nil && app.settings.Backups.S3.Enabled {
-		return filesystem.NewS3(
-			app.settings.Backups.S3.Bucket,
-			app.settings.Backups.S3.Region,
-			app.settings.Backups.S3.Endpoint,
-			app.settings.Backups.S3.AccessKey,
-			app.settings.Backups.S3.Secret,
-			app.settings.Backups.S3.ForcePathStyle,
-		)
+	if app.settings != nil {
+		if app.settings.Backups.S3.Enabled {
+			return filesystem.NewS3(
+				app.settings.Backups.S3.Bucket,
+				app.settings.Backups.S3.Region,
+				app.settings.Backups.S3.Endpoint,
+				app.settings.Backups.S3.AccessKey,
+				app.settings.Backups.S3.Secret,
+				app.settings.Backups.S3.ForcePathStyle,
+			)
+		}
+
+		if app.settings.Backups.WebDAV.Enabled {
+			return filesystem.NewWebDAV(
+				app.settings.Backups.WebDAV.Url,
+				app.settings.Backups.WebDAV.Username,
+				app.settings.Backups.WebDAV.Password,
+			)
+		}
 	}
 
 	// fallback to local filesystem
@@ -706,6 +729,10 @@ func (app *BaseApp) OnRealtimeBeforeSubscribeRequest() *hook.Hook[*RealtimeSubsc
 
 func (app *BaseApp) OnRealtimeAfterSubscribeRequest() *hook.Hook[*RealtimeSubscribeEvent] {
 	return app.onRealtimeAfterSubscribeRequest
+}
+
+func (app *BaseApp) OnRealtimeBroadcast() *hook.Hook[*RealtimeBroadcastEvent] {
+	return app.onRealtimeBroadcast
 }
 
 // -------------------------------------------------------------------
@@ -1051,11 +1078,50 @@ func (app *BaseApp) initRedis() error {
 		if app.IsDebug() {
 			color.Red("Redis connection failed: %v", err)
 		}
-	} else if app.IsDebug() {
-		color.Green("Redis connected successfully")
+	} else {
+		if app.IsDebug() {
+			color.Green("Redis connected successfully")
+		}
+
+		// Subscribe to realtime channel
+		go func() {
+			pubsub := app.redisCache.Subscribe(app.redisContext, "realtime")
+			defer pubsub.Close()
+
+			ch := pubsub.Channel()
+			for msg := range ch {
+				event := &RealtimeBroadcastEvent{
+					App:     app,
+					Channel: msg.Channel,
+					Payload: []byte(msg.Payload),
+				}
+				if err := app.OnRealtimeBroadcast().Trigger(event); err != nil && app.IsDebug() {
+					log.Println("Realtime broadcast error:", err)
+				}
+			}
+		}()
 	}
 
 	return nil
+}
+
+func (app *BaseApp) Publish(channel string, data any) error {
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	if app.redisCache != nil {
+		return app.redisCache.Publish(app.redisContext, channel, payload).Err()
+	}
+
+	// Fallback to local broadcast if Redis is not enabled
+	event := &RealtimeBroadcastEvent{
+		App:     app,
+		Channel: channel,
+		Payload: payload,
+	}
+	return app.OnRealtimeBroadcast().Trigger(event)
 }
 
 func (app *BaseApp) createDaoWithHooks(concurrentDB, nonconcurrentDB dbx.Builder) *daos.Dao {

@@ -6,6 +6,7 @@
     import { createEventDispatcher, onMount } from "svelte";
     import { slide } from "svelte/transition";
     import { SchemaField } from "pocketbase";
+    import { t } from "@/i18n";
     import CommonHelper from "@/utils/CommonHelper";
     import tooltip from "@/actions/tooltip";
     import { errors, setErrors } from "@/stores/errors";
@@ -202,6 +203,18 @@
             <div class="grid grid-sm">
                 <div class="col-sm-12 hidden-empty">
                     <slot name="options" {interactive} {hasErrors} />
+                </div>
+
+                <div class="col-sm-12">
+                    <Field class="form-field m-b-sm" name="schema.{key}.remark" let:uniqueId>
+                        <label for={uniqueId}>{$t("Field Remark")}</label>
+                        <input
+                            type="text"
+                            id={uniqueId}
+                            bind:value={field.remark}
+                            placeholder={$t("Optional field remark/comment")}
+                        />
+                    </Field>
                 </div>
 
                 <slot name="beforeNonempty" {interactive} {hasErrors} />

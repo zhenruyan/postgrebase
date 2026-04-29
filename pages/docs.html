@@ -118,6 +118,15 @@
         <a href="#projects" class="nav-item" data-i18n="docs-projects-title">
             <span class="material-symbols-outlined">folder</span> Projects
         </a>
+        <a href="#ha" class="nav-item" data-i18n="docs-ha-title">
+            <span class="material-symbols-outlined">cloud_done</span> High Availability
+        </a>
+        <a href="#functions" class="nav-item" data-i18n="docs-functions-title">
+            <span class="material-symbols-outlined">settings</span> System Functions
+        </a>
+        <a href="#sdk" class="nav-item" data-i18n="docs-sdk-title">
+            <span class="material-symbols-outlined">terminal</span> JS-SDK Tutorial
+        </a>
     </aside>
 
     <main class="content">
@@ -146,6 +155,63 @@
         <section id="projects">
             <h2 data-i18n="docs-projects-title">Projects</h2>
             <p data-i18n="docs-projects-desc">Managing hundreds of tables? Use the <strong>Projects</strong> feature to group related collections together. This keeps your sidebar organized and focuses your development workflow.</p>
+        </section>
+
+        <section id="ha">
+            <h2 data-i18n="docs-ha-title">High Availability (HA)</h2>
+            <p data-i18n="docs-ha-desc">PostgresBase is designed for clustered environments. To deploy in HA mode:</p>
+            <ul>
+                <li data-i18n="docs-ha-step1">Use a managed database (RDS, Cloud SQL) or a high-availability DB cluster.</li>
+                <li data-i18n="docs-ha-step2">Deploy multiple PostgresBase instances behind a Load Balancer (Nginx, HAProxy).</li>
+                <li data-i18n="docs-ha-step3">Connect all instances to the same Redis cluster for shared caching.</li>
+                <li data-i18n="docs-ha-step4">Ensure <code>pb_data</code> (for storage) is shared using S3 or a networked file system if not using S3 storage.</li>
+            </ul>
+            <pre><code># Example HA Node Start
+./pb serve --dataDsn "postgres://lb-address:5432/db" --redisDsn "redis://redis-cluster:6379/0"</code></pre>
+        </section>
+
+        <section id="functions">
+            <h2 data-i18n="docs-functions-title">System Functions</h2>
+            <div class="feature-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                    <h4 data-i18n="docs-func-auth-title">Authentication</h4>
+                    <p data-i18n="docs-func-auth-desc">Built-in Auth with support for Email/Password, OAuth2 (Google, GitHub, etc.), and custom tokens.</p>
+                </div>
+                <div>
+                    <h4 data-i18n="docs-func-db-title">Database & API</h4>
+                    <p data-i18n="docs-func-db-desc">Instant RESTful API for your collections with powerful filtering, sorting, and expanded relations.</p>
+                </div>
+                <div>
+                    <h4 data-i18n="docs-func-realtime-title">Realtime</h4>
+                    <p data-i18n="docs-func-realtime-desc">Subscribe to record changes in realtime using Server-Sent Events (SSE).</p>
+                </div>
+                <div>
+                    <h4 data-i18n="docs-func-files-title">File Storage</h4>
+                    <p data-i18n="docs-func-files-desc">Seamless file uploads to local storage or S3-compatible providers.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="sdk">
+            <h2 data-i18n="docs-sdk-title">JS-SDK Tutorial</h2>
+            <p data-i18n="docs-sdk-desc">Integration with PostgresBase is easy using the official-compatible JS-SDK.</p>
+            <h3>1. Initialization</h3>
+            <pre><code>import PocketBase from 'pocketbase';
+
+const pb = new PocketBase('http://127.0.0.1:8090');</code></pre>
+            <h3>2. Authentication</h3>
+            <pre><code>const authData = await pb.collection('users').authWithPassword('test@example.com', '1234567890');</code></pre>
+            <h3>3. CRUD Operations</h3>
+            <pre><code>// List records
+const records = await pb.collection('posts').getList(1, 50, { filter: 'created > "2022-01-01"' });
+
+// Create record
+const record = await pb.collection('posts').create({ title: 'Hello World' });</code></pre>
+            <h3>4. Realtime Subscription</h3>
+            <pre><code>pb.collection('posts').subscribe('*', function (e) {
+    console.log(e.action);
+    console.log(e.record);
+});</code></pre>
         </section>
     </main>
 

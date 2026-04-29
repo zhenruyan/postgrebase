@@ -2,6 +2,7 @@
     import tooltip from "@/actions/tooltip";
     import PageWrapper from "@/components/base/PageWrapper.svelte";
     import S3Fields from "@/components/settings/S3Fields.svelte";
+    import WebDAVFields from "@/components/settings/WebDAVFields.svelte";
     import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
     import { pageTitle } from "@/stores/app";
     import { setErrors } from "@/stores/errors";
@@ -13,6 +14,7 @@
     $pageTitle = "文件存储";
 
     const testRequestKey = "s3_test_request";
+    const webdavTestRequestKey = "webdav_test_request";
 
     let originalFormSettings = {};
     let formSettings = {};
@@ -20,6 +22,8 @@
     let isSaving = false;
     let isTesting = false;
     let testError = null;
+    let isWebDAVTesting = false;
+    let webdavTestError = null;
 
     $: initialHash = JSON.stringify(originalFormSettings);
 
@@ -49,6 +53,7 @@
 
         try {
             ApiClient.cancelRequest(testRequestKey);
+            ApiClient.cancelRequest(webdavTestRequestKey);
             const settings = await ApiClient.settings.update(CommonHelper.filterRedactedProps(formSettings));
             setErrors({});
 
@@ -71,6 +76,7 @@
     async function init(settings = {}) {
         formSettings = {
             s3: settings?.s3 || {},
+            webdav: settings?.webdav || {},
         };
 
         originalFormSettings = JSON.parse(JSON.stringify(formSettings));
@@ -154,6 +160,52 @@
                     {/if}
                 </S3Fields>
 
+                <hr class="m-t-lg m-b-lg" />
+
+                <WebDAVFields
+                    toggleLabel="使用 WebDAV 协议"
+                    configKey="webdav"
+                    originalConfig={originalFormSettings.webdav}
+                    bind:config={formSettings.webdav}
+                    bind:isTesting={isWebDAVTesting}
+                    bind:testError={webdavTestError}
+                >
+                    {#if originalFormSettings.webdav?.enabled != formSettings.webdav.enabled}
+                        <div transition:slide|local={{ duration: 150 }}>
+                            <div class="alert alert-warning m-0">
+                                <div class="icon">
+                                    <i class="ri-error-warning-line" />
+                                </div>
+                                <div class="content">
+                                    如果已经存在了附件 想要同步
+                                    <strong>
+                                        {originalFormSettings.webdav?.enabled
+                                            ? "WebDAV 协议"
+                                            : "其他存储"}
+                                    </strong>
+                                    to the
+                                    <strong
+                                        >{formSettings.webdav.enabled
+                                            ? "WebDAV 协议"
+                                            : "其他存储"}</strong
+                                    >.
+                                    <br />
+                                    可以使用以下工具:
+                                    <a
+                                        href="https://github.com/rclone/rclone"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="txt-bold"
+                                    >
+                                        rclone
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="clearfix m-t-base" />
+                        </div>
+                    {/if}
+                </WebDAVFields>
+
                 <div class="flex">
                     <div class="flex-fill" />
 
@@ -172,6 +224,25 @@
                             <div class="label label-sm label-success entrance-right">
                                 <i class="ri-checkbox-circle-line txt-success" />
                                 <span class="txt">S3链接成功</span>
+                            </div>
+                        {/if}
+                    {/if}
+
+                    {#if formSettings.webdav?.enabled && !hasChanges && !isSaving}
+                        {#if isWebDAVTesting}
+                            <span class="loader loader-sm" />
+                        {:else if webdavTestError}
+                            <div
+                                class="label label-sm label-warning entrance-right"
+                                use:tooltip={webdavTestError.data?.message}
+                            >
+                                <i class="ri-error-warning-line txt-warning" />
+                                <span class="txt">无法链接 WebDAV</span>
+                            </div>
+                        {:else}
+                            <div class="label label-sm label-success entrance-right">
+                                <i class="ri-checkbox-circle-line txt-success" />
+                                <span class="txt">WebDAV 链接成功</span>
                             </div>
                         {/if}
                     {/if}

@@ -124,6 +124,10 @@ func (dao *Dao) DeleteCollection(collection *models.Collection) error {
 		return fmt.Errorf("System collection %q cannot be deleted.", collection.Name)
 	}
 
+	if collection.Name == "project" {
+		return fmt.Errorf("The \"project\" collection cannot be deleted.")
+	}
+
 	// ensure that there aren't any existing references.
 	// note: the select is outside of the transaction to prevent SQLITE_LOCKED error when mixing read&write in a single transaction
 	result, err := dao.FindCollectionReferences(collection, collection.Id)
@@ -285,6 +289,10 @@ func (dao *Dao) ImportCollections(
 
 			if existing.System {
 				return fmt.Errorf("System collection %q cannot be deleted.", existing.Name)
+			}
+
+			if existing.Name == "project" {
+				return fmt.Errorf("The \"project\" collection cannot be deleted.")
 			}
 
 			// delete the related records table or view

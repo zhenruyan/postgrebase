@@ -130,6 +130,7 @@ type SchemaField struct {
 	Id       string `form:"id" json:"id"`
 	Name     string `form:"name" json:"name"`
 	Type     string `form:"type" json:"type"`
+	Remark   string `form:"remark" json:"remark"`
 	Required bool   `form:"required" json:"required"`
 
 	// Deprecated: This field is no-op and will be removed in future versions.
@@ -141,35 +142,48 @@ type SchemaField struct {
 
 // ColDefinition returns the field db column type definition as string.
 func (f *SchemaField) ColDefinition(driverName string) string {
+	colDef := ""
+
 	switch f.Type {
 	case FieldTypeNumber:
 		if driverName == "mysql" {
-			return "DECIMAL(10,4) DEFAULT 0 NOT NULL"
+			colDef = "DECIMAL(10,4) DEFAULT 0 NOT NULL"
+		} else {
+			colDef = "NUMERIC DEFAULT 0 NOT NULL"
 		}
-		return "NUMERIC DEFAULT 0 NOT NULL"
 	case FieldTypeBool:
 		if driverName == "mysql" {
-			return "TINYINT(1) DEFAULT 0 NOT NULL"
+			colDef = "TINYINT(1) DEFAULT 0 NOT NULL"
+		} else {
+			colDef = "BOOLEAN DEFAULT FALSE NOT NULL"
 		}
-		return "BOOLEAN DEFAULT FALSE NOT NULL"
 	case FieldTypeJson:
 		if driverName == "mysql" {
-			return "JSON DEFAULT NULL"
+			colDef = "JSON DEFAULT NULL"
+		} else {
+			colDef = "text DEFAULT NULL"
 		}
-		return "text DEFAULT NULL"
 	default:
 		if opt, ok := f.Options.(MultiValuer); ok && opt.IsMultiple() {
 			if driverName == "mysql" {
-				return "JSON NOT NULL"
+				colDef = "JSON NOT NULL"
+			} else {
+				colDef = "text DEFAULT '[]' NOT NULL"
 			}
-			return "text DEFAULT '[]' NOT NULL"
+		} else {
+			if driverName == "mysql" {
+				colDef = "VARCHAR(255) DEFAULT '' NOT NULL"
+			} else {
+				colDef = "text DEFAULT '' NOT NULL"
+			}
 		}
-
-		if driverName == "mysql" {
-			return "VARCHAR(255) DEFAULT '' NOT NULL"
-		}
-		return "text DEFAULT '' NOT NULL"
 	}
+
+	if driverName == "mysql" && f.Remark != "" {
+		colDef += " COMMENT " + strconv.Quote(f.Remark)
+	}
+
+	return colDef
 }
 
 // String serializes and returns the current field as string.
@@ -224,6 +238,7 @@ func (f SchemaField) Validate() error {
 			validation.NotIn(list.ToInterfaceSlice(excludeNames)...),
 		),
 		validation.Field(&f.Type, validation.Required, validation.In(list.ToInterfaceSlice(FieldTypes())...)),
+		validation.Field(&f.Remark, validation.Length(0, 2000)),
 		// currently file fields cannot be unique because a proper
 		// hash/content check could cause performance issues
 		validation.Field(&f.Unique, validation.When(f.Type == FieldTypeFile, validation.Empty)),

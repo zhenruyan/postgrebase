@@ -72,6 +72,9 @@ type App interface {
 	// RedisCache returns the app Redis client instance.
 	RedisCache() *redis.Client
 
+	// Publish publishes a message to all application instances.
+	Publish(channel string, data any) error
+
 	// NewMailClient creates and returns a configured app mail client.
 	NewMailClient() mailer.Mailer
 
@@ -308,6 +311,10 @@ type App interface {
 	// OnRealtimeAfterSubscribeRequest hook is triggered after the client
 	// subscriptions were successfully changed.
 	OnRealtimeAfterSubscribeRequest() *hook.Hook[*RealtimeSubscribeEvent]
+
+	// OnRealtimeBroadcast hook is triggered when a realtime message is received
+	// from another application instance (via Redis) or from the current one.
+	OnRealtimeBroadcast() *hook.Hook[*RealtimeBroadcastEvent]
 
 	// ---------------------------------------------------------------
 	// Settings API event hooks

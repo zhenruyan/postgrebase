@@ -18,6 +18,7 @@ func bindSettingsApi(app core.App, rg *echo.Group) {
 	subGroup.GET("", api.list)
 	subGroup.PATCH("", api.set)
 	subGroup.POST("/test/s3", api.testS3)
+	subGroup.POST("/test/webdav", api.testWebDAV)
 	subGroup.POST("/test/email", api.testEmail)
 	subGroup.POST("/apple/generate-client-secret", api.generateAppleClientSecret)
 }
@@ -101,6 +102,28 @@ func (api *settingsApi) testS3(c echo.Context) error {
 
 		// mailer error
 		return NewBadRequestError("Failed to test the S3 filesystem. Raw error: \n"+err.Error(), nil)
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
+func (api *settingsApi) testWebDAV(c echo.Context) error {
+	form := forms.NewTestWebDAVFilesystem(api.app)
+
+	// load request
+	if err := c.Bind(form); err != nil {
+		return NewBadRequestError("An error occurred while loading the submitted data.", err)
+	}
+
+	// send
+	if err := form.Submit(); err != nil {
+		// form error
+		if fErr, ok := err.(validation.Errors); ok {
+			return NewBadRequestError("Failed to test the WebDAV filesystem.", fErr)
+		}
+
+		// mailer error
+		return NewBadRequestError("Failed to test the WebDAV filesystem. Raw error: \n"+err.Error(), nil)
 	}
 
 	return c.NoContent(http.StatusNoContent)

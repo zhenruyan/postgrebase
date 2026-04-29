@@ -8,5 +8,10 @@
 
 <Field class="form-field form-field-toggle {field.required ? 'required' : ''}" name={field.name} let:uniqueId>
     <input type="checkbox" id={uniqueId} bind:checked={value} />
-    <label for={uniqueId}>{field.name}</label>
+    <label for={uniqueId}>
+        {field.name}
+        {#if field.remark}
+            <span class="txt-hint">({field.remark})</span>
+        {/if}
+    </label>
 </Field>

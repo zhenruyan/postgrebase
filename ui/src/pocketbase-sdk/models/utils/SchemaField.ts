@@ -3,6 +3,7 @@ export default class SchemaField {
     name!:     string;
     type!:     string;
     system!:   boolean;
+    remark!:   string;
     required!: boolean;
     options!:  { [key: string]: any };
 
@@ -11,6 +12,7 @@ export default class SchemaField {
         this.name     = typeof data.name !== 'undefined' ? data.name : '';
         this.type     = typeof data.type !== 'undefined' ? data.type : 'text';
         this.system   = !!data.system;
+        this.remark   = typeof data.remark !== 'undefined' ? data.remark : '';
         this.required = !!data.required;
         this.options  = typeof data.options === 'object' && data.options !== null ? data.options : {};
     }

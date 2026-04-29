@@ -19,6 +19,7 @@ require (
 	github.com/spf13/cast v1.6.0
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.2
+	github.com/studio-b12/gowebdav v0.12.0
 	gocloud.dev v0.32.0
 	golang.org/x/crypto v0.12.0
 	golang.org/x/net v0.14.0

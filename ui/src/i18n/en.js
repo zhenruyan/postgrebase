@@ -68,5 +68,7 @@ export default {
     "Admins auth token": "Admins auth token",
     "Admins password reset token": "Admins password reset token",
     "Admins protected file access token": "Admins protected file access token",
-    "Save changes": "Save changes"
+    "Save changes": "Save changes",
+    "Field Remark": "Field Remark",
+    "Optional field remark/comment": "Optional field remark/comment"
 };

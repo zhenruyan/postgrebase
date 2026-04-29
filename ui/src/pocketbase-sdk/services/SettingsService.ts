@@ -45,6 +45,23 @@ export default class SettingsService extends BaseService {
     }
 
     /**
+     * Performs a WebDAV filesystem connection test.
+     *
+     * The currently supported `filesystem` are "storage" and "backups".
+     */
+    testWebDAV(filesystem: string = "storage", queryParams: BaseQueryParams = {}): Promise<boolean> {
+        const bodyParams = {
+            'filesystem': filesystem,
+        };
+
+        return this.client.send('/api/settings/test/webdav', {
+            'method': 'POST',
+            'params': queryParams,
+            'body':   bodyParams,
+        }).then(() => true);
+    }
+
+    /**
      * Sends a test email.
      *
      * The possible `emailTemplate` values are:

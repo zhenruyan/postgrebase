@@ -144,18 +144,52 @@
 
         .card h3 { margin: 0 0 12px 0; font-size: 24px; }
 
-        /* Code Block */
+        /* Code Block & Tabs */
+        .code-container {
+            max-width: 800px;
+            margin: 40px auto;
+            text-align: left;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+
+        .tab-btn {
+            background: var(--md-sys-color-surface-variant);
+            color: var(--md-sys-color-on-surface-variant);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .tab-btn.active {
+            background: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+        }
+
         .code-snippet {
             background: #1E1B24;
             color: #E6E1E5;
             padding: 24px;
             border-radius: var(--radius-medium);
-            text-align: left;
             font-family: 'Roboto Mono', monospace;
             font-size: 14px;
-            max-width: 800px;
-            margin: 40px auto;
             overflow-x: auto;
+            min-height: 60px;
+            display: none;
+        }
+
+        .code-snippet.active {
+            display: block;
         }
 
         footer {
@@ -212,9 +246,29 @@
                 <a href="https://github.com/free/postgresqlbaseapi" class="btn btn-tonal" data-i18n="view-github">View GitHub</a>
             </div>
 
-            <div class="code-snippet">
-                # Install and serve with PostgreSQL<br>
-                ./pb serve --dataDsn "postgresql://user:pass@127.0.0.1:5432/db"
+            <div class="code-container">
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="showSnippet(this, 'pg')" data-i18n="tab-pg">PostgreSQL</button>
+                    <button class="tab-btn" onclick="showSnippet(this, 'mysql')" data-i18n="tab-mysql">MySQL</button>
+                    <button class="tab-btn" onclick="showSnippet(this, 'pg-redis')" data-i18n="tab-pg-redis">PG + Redis</button>
+                    <button class="tab-btn" onclick="showSnippet(this, 'mysql-redis')" data-i18n="tab-mysql-redis">MySQL + Redis</button>
+                </div>
+                <div id="pg" class="code-snippet active">
+                    <span style="color: #79747E;"># Start with PostgreSQL</span><br>
+                    ./pb serve --dataDsn "postgresql://user:pass@127.0.0.1:5432/db"
+                </div>
+                <div id="mysql" class="code-snippet">
+                    <span style="color: #79747E;"># Start with MySQL</span><br>
+                    ./pb serve --dataDsn "mysql://user:pass@tcp(127.0.0.1:3306)/db"
+                </div>
+                <div id="pg-redis" class="code-snippet">
+                    <span style="color: #79747E;"># Start with PostgreSQL and Redis Caching</span><br>
+                    ./pb serve --dataDsn "postgresql://user:pass@127.0.0.1:5432/db" --redisDsn "redis://localhost:6379/0"
+                </div>
+                <div id="mysql-redis" class="code-snippet">
+                    <span style="color: #79747E;"># Start with MySQL and Redis Caching</span><br>
+                    ./pb serve --dataDsn "mysql://user:pass@tcp(127.0.0.1:3306)/db" --redisDsn "redis://localhost:6379/0"
+                </div>
             </div>
         </section>
 
@@ -239,6 +293,11 @@
                 <h3 data-i18n="feature-i18n-title">Native I18n</h3>
                 <p data-i18n="feature-i18n-desc">Fully internationalized admin dashboard supporting English and Chinese out of the box.</p>
             </div>
+            <div class="card">
+                <span class="material-symbols-outlined icon">cloud_done</span>
+                <h3 data-i18n="feature-ha-title">Enterprise HA</h3>
+                <p data-i18n="feature-ha-desc">Designed for high availability. Deploy multiple nodes behind a load balancer with shared SQL and Redis.</p>
+            </div>
         </section>
     </main>
 
@@ -246,6 +305,19 @@
         <p data-i18n="footer-text">&copy; 2024 PostgresBase API Project. Built on the shoulders of PocketBase.</p>
     </footer>
 
+    <script>
+        function showSnippet(btn, id) {
+            // Hide all snippets
+            document.querySelectorAll('.code-snippet').forEach(s => s.classList.remove('active'));
+            // Deactivate all tabs
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            
+            // Show selected snippet
+            document.getElementById(id).classList.add('active');
+            // Activate selected tab
+            btn.classList.add('active');
+        }
+    </script>
     <script src="js/translations.js"></script>
     <script src="js/i18n.js"></script>
 

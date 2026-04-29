@@ -95,7 +95,7 @@ func NewWithConfig(config Config) *PocketBase {
 		config.DefaultDataDsn = "postgresql://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable"
 	}
 	if config.RedisDsn == "" {
-		config.RedisDsn = "redis://localhost:6379/0"
+		config.RedisDsn = ""
 	}
 	if config.DefaultDataDir == "" {
 		baseDir, _ := inspectRuntime()

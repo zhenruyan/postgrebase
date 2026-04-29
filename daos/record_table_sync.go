@@ -79,6 +79,19 @@ func (dao *Dao) SyncRecordTableSchema(newCollection *models.Collection, oldColle
 			return err
 		}
 
+		// sync column comments (Postgres only)
+		if driver == "postgres" {
+			for _, field := range newCollection.Schema.Fields() {
+				if field.Remark != "" {
+					commentSql := fmt.Sprintf("COMMENT ON COLUMN {{%s}}.[[%s]] IS %s", tableName, field.Name, strconv.Quote(field.Remark))
+					if _, err := dao.DB().NewQuery(commentSql).Execute(); err != nil {
+						// log error but continue? or return err? usually better to continue or log
+						fmt.Printf("failed to set comment for %s.%s: %v\n", tableName, field.Name, err)
+					}
+				}
+			}
+		}
+
 		// add named unique index on the email and tokenKey columns
 		if newCollection.IsAuth() {
 			if driver == "mysql" {
@@ -183,6 +196,36 @@ func (dao *Dao) SyncRecordTableSchema(newCollection *models.Collection, oldColle
 		_, err := dao.DB().RenameColumn(newTableName, tempName, actualName).Execute()
 		if err != nil {
 			return err
+		}
+	}
+
+	// sync column comments
+	for _, field := range newSchema.Fields() {
+		if field.Remark == "" {
+			continue
+		}
+
+		if driver == "postgres" {
+			commentSql := fmt.Sprintf("COMMENT ON COLUMN {{%s}}.[[%s]] IS %s", newTableName, field.Name, strconv.Quote(field.Remark))
+			if _, err := dao.DB().NewQuery(commentSql).Execute(); err != nil {
+				fmt.Printf("failed to set comment for %s.%s: %v\n", newTableName, field.Name, err)
+			}
+		} else if driver == "mysql" {
+			// for MySQL, we might need to re-apply the comment if the column already existed but the remark changed
+			// since MySQL stores comments in the column definition.
+			// However, SyncRecordTableSchema currently doesn't easily detect if ONLY the remark changed.
+			// If it's a new column, AddColumn already included it via ColDefinition.
+			// If it's an existing column, we can force update it.
+			oldField := oldSchema.GetFieldById(field.Id)
+			if oldField == nil || oldField.Remark != field.Remark {
+				// Re-apply column definition to update comment
+				// Note: This might be slightly dangerous if ColDefinition doesn't match perfectly,
+				// but in PocketBase, ColDefinition is the source of truth.
+				modifySql := fmt.Sprintf("ALTER TABLE {{%s}} MODIFY [[%s]] %s", newTableName, field.Name, field.ColDefinition(driver))
+				if _, err := dao.DB().NewQuery(modifySql).Execute(); err != nil {
+					fmt.Printf("failed to set mysql comment for %s.%s: %v\n", newTableName, field.Name, err)
+				}
+			}
 		}
 	}
 

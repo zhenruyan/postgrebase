@@ -6,6 +6,7 @@
     import Toggler from "@/components/base/Toggler.svelte";
     import BackupsList from "@/components/settings/BackupsList.svelte";
     import S3Fields from "@/components/settings/S3Fields.svelte";
+    import WebDAVFields from "@/components/settings/WebDAVFields.svelte";
     import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
     import { pageTitle } from "@/stores/app";
     import { removeError } from "@/stores/errors";
@@ -26,6 +27,8 @@
     let showBackupsSettings = false;
     let isTesting = false;
     let testError = null;
+    let isWebDAVTesting = false;
+    let webdavTestError = null;
 
     $: initialHash = JSON.stringify(originalFormSettings);
 
@@ -246,6 +249,16 @@
                         bind:testError
                     />
 
+                    <WebDAVFields
+                        toggleLabel="使用 WebDAV 协议存储备份"
+                        testFilesystem="backups"
+                        configKey="backups.webdav"
+                        originalConfig={originalFormSettings.backups?.webdav}
+                        bind:config={formSettings.backups.webdav}
+                        bind:isTesting={isWebDAVTesting}
+                        bind:testError={webdavTestError}
+                    />
+
                     <div class="flex">
                         <div class="flex-fill" />
 
@@ -264,6 +277,25 @@
                                 <div class="label label-sm label-success entrance-right">
                                     <i class="ri-checkbox-circle-line txt-success" />
                                     <span class="txt">S3 connected successfully</span>
+                                </div>
+                            {/if}
+                        {/if}
+
+                        {#if formSettings.backups?.webdav?.enabled && !hasChanges && !isSaving}
+                            {#if isWebDAVTesting}
+                                <span class="loader loader-sm" />
+                            {:else if webdavTestError}
+                                <div
+                                    class="label label-sm label-warning entrance-right"
+                                    use:tooltip={webdavTestError.data?.message}
+                                >
+                                    <i class="ri-error-warning-line txt-warning" />
+                                    <span class="txt">Failed to establish WebDAV connection</span>
+                                </div>
+                            {:else}
+                                <div class="label label-sm label-success entrance-right">
+                                    <i class="ri-checkbox-circle-line txt-success" />
+                                    <span class="txt">WebDAV connected successfully</span>
                                 </div>
                             {/if}
                         {/if}

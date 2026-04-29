@@ -8,10 +8,10 @@ before:
 
 builds:
   - id: build
-    main: ./examples/base
+    main: ./build
     binary: pocketbase
     ldflags:
-      - -s -w -X github.com/zhenruyan/postgrebase.Version={{ .Version }}
+      - -s -w -X github.com/free/postgresqlbaseapi.Version={{ .Version }}
     env:
       - CGO_ENABLED=0
     goos:
