@@ -166,6 +166,7 @@
                 <li data-i18n="docs-ha-step3">Connect all instances to the same Redis cluster for shared caching.</li>
                 <li data-i18n="docs-ha-step4">Ensure <code>pb_data</code> (for storage) is shared using S3 or a networked file system if not using S3 storage.</li>
             </ul>
+            <p data-i18n="docs-ha-p2"></p>
             <pre><code># Example HA Node Start
 ./pb serve --dataDsn "postgres://lb-address:5432/db" --redisDsn "redis://redis-cluster:6379/0"</code></pre>
         </section>
