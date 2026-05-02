@@ -7,6 +7,7 @@
     import SortHeader from "@/components/base/SortHeader.svelte";
     import Toggler from "@/components/base/Toggler.svelte";
     import RecordFieldValue from "@/components/records/RecordFieldValue.svelte";
+    import { t } from "@/i18n";
     import { confirm } from "@/stores/confirmation";
     import { addSuccessToast } from "@/stores/toasts";
     import ApiClient from "@/utils/ApiClient";
@@ -207,11 +208,7 @@
     }
 
     function deleteSelectedConfirm() {
-        const msg = `你要删除选中的 ${
-            totalBulkSelected 
-        } 个记录?`;
-
-        confirm(msg, deleteSelected);
+        confirm($t("Delete {count} selected records?", { count: totalBulkSelected }), deleteSelected);
     }
 
     async function deleteSelected() {
@@ -228,9 +225,7 @@
 
         return Promise.all(promises)
             .then(() => {
-                addSuccessToast(
-                    `成功删除选中的 ${totalBulkSelected} 条记录 .`
-                );
+                addSuccessToast($t("Successfully deleted {count} selected records.", { count: totalBulkSelected }));
                 deselectAllRecords();
             })
             .catch((err) => {
@@ -480,14 +475,14 @@
                 {:else}
                     <tr>
                         <td colspan="99" class="txt-center txt-hint p-xs">
-                            <h6>暂无数据.</h6>
+                            <h6>{$t("No data.")}</h6>
                             {#if filter?.length}
                                 <button
                                     type="button"
                                     class="btn btn-hint btn-expanded m-t-sm"
                                     on:click={() => (filter = "")}
                                 >
-                                    <span class="txt">重置搜索</span>
+                                    <span class="txt">{$t("Reset search")}</span>
                                 </button>
                             {:else if !collection?.$isView}
                                 <button
@@ -496,7 +491,7 @@
                                     on:click={() => dispatch("new")}
                                 >
                                     <i class="ri-add-line" />
-                                    <span class="txt">新纪录</span>
+                                    <span class="txt">{$t("New record")}</span>
                                 </button>
                             {/if}
                         </td>
@@ -520,7 +515,7 @@
             class:btn-disabled={isLoading}
             on:click={() => load(currentPage + 1)}
         >
-            <span class="txt">查看更多 ({totalRecords - records.length})</span>
+            <span class="txt">{$t("Load more")} ({totalRecords - records.length})</span>
         </button>
     </div>
 {/if}
@@ -528,7 +523,7 @@
 {#if totalBulkSelected}
     <div class="bulkbar" transition:fly|local={{ duration: 150, y: 5 }}>
         <div class="txt">
-            选中了 <strong>{totalBulkSelected}</strong>条记录
+            {@html $t("Selected {count} records", { count: `<strong>${totalBulkSelected}</strong>` })}
         </div>
         <button
             type="button"
@@ -536,7 +531,7 @@
             class:btn-disabled={isDeleting}
             on:click={() => deselectAllRecords()}
         >
-            <span class="txt">取消选中</span>
+            <span class="txt">{$t("Clear selection")}</span>
         </button>
         <div class="flex-fill" />
         <button
@@ -546,7 +541,7 @@
             class:btn-disabled={isDeleting}
             on:click={() => deleteSelectedConfirm()}
         >
-            <span class="txt">删除选中</span>
+            <span class="txt">{$t("Delete selected")}</span>
         </button>
     </div>
 {/if}
