@@ -8,6 +8,7 @@
     import S3Fields from "@/components/settings/S3Fields.svelte";
     import WebDAVFields from "@/components/settings/WebDAVFields.svelte";
     import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
+    import { t } from "@/i18n";
     import { pageTitle } from "@/stores/app";
     import { removeError } from "@/stores/errors";
     import { addSuccessToast } from "@/stores/toasts";
@@ -15,7 +16,7 @@
     import CommonHelper from "@/utils/CommonHelper";
     import { slide } from "svelte/transition";
 
-    $pageTitle = "附件备份";
+    $: $pageTitle = $t("Backups");
 
     let backupsListComponent;
     let originalFormSettings = {};
@@ -101,7 +102,7 @@
 <PageWrapper>
     <header class="page-header">
         <nav class="breadcrumbs">
-            <div class="breadcrumb-item">设置</div>
+            <div class="breadcrumb-item">{$t("Settings")}</div>
             <div class="breadcrumb-item">{$pageTitle}</div>
         </nav>
     </header>
@@ -109,10 +110,10 @@
     <div class="wrapper">
         <div class="panel" autocomplete="off" on:submit|preventDefault={save}>
             <div class="flex m-b-sm flex-gap-5">
-                <span class="txt-xl">备份或者恢复你的附件</span>
+                <span class="txt-xl">{$t("Backup or restore your uploaded files")}</span>
                 <RefreshButton
                     class="btn-sm"
-                    tooltip={"刷新"}
+                    tooltip={$t("Refresh")}
                     on:refresh={() => refreshList()}
                 />
             </div>
@@ -128,7 +129,7 @@
                 disabled={isLoading}
                 on:click={() => (showBackupsSettings = !showBackupsSettings)}
             >
-                <span class="txt">更多设置</span>
+                <span class="txt">{$t("More settings")}</span>
                 {#if showBackupsSettings}
                     <i class="ri-arrow-up-s-line" />
                 {:else}
@@ -145,7 +146,7 @@
                 >
                     <Field class="form-field form-field-toggle m-t-base m-b-0" let:uniqueId>
                         <input type="checkbox" id={uniqueId} required bind:checked={enableAutoBackups} />
-                        <label for={uniqueId}>开启定时备份</label>
+                        <label for={uniqueId}>{$t("Enable scheduled backups")}</label>
                     </Field>
 
                     {#if enableAutoBackups}
@@ -240,7 +241,7 @@
                     <div class="clearfix m-b-base" />
 
                     <S3Fields
-                        toggleLabel="使用s3协议存储备份"
+                        toggleLabel={$t("Use S3 storage for backups")}
                         testFilesystem="backups"
                         configKey="backups.s3"
                         originalConfig={originalFormSettings.backups?.s3}
@@ -250,7 +251,7 @@
                     />
 
                     <WebDAVFields
-                        toggleLabel="使用 WebDAV 协议存储备份"
+                        toggleLabel={$t("Use WebDAV storage for backups")}
                         testFilesystem="backups"
                         configKey="backups.webdav"
                         originalConfig={originalFormSettings.backups?.webdav}
@@ -307,7 +308,7 @@
                                 disabled={!hasChanges || isSaving}
                                 on:click={() => reset()}
                             >
-                                <span class="txt">重置</span>
+                                <span class="txt">{$t("Reset")}</span>
                             </button>
                         {/if}
 
@@ -318,7 +319,7 @@
                             disabled={!hasChanges || isSaving}
                             on:click={() => save()}
                         >
-                            <span class="txt">保存</span>
+                            <span class="txt">{$t("Save")}</span>
                         </button>
                     </div>
                 </form>

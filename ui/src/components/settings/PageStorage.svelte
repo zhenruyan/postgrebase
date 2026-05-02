@@ -4,6 +4,7 @@
     import S3Fields from "@/components/settings/S3Fields.svelte";
     import WebDAVFields from "@/components/settings/WebDAVFields.svelte";
     import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
+    import { t } from "@/i18n";
     import { pageTitle } from "@/stores/app";
     import { setErrors } from "@/stores/errors";
     import { addSuccessToast, addWarningToast, removeAllToasts } from "@/stores/toasts";
@@ -11,7 +12,7 @@
     import CommonHelper from "@/utils/CommonHelper";
     import { slide } from "svelte/transition";
 
-    $pageTitle = "文件存储";
+    $: $pageTitle = $t("File Storage");
 
     const testRequestKey = "s3_test_request";
     const webdavTestRequestKey = "webdav_test_request";
@@ -92,7 +93,7 @@
 <PageWrapper>
     <header class="page-header">
         <nav class="breadcrumbs">
-            <div class="breadcrumb-item">设置</div>
+            <div class="breadcrumb-item">{$t("Settings")}</div>
             <div class="breadcrumb-item">{$pageTitle}</div>
         </nav>
     </header>
@@ -100,17 +101,15 @@
     <div class="wrapper">
         <form class="panel" autocomplete="off" on:submit|preventDefault={() => save()}>
             <div class="content txt-xl m-b-base">
-                <p>默认情况下会直接存储到本地目录</p>
-                <p>
-                  如果想要更多功能可以使用minio或者aws s3 
-                </p>
+                <p>{$t("By default files are stored on the local filesystem.")}</p>
+                <p>{$t("Use MinIO or AWS S3 for more storage capabilities.")}</p>
             </div>
 
             {#if isLoading}
                 <div class="loader" />
             {:else}
                 <S3Fields
-                    toggleLabel="使用 S3 协议"
+                    toggleLabel={$t("Use S3 storage")}
                     originalConfig={originalFormSettings.s3}
                     bind:config={formSettings.s3}
                     bind:isTesting
@@ -123,20 +122,20 @@
                                     <i class="ri-error-warning-line" />
                                 </div>
                                 <div class="content">
-                                    如果已经存在了附件 想要同步
+                                    {$t("If files already exist, synchronize them from")}
                                     <strong>
                                         {originalFormSettings.s3?.enabled
-                                            ? "S3 协议"
-                                            : "本地目录"}
+                                            ? $t("S3 storage")
+                                            : $t("local storage")}
                                     </strong>
                                     to the
                                     <strong
                                         >{formSettings.s3.enabled
-                                            ? "S3 协议"
-                                            : "本地目录"}</strong
+                                            ? $t("S3 storage")
+                                            : $t("local storage")}</strong
                                     >.
                                     <br />
-                                    可以使用以下工具:
+                                    {$t("You can use tools like")}:
                                     <a
                                         href="https://github.com/rclone/rclone"
                                         target="_blank"
@@ -163,7 +162,7 @@
                 <hr class="m-t-lg m-b-lg" />
 
                 <WebDAVFields
-                    toggleLabel="使用 WebDAV 协议"
+                    toggleLabel={$t("Use WebDAV storage")}
                     configKey="webdav"
                     originalConfig={originalFormSettings.webdav}
                     bind:config={formSettings.webdav}
@@ -177,20 +176,20 @@
                                     <i class="ri-error-warning-line" />
                                 </div>
                                 <div class="content">
-                                    如果已经存在了附件 想要同步
+                                    {$t("If files already exist, synchronize them from")}
                                     <strong>
                                         {originalFormSettings.webdav?.enabled
-                                            ? "WebDAV 协议"
-                                            : "其他存储"}
+                                            ? $t("WebDAV storage")
+                                            : $t("other storage")}
                                     </strong>
                                     to the
                                     <strong
                                         >{formSettings.webdav.enabled
-                                            ? "WebDAV 协议"
-                                            : "其他存储"}</strong
+                                            ? $t("WebDAV storage")
+                                            : $t("other storage")}</strong
                                     >.
                                     <br />
-                                    可以使用以下工具:
+                                    {$t("You can use tools like")}:
                                     <a
                                         href="https://github.com/rclone/rclone"
                                         target="_blank"
@@ -218,12 +217,12 @@
                                 use:tooltip={testError.data?.message}
                             >
                                 <i class="ri-error-warning-line txt-warning" />
-                                <span class="txt">无法链接s3</span>
+                                <span class="txt">{$t("Failed to establish S3 connection")}</span>
                             </div>
                         {:else}
                             <div class="label label-sm label-success entrance-right">
                                 <i class="ri-checkbox-circle-line txt-success" />
-                                <span class="txt">S3链接成功</span>
+                                <span class="txt">{$t("S3 connected successfully")}</span>
                             </div>
                         {/if}
                     {/if}
@@ -237,12 +236,12 @@
                                 use:tooltip={webdavTestError.data?.message}
                             >
                                 <i class="ri-error-warning-line txt-warning" />
-                                <span class="txt">无法链接 WebDAV</span>
+                                <span class="txt">{$t("Failed to establish WebDAV connection")}</span>
                             </div>
                         {:else}
                             <div class="label label-sm label-success entrance-right">
                                 <i class="ri-checkbox-circle-line txt-success" />
-                                <span class="txt">WebDAV 链接成功</span>
+                                <span class="txt">{$t("WebDAV connected successfully")}</span>
                             </div>
                         {/if}
                     {/if}
@@ -254,7 +253,7 @@
                             disabled={isSaving}
                             on:click={() => reset()}
                         >
-                            <span class="txt">重置</span>
+                            <span class="txt">{$t("Reset")}</span>
                         </button>
                     {/if}
 
@@ -265,7 +264,7 @@
                         disabled={!hasChanges || isSaving}
                         on:click={() => save()}
                     >
-                        <span class="txt">保存</span>
+                        <span class="txt">{$t("Save")}</span>
                     </button>
                 </div>
             {/if}

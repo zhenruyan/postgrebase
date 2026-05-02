@@ -2,6 +2,7 @@
     import Field from "@/components/base/Field.svelte";
     import OverlayPanel from "@/components/base/OverlayPanel.svelte";
     import RedactedPasswordInput from "@/components/base/RedactedPasswordInput.svelte";
+    import { t } from "@/i18n";
     import { setErrors } from "@/stores/errors";
     import { addSuccessToast } from "@/stores/toasts";
     import ApiClient from "@/utils/ApiClient";
@@ -45,7 +46,7 @@
 
             setErrors({});
 
-            addSuccessToast("Successfully updated provider settings.");
+            addSuccessToast($t("Successfully updated provider settings."));
 
             dispatch("submit", result);
 
@@ -67,18 +68,18 @@
 
 <OverlayPanel bind:this={panel} overlayClose={!isSubmitting} escClose={!isSubmitting} on:show on:hide>
     <svelte:fragment slot="header">
-        <h4 class="center txt-break">{provider.title || provider.key} provider</h4>
+        <h4 class="center txt-break">{$t("{name} provider", { name: provider.title || provider.key })}</h4>
     </svelte:fragment>
 
     <form id={formId} autocomplete="off" on:submit|preventDefault={() => submit()}>
         <div class="flex m-b-base">
             <Field class="form-field form-field-toggle m-b-0" name="{provider.key}.enabled" let:uniqueId>
                 <input type="checkbox" id={uniqueId} bind:checked={config.enabled} />
-                <label for={uniqueId}>启用</label>
+                <label for={uniqueId}>{$t("Enabled")}</label>
             </Field>
 
             <button type="button" class="btn btn-sm btn-transparent btn-hint m-l-auto" on:click={clear}>
-                <span class="txt">清空</span>
+                <span class="txt">{$t("Clear")}</span>
             </button>
         </div>
 
@@ -109,7 +110,7 @@
 
     <svelte:fragment slot="footer">
         <button type="button" class="btn btn-transparent" on:click={hide} disabled={isSubmitting}>
-            取消
+            {$t("Cancel")}
         </button>
         <button
             type="submit"
@@ -118,7 +119,7 @@
             class:btn-loading={isSubmitting}
             disabled={!hasChanges || isSubmitting}
         >
-            <span class="txt">应用</span>
+            <span class="txt">{$t("Apply")}</span>
         </button>
     </svelte:fragment>
 </OverlayPanel>

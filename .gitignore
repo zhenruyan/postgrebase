@@ -6,6 +6,7 @@
 # goreleaser builds folder
 /.builds/
 /dist/
+ui/dist/
 
 # tests coverage
 coverage.out

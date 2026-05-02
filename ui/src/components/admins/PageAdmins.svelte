@@ -8,13 +8,14 @@
     import Searchbar from "@/components/base/Searchbar.svelte";
     import SortHeader from "@/components/base/SortHeader.svelte";
     import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
+    import { t } from "@/i18n";
     import { admin as loggedAdmin } from "@/stores/admin";
     import { pageTitle } from "@/stores/app";
     import ApiClient from "@/utils/ApiClient";
     import CommonHelper from "@/utils/CommonHelper";
     import { querystring, replace } from "svelte-spa-router";
 
-    $pageTitle = "管理员管理";
+    $: $pageTitle = $t("Admin Management");
 
     const queryParams = new URLSearchParams($querystring);
 
@@ -73,7 +74,7 @@
 <PageWrapper>
     <header class="page-header">
         <nav class="breadcrumbs">
-            <div class="breadcrumb-item">设置</div>
+            <div class="breadcrumb-item">{$t("Settings")}</div>
             <div class="breadcrumb-item">{$pageTitle}</div>
         </nav>
 
@@ -83,13 +84,13 @@
 
         <button type="button" class="btn btn-expanded" on:click={() => adminUpsertPanel?.show()}>
             <i class="ri-add-line" />
-            <span class="txt">新管理员</span>
+            <span class="txt">{$t("New admin")}</span>
         </button>
     </header>
 
     <Searchbar
         value={filter}
-        placeholder={"搜索可以参考这样去写 email='test@example.com'"}
+        placeholder={$t("Search example: email='test@example.com'")}
         extraAutocompleteKeys={["email"]}
         on:submit={(e) => (filter = e.detail)}
     />
@@ -150,7 +151,7 @@
                                 <img
                                     src="{import.meta.env.BASE_URL}images/avatars/avatar{admin.avatar ||
                                         0}.svg"
-                                    alt="头像"
+                                    alt={$t("Avatar")}
                                 />
                             </figure>
                         </td>
