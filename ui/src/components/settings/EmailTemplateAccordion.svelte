@@ -6,6 +6,7 @@
     import tooltip from "@/actions/tooltip";
     import Accordion from "@/components/base/Accordion.svelte";
     import Field from "@/components/base/Field.svelte";
+    import { t } from "@/i18n";
     import { errors, removeError } from "@/stores/errors";
     import { addInfoToast } from "@/stores/toasts";
     import CommonHelper from "@/utils/CommonHelper";
@@ -53,7 +54,7 @@
 
     function copy(param) {
         CommonHelper.copyToClipboard(param);
-        addInfoToast(`Copied ${param} to clipboard`, 2000);
+        addInfoToast($t("Copied {param} to clipboard", { param }), 2000);
     }
 
     loadEditorComponent();
@@ -72,16 +73,16 @@
             <i
                 class="ri-error-warning-fill txt-danger"
                 transition:scale|local={{ duration: 150, start: 0.7 }}
-                use:tooltip={{ text: "Has errors", position: "left" }}
+                use:tooltip={{ text: $t("Has errors"), position: "left" }}
             />
         {/if}
     </svelte:fragment>
 
     <Field class="form-field required" name="{key}.subject" let:uniqueId>
-        <label for={uniqueId}>主题</label>
+        <label for={uniqueId}>{$t("Subject")}</label>
         <input type="text" id={uniqueId} bind:value={config.subject} spellcheck="false" required />
         <div class="help-block">
-           可选变量 点击复制:
+            {$t("Available variables. Click to copy:")}
             <button
                 type="button"
                 class="label label-sm link-primary txt-mono"
@@ -100,10 +101,10 @@
     </Field>
 
     <Field class="form-field required" name="{key}.actionUrl" let:uniqueId>
-        <label for={uniqueId}>点击链接</label>
+        <label for={uniqueId}>{$t("Action URL")}</label>
         <input type="text" id={uniqueId} bind:value={config.actionUrl} spellcheck="false" required />
         <div class="help-block">
-            可选变量 点击复制:
+            {$t("Available variables. Click to copy:")}
             <button
                 type="button"
                 class="label label-sm link-primary txt-mono"
@@ -130,7 +131,7 @@
     </Field>
 
     <Field class="form-field m-0 required" name="{key}.body" let:uniqueId>
-        <label for={uniqueId}>正文 (HTML)</label>
+        <label for={uniqueId}>{$t("Body (HTML)")}</label>
 
         {#if editorComponent && !isEditorComponentLoading}
             <svelte:component this={editorComponent} id={uniqueId} language="html" bind:value={config.body} />
@@ -146,7 +147,7 @@
         {/if}
 
         <div class="help-block">
-            可选变量 点击复制:
+            {$t("Available variables. Click to copy:")}
             <button
                 type="button"
                 class="label label-sm link-primary txt-mono"

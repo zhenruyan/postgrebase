@@ -3,6 +3,7 @@
     import Field from "@/components/base/Field.svelte";
     import OverlayPanel from "@/components/base/OverlayPanel.svelte";
     import Toggler from "@/components/base/Toggler.svelte";
+    import { t } from "@/i18n";
     import { confirm } from "@/stores/confirmation";
     import { setErrors } from "@/stores/errors";
     import { addSuccessToast } from "@/stores/toasts";
@@ -81,7 +82,7 @@
             .then(async (result) => {
                 confirmClose = false;
                 hide();
-                addSuccessToast(admin.$isNew ? "成功创建管理员" : "成功更新管理员");
+                addSuccessToast(admin.$isNew ? $t("Successfully created admin.") : $t("Successfully updated admin."));
 
                 if (ApiClient.authStore.model?.id === result.id) {
                     ApiClient.authStore.save(ApiClient.authStore.token, result);
@@ -102,13 +103,13 @@
             return; // nothing to delete
         }
 
-        confirm(`是否删除选中的管理员`, () => {
+        confirm($t("Delete selected admin?"), () => {
             return ApiClient.admins
                 .delete(admin.id)
                 .then(() => {
                     confirmClose = false;
                     hide();
-                    addSuccessToast("成功删除管理员");
+                    addSuccessToast($t("Successfully deleted admin."));
                     dispatch("delete", admin);
                 })
                 .catch((err) => {
@@ -124,7 +125,7 @@
     class="admin-panel"
     beforeHide={() => {
         if (hasChanges && confirmClose) {
-            confirm("是否不保存而直接关闭面板", () => {
+            confirm($t("Close without saving changes?"), () => {
                 confirmClose = false;
                 hide();
             });
@@ -137,7 +138,7 @@
 >
     <svelte:fragment slot="header">
         <h4>
-            {admin.$isNew ? "新建管理员" : "修改管理员"}
+            {admin.$isNew ? $t("New admin") : $t("Edit admin")}
         </h4>
     </svelte:fragment>
 
@@ -162,7 +163,7 @@
         {/if}
 
         <div class="content">
-            <p class="section-title">头像</p>
+            <p class="section-title">{$t("Avatar")}</p>
             <div class="flex flex-gap-xs flex-wrap">
                 {#each [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as index}
                     <button
@@ -182,7 +183,7 @@
         <Field class="form-field required" name="email" let:uniqueId>
             <label for={uniqueId}>
                 <i class={CommonHelper.getFieldTypeIcon("email")} />
-                <span class="txt">邮箱</span>
+                <span class="txt">{$t("Email")}</span>
             </label>
             <input type="email" autocomplete="off" id={uniqueId} required bind:value={email} />
         </Field>
@@ -190,7 +191,7 @@
         {#if !admin.$isNew}
             <Field class="form-field form-field-toggle" let:uniqueId>
                 <input type="checkbox" id={uniqueId} bind:checked={changePasswordToggle} />
-                <label for={uniqueId}>修改密码</label>
+                <label for={uniqueId}>{$t("Change password")}</label>
             </Field>
         {/if}
 
@@ -201,7 +202,7 @@
                         <Field class="form-field required" name="password" let:uniqueId>
                             <label for={uniqueId}>
                                 <i class="ri-lock-line" />
-                                <span class="txt">密码</span>
+                                <span class="txt">{$t("Password")}</span>
                             </label>
                             <input
                                 type="password"
@@ -216,7 +217,7 @@
                         <Field class="form-field required" name="passwordConfirm" let:uniqueId>
                             <label for={uniqueId}>
                                 <i class="ri-lock-line" />
-                                <span class="txt">密码验证</span>
+                                <span class="txt">{$t("Password confirm")}</span>
                             </label>
                             <input
                                 type="password"
@@ -241,7 +242,7 @@
                 <Toggler class="dropdown dropdown-upside dropdown-left dropdown-nowrap">
                     <button type="button" class="dropdown-item txt-danger" on:click={() => deleteConfirm()}>
                         <i class="ri-delete-bin-7-line" />
-                        <span class="txt">删除</span>
+                        <span class="txt">{$t("Delete")}</span>
                     </button>
                 </Toggler>
             </button>
@@ -249,7 +250,7 @@
         {/if}
 
         <button type="button" class="btn btn-transparent" disabled={isSaving} on:click={() => hide()}>
-            <span class="txt">取消</span>
+            <span class="txt">{$t("Cancel")}</span>
         </button>
         <button
             type="submit"
@@ -258,7 +259,7 @@
             class:btn-loading={isSaving}
             disabled={!hasChanges || isSaving}
         >
-            <span class="txt">{admin.$isNew ? "创建" : "保存更改"}</span>
+            <span class="txt">{admin.$isNew ? $t("Create") : $t("Save changes")}</span>
         </button>
     </svelte:fragment>
 </OverlayPanel>

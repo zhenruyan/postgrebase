@@ -1,6 +1,7 @@
 <script>
     import OverlayPanel from "@/components/base/OverlayPanel.svelte";
     import CollectionsDiffTable from "@/components/collections/CollectionsDiffTable.svelte";
+    import { t } from "@/i18n";
     import { confirm } from "@/stores/confirmation";
     import { addSuccessToast } from "@/stores/toasts";
     import ApiClient from "@/utils/ApiClient";
@@ -106,7 +107,7 @@
 
         try {
             await ApiClient.collections.import(newCollections, deleteMissing);
-            addSuccessToast("Successfully imported collections configuration.");
+            addSuccessToast($t("Successfully imported collections configuration."));
             dispatch("submit");
         } catch (err) {
             ApiClient.error(err);
@@ -129,7 +130,7 @@
     on:hide
 >
     <svelte:fragment slot="header">
-        <h4 class="center txt-break">变更详情</h4>
+        <h4 class="center txt-break">{$t("Change details")}</h4>
     </svelte:fragment>
 
     {#each pairs as pair}
@@ -137,7 +138,8 @@
     {/each}
 
     <svelte:fragment slot="footer">
-        <button type="button" class="btn btn-transparent" on:click={hide} disabled={isImporting}>取消</button
+        <button type="button" class="btn btn-transparent" on:click={hide} disabled={isImporting}
+            >{$t("Cancel")}</button
         >
         <button
             type="button"
@@ -146,7 +148,7 @@
             disabled={isImporting}
             on:click={() => submitConfirm()}
         >
-            <span class="txt">最终确认</span>
+            <span class="txt">{$t("Final confirm")}</span>
         </button>
     </svelte:fragment>
 </OverlayPanel>

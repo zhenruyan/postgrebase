@@ -1,5 +1,6 @@
 <script>
     import AuthProviderPanel from "@/components/settings/AuthProviderPanel.svelte";
+    import { t } from "@/i18n";
 
     export let provider = {};
     export let config = {};
@@ -16,7 +17,7 @@
     <div class="title">{provider.title}</div>
     <em class="txt-hint txt-sm m-r-auto">({provider.key.slice(0, -4)})</em>
     {#if config.enabled}
-        <div class="label label-success">启用</div>
+        <div class="label label-success">{$t("Enabled")}</div>
     {/if}
     <button
         type="button"

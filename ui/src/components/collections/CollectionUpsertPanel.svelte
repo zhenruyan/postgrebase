@@ -103,7 +103,7 @@
     export function show(model) {
         load(model);
 
-        loadProjects(); // 每次打开弹窗都尝试刷新项目列表
+        loadProjects();
 
         confirmClose = true;
 
@@ -169,7 +169,7 @@
                 confirmClose = false;
                 hide();
 
-                addSuccessToast(collection.$isNew ? "建表成功." : "更新成功.");
+                addSuccessToast(collection.$isNew ? $t("Successfully created table.") : $t("Successfully updated table."));
 
                 dispatch("save", {
                     isNew: collection.$isNew,
@@ -206,12 +206,12 @@
             return; // nothing to delete
         }
 
-        confirm(`是否要删除 "${original?.name}" 表 并清空其中数据?`, () => {
+        confirm($t('Delete "{name}" table and clear its data?', { name: original?.name }), () => {
             return ApiClient.collections
                 .delete(original?.id)
                 .then(() => {
                     hide();
-                    addSuccessToast(`成功删除 "${original?.name}"表.`);
+                    addSuccessToast($t('Successfully deleted "{name}" table.', { name: original?.name }));
                     dispatch("delete", original);
                     removeCollection(original);
                 })
@@ -234,7 +234,7 @@
 
     function duplicateConfirm() {
         if (hasChanges) {
-            confirm("不保存 直接取消么?", () => {
+            confirm($t("Discard unsaved changes?"), () => {
                 duplicate();
             });
         } else {
@@ -284,7 +284,7 @@
     overlayClose={!isSaving}
     beforeHide={() => {
         if (hasChanges && confirmClose) {
-            confirm("不保存直接取消?", () => {
+            confirm($t("Discard unsaved changes?"), () => {
                 confirmClose = false;
                 hide();
             });
@@ -297,7 +297,7 @@
 >
     <svelte:fragment slot="header">
         <h4 class="upsert-panel-title">
-            {collection.$isNew ? "新建表结构" : "修改表结构"}
+            {collection.$isNew ? $t("New table schema") : $t("Edit table schema")}
         </h4>
 
         {#if !collection.$isNew && !collection.system}
@@ -307,7 +307,7 @@
                 <Toggler class="dropdown dropdown-right m-t-5">
                     <button type="button" class="dropdown-item closable" on:click={() => duplicateConfirm()}>
                         <i class="ri-file-copy-line" />
-                        <span class="txt">复制</span>
+                        <span class="txt">{$t("Duplicate")}</span>
                     </button>
                     <button
                         type="button"
@@ -315,7 +315,7 @@
                         on:click|preventDefault|stopPropagation={() => deleteConfirm()}
                     >
                         <i class="ri-delete-bin-7-line" />
-                        <span class="txt">删除</span>
+                        <span class="txt">{$t("Delete")}</span>
                     </button>
                 </Toggler>
             </button>
@@ -330,13 +330,13 @@
             <div class="grid">
                 <div class="col-lg-6">
                     <Field class="form-field required" name="displayName" let:uniqueId>
-                        <label for={uniqueId}>显示名称 (支持中文)</label>
+                        <label for={uniqueId}>{$t("Display Name (Support Chinese)")}</label>
                         <input
                             type="text"
                             id={uniqueId}
                             disabled={isSystemUpdate}
                             spellcheck="false"
-                            placeholder="例如：文章列表"
+                            placeholder={collection.$isAuth ? $t("Example: Users") : $t("Example: Posts")}
                             value={collection.displayName || ""}
                             on:input={(e) => {
                                 collection.displayName = e.target.value;
@@ -347,7 +347,7 @@
 
                 <div class="col-lg-6">
                     <Field class="form-field required" name="name" let:uniqueId>
-                        <label for={uniqueId}>内部标识 (仅限字母数字下划线)</label>
+                        <label for={uniqueId}>{$t("Internal Identifier (Alphanumeric/Underscore)")}</label>
                         <input
                             type="text"
                             id={uniqueId}
@@ -355,7 +355,7 @@
                             disabled={isSystemUpdate}
                             spellcheck="false"
                             autofocus={collection.$isNew}
-                            placeholder={collection.$isAuth ? `例如：users` : `例如：posts`}
+                            placeholder={collection.$isAuth ? "eg. users" : "eg. posts"}
                             value={collection.name}
                             on:input={(e) => {
                                 collection.name = CommonHelper.slugify(e.target.value);
@@ -367,9 +367,9 @@
 
                 <div class="col-lg-6">
                     <Field class="form-field" name="project" let:uniqueId>
-                        <label for={uniqueId}>所属项目</label>
+                        <label for={uniqueId}>{$t("Belongs to Project")}</label>
                         <select id={uniqueId} disabled={isSystemUpdate} bind:value={collection.project}>
-                            <option value={null}>未分配 (None)</option>
+                            <option value={null}>{$t("Unassigned")}</option>
                             {#each projects as project (project.id)}
                                 <option value={project.id}>{project.name}</option>
                             {/each}
@@ -379,7 +379,7 @@
 
                 <div class="col-lg-6">
                     <Field class="form-field" name="type" let:uniqueId>
-                        <label for={uniqueId}>表类型</label>
+                        <label for={uniqueId}>{$t("Table Type")}</label>
                         <button
                             type="button"
                             id={uniqueId}
@@ -387,7 +387,7 @@
                             disabled={!collection.$isNew}
                         >
                             <i class={CommonHelper.getCollectionTypeIcon(collection.type)} />
-                            <span class="txt">类型: {collectionTypes[collection.type] || "N/A"}</span>
+                            <span class="txt">{$t("Type")}: {collectionTypes[collection.type] || "N/A"}</span>
                             {#if collection.$isNew}
                                 <div class="flex-fill" />
                                 <i class="ri-arrow-down-s-fill" />
@@ -420,7 +420,7 @@
                 class:active={activeTab === TAB_SCHEMA}
                 on:click={() => changeTab(TAB_SCHEMA)}
             >
-                <span class="txt">{collection?.$isView ? "视图查询语句" : "表字段元素"}</span>
+                <span class="txt">{collection?.$isView ? $t("View query") : $t("Fields")}</span>
                 {#if !CommonHelper.isEmpty(schemaTabError)}
                     <i
                         class="ri-error-warning-fill txt-danger"
@@ -436,7 +436,7 @@
                 class:active={activeTab === TAB_RULES}
                 on:click={() => changeTab(TAB_RULES)}
             >
-                <span class="txt">鉴权（默认打开）</span>
+                <span class="txt">{$t("API rules")}</span>
                 {#if !CommonHelper.isEmpty($errors?.listRule) || !CommonHelper.isEmpty($errors?.viewRule) || !CommonHelper.isEmpty($errors?.createRule) || !CommonHelper.isEmpty($errors?.updateRule) || !CommonHelper.isEmpty($errors?.deleteRule) || !CommonHelper.isEmpty($errors?.options?.manageRule)}
                     <i
                         class="ri-error-warning-fill txt-danger"
@@ -462,7 +462,7 @@
                     class:active={activeTab === TAB_OPTIONS}
                     on:click={() => changeTab(TAB_OPTIONS)}
                 >
-                    <span class="txt">更多设置</span>
+                    <span class="txt">{$t("More settings")}</span>
                     {#if !CommonHelper.isEmpty($errors?.options) && !$errors?.options?.manageRule}
                         <i
                             class="ri-error-warning-fill txt-danger"
@@ -506,7 +506,7 @@
 
     <svelte:fragment slot="footer">
         <button type="button" class="btn btn-transparent" disabled={isSaving} on:click={() => hide()}>
-            <span class="txt">取消</span>
+            <span class="txt">{$t("Cancel")}</span>
         </button>
         <button
             type="button"
@@ -515,7 +515,7 @@
             disabled={!canSave || isSaving}
             on:click={() => saveConfirm()}
         >
-            <span class="txt">{collection.$isNew ? "创建" : "保存"}</span>
+            <span class="txt">{collection.$isNew ? $t("Create") : $t("Save")}</span>
         </button>
     </svelte:fragment>
 </OverlayPanel>
