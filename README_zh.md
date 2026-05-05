@@ -27,7 +27,7 @@
 
 ```bash
 git clone https://github.com/zhenruyan/postgrebase.git
-cd postgresqlbaseapi
+cd postgrebase
 # 编译二进制
 go build -o pb ./build/
 ```
