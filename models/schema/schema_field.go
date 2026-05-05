@@ -8,9 +8,9 @@ import (
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
-	"github.com/free/postgresqlbaseapi/tools/filesystem"
-	"github.com/free/postgresqlbaseapi/tools/list"
-	"github.com/free/postgresqlbaseapi/tools/types"
+	"github.com/zhenruyan/postgrebase/tools/filesystem"
+	"github.com/zhenruyan/postgrebase/tools/list"
+	"github.com/zhenruyan/postgrebase/tools/types"
 	"github.com/spf13/cast"
 )
 

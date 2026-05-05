@@ -7,7 +7,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
-	"github.com/free/postgresqlbaseapi/dbx"
+	"github.com/zhenruyan/postgrebase/dbx"
 	"github.com/spf13/cast"
 )
 

@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
-	"github.com/free/postgresqlbaseapi/dbx"
-	"github.com/free/postgresqlbaseapi/daos"
+	"github.com/zhenruyan/postgrebase/dbx"
+	"github.com/zhenruyan/postgrebase/daos"
 )
 
 // Compare checks whether the provided model id exists.

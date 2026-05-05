@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/free/postgresqlbaseapi/tools/filesystem"
+	"github.com/zhenruyan/postgrebase/tools/filesystem"
 )
 
 func TestFileSystemExists(t *testing.T) {

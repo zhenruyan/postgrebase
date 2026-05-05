@@ -3,7 +3,7 @@ package security_test
 import (
 	"testing"
 
-	"github.com/free/postgresqlbaseapi/tools/security"
+	"github.com/zhenruyan/postgrebase/tools/security"
 )
 
 func TestS256Challenge(t *testing.T) {

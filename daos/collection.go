@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/free/postgresqlbaseapi/dbx"
-	"github.com/free/postgresqlbaseapi/models"
-	"github.com/free/postgresqlbaseapi/models/schema"
-	"github.com/free/postgresqlbaseapi/tools/list"
+	"github.com/zhenruyan/postgrebase/dbx"
+	"github.com/zhenruyan/postgrebase/models"
+	"github.com/zhenruyan/postgrebase/models/schema"
+	"github.com/zhenruyan/postgrebase/tools/list"
 )
 
 // CollectionQuery returns a new Collection select query.

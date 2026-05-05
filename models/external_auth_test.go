@@ -3,7 +3,7 @@ package models_test
 import (
 	"testing"
 
-	"github.com/free/postgresqlbaseapi/models"
+	"github.com/zhenruyan/postgrebase/models"
 )
 
 func TestExternalAuthTableName(t *testing.T) {

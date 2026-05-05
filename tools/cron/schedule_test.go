@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/free/postgresqlbaseapi/tools/cron"
+	"github.com/zhenruyan/postgrebase/tools/cron"
 )
 
 func TestNewMoment(t *testing.T) {

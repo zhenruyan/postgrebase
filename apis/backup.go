@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v5"
-	"github.com/free/postgresqlbaseapi/core"
-	"github.com/free/postgresqlbaseapi/forms"
-	"github.com/free/postgresqlbaseapi/models"
-	"github.com/free/postgresqlbaseapi/tools/types"
+	"github.com/zhenruyan/postgrebase/core"
+	"github.com/zhenruyan/postgrebase/forms"
+	"github.com/zhenruyan/postgrebase/models"
+	"github.com/zhenruyan/postgrebase/tools/types"
 	"github.com/spf13/cast"
 )
 

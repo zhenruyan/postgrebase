@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"sort"
 
-	"github.com/free/postgresqlbaseapi/dbx"
+	"github.com/zhenruyan/postgrebase/dbx"
 )
 
 type Migration struct {

@@ -3,10 +3,10 @@ package daos
 import (
 	"encoding/json"
 
-	"github.com/free/postgresqlbaseapi/dbx"
-	"github.com/free/postgresqlbaseapi/models"
-	"github.com/free/postgresqlbaseapi/tools/security"
-	"github.com/free/postgresqlbaseapi/tools/types"
+	"github.com/zhenruyan/postgrebase/dbx"
+	"github.com/zhenruyan/postgrebase/models"
+	"github.com/zhenruyan/postgrebase/tools/security"
+	"github.com/zhenruyan/postgrebase/tools/types"
 )
 
 // ParamQuery returns a new Param select query.

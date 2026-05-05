@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/free/postgresqlbaseapi/dbx"
-	"github.com/free/postgresqlbaseapi/models/schema"
-	"github.com/free/postgresqlbaseapi/tools/list"
-	"github.com/free/postgresqlbaseapi/tools/security"
-	"github.com/free/postgresqlbaseapi/tools/store"
-	"github.com/free/postgresqlbaseapi/tools/types"
+	"github.com/zhenruyan/postgrebase/dbx"
+	"github.com/zhenruyan/postgrebase/models/schema"
+	"github.com/zhenruyan/postgrebase/tools/list"
+	"github.com/zhenruyan/postgrebase/tools/security"
+	"github.com/zhenruyan/postgrebase/tools/store"
+	"github.com/zhenruyan/postgrebase/tools/types"
 	"github.com/spf13/cast"
 	"golang.org/x/crypto/bcrypt"
 )

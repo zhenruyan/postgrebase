@@ -26,7 +26,7 @@ By moving away from SQLite's write-locking limitations, this project is designed
 ### 2. Build
 
 ```bash
-git clone https://github.com/free/postgresqlbaseapi.git
+git clone https://github.com/zhenruyan/postgrebase.git
 cd postgresqlbaseapi
 # Build binary
 go build -o pb ./build/

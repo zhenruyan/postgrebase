@@ -27,7 +27,7 @@ import (
 	"io/fs"
 	"strings"
 
-	"github.com/free/postgresqlbaseapi/tools/store"
+	"github.com/zhenruyan/postgrebase/tools/store"
 )
 
 // NewRegistry creates and initializes a new blank templates registry.

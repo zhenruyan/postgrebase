@@ -5,12 +5,12 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v5"
-	"github.com/free/postgresqlbaseapi/core"
-	"github.com/free/postgresqlbaseapi/forms"
-	"github.com/free/postgresqlbaseapi/models"
-	"github.com/free/postgresqlbaseapi/tokens"
-	"github.com/free/postgresqlbaseapi/tools/routine"
-	"github.com/free/postgresqlbaseapi/tools/search"
+	"github.com/zhenruyan/postgrebase/core"
+	"github.com/zhenruyan/postgrebase/forms"
+	"github.com/zhenruyan/postgrebase/models"
+	"github.com/zhenruyan/postgrebase/tokens"
+	"github.com/zhenruyan/postgrebase/tools/routine"
+	"github.com/zhenruyan/postgrebase/tools/search"
 )
 
 // bindAdminApi registers the admin api endpoints and the corresponding handlers.

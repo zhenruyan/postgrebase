@@ -3,8 +3,8 @@ package models
 import (
 	"errors"
 
-	"github.com/free/postgresqlbaseapi/tools/security"
-	"github.com/free/postgresqlbaseapi/tools/types"
+	"github.com/zhenruyan/postgrebase/tools/security"
+	"github.com/zhenruyan/postgrebase/tools/types"
 	"golang.org/x/crypto/bcrypt"
 )
 

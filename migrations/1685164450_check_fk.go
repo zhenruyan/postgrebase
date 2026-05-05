@@ -1,7 +1,7 @@
 package migrations
 
 import (
-	"github.com/free/postgresqlbaseapi/dbx"
+	"github.com/zhenruyan/postgrebase/dbx"
 )
 
 // Cleanup dangling deleted collections references

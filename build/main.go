@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/free/postgresqlbaseapi"
-	"github.com/free/postgresqlbaseapi/apis"
-	"github.com/free/postgresqlbaseapi/core"
+	"github.com/zhenruyan/postgrebase"
+	"github.com/zhenruyan/postgrebase/apis"
+	"github.com/zhenruyan/postgrebase/core"
 )
 
 func main() {

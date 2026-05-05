@@ -4,8 +4,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/free/postgresqlbaseapi/apis"
-	"github.com/free/postgresqlbaseapi/core"
+	"github.com/zhenruyan/postgrebase/apis"
+	"github.com/zhenruyan/postgrebase/core"
 	"github.com/spf13/cobra"
 )
 

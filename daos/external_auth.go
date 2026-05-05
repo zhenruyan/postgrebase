@@ -3,8 +3,8 @@ package daos
 import (
 	"errors"
 
-	"github.com/free/postgresqlbaseapi/dbx"
-	"github.com/free/postgresqlbaseapi/models"
+	"github.com/zhenruyan/postgrebase/dbx"
+	"github.com/zhenruyan/postgrebase/models"
 )
 
 // ExternalAuthQuery returns a new ExternalAuth select query.

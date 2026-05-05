@@ -8,9 +8,9 @@ import (
 	"syscall"
 
 	"github.com/fatih/color"
-	"github.com/free/postgresqlbaseapi/cmd"
-	"github.com/free/postgresqlbaseapi/core"
-	"github.com/free/postgresqlbaseapi/tools/list"
+	"github.com/zhenruyan/postgrebase/cmd"
+	"github.com/zhenruyan/postgrebase/core"
+	"github.com/zhenruyan/postgrebase/tools/list"
 	"github.com/spf13/cobra"
 )
 

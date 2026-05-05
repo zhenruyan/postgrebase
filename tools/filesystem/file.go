@@ -12,8 +12,8 @@ import (
 	"strings"
 
 	"github.com/gabriel-vasile/mimetype"
-	"github.com/free/postgresqlbaseapi/tools/inflector"
-	"github.com/free/postgresqlbaseapi/tools/security"
+	"github.com/zhenruyan/postgrebase/tools/inflector"
+	"github.com/zhenruyan/postgrebase/tools/security"
 )
 
 // FileReader defines an interface for a file resource reader.

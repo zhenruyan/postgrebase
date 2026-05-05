@@ -3,7 +3,7 @@ package inflector_test
 import (
 	"testing"
 
-	"github.com/free/postgresqlbaseapi/tools/inflector"
+	"github.com/zhenruyan/postgrebase/tools/inflector"
 )
 
 func TestUcFirst(t *testing.T) {

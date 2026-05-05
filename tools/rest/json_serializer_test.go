@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v5"
-	"github.com/free/postgresqlbaseapi/tools/rest"
-	"github.com/free/postgresqlbaseapi/tools/search"
+	"github.com/zhenruyan/postgrebase/tools/rest"
+	"github.com/zhenruyan/postgrebase/tools/search"
 )
 
 func TestSerialize(t *testing.T) {

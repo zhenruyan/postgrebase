@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/free/postgresqlbaseapi/tools/subscriptions"
+	"github.com/zhenruyan/postgrebase/tools/subscriptions"
 )
 
 func TestNewDefaultClient(t *testing.T) {

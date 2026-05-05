@@ -5,8 +5,8 @@ import (
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
-	"github.com/free/postgresqlbaseapi/models/schema"
-	"github.com/free/postgresqlbaseapi/tools/types"
+	"github.com/zhenruyan/postgrebase/models/schema"
+	"github.com/zhenruyan/postgrebase/tools/types"
 )
 
 var (

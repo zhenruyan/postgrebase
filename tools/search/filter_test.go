@@ -4,8 +4,8 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/free/postgresqlbaseapi/dbx"
-	"github.com/free/postgresqlbaseapi/tools/search"
+	"github.com/zhenruyan/postgrebase/dbx"
+	"github.com/zhenruyan/postgrebase/tools/search"
 )
 
 func TestFilterDataBuildExpr(t *testing.T) {

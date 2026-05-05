@@ -1,10 +1,10 @@
 package migrations
 
 import (
-	"github.com/free/postgresqlbaseapi/dbx"
-	"github.com/free/postgresqlbaseapi/daos"
-	"github.com/free/postgresqlbaseapi/models"
-	"github.com/free/postgresqlbaseapi/models/schema"
+	"github.com/zhenruyan/postgrebase/dbx"
+	"github.com/zhenruyan/postgrebase/daos"
+	"github.com/zhenruyan/postgrebase/models"
+	"github.com/zhenruyan/postgrebase/models/schema"
 )
 
 // Transform the relation fields to views from non-view collections to json or text fields

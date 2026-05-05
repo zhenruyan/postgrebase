@@ -6,9 +6,9 @@ import (
 	"log"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
-	"github.com/free/postgresqlbaseapi/core"
-	"github.com/free/postgresqlbaseapi/daos"
-	"github.com/free/postgresqlbaseapi/models"
+	"github.com/zhenruyan/postgrebase/core"
+	"github.com/zhenruyan/postgrebase/daos"
+	"github.com/zhenruyan/postgrebase/models"
 )
 
 // CollectionsImport is a form model to bulk import

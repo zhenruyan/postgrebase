@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/free/postgresqlbaseapi/tools/list"
+	"github.com/zhenruyan/postgrebase/tools/list"
 	"golang.org/x/net/html"
 )
 

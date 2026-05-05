@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/free/postgresqlbaseapi/dbx"
-	"github.com/free/postgresqlbaseapi/tools/list"
+	"github.com/zhenruyan/postgrebase/dbx"
+	"github.com/zhenruyan/postgrebase/tools/list"
 	_ "modernc.org/sqlite"
 )
 

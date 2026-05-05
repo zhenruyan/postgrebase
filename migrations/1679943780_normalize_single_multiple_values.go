@@ -1,7 +1,7 @@
 package migrations
 
 import (
-	"github.com/free/postgresqlbaseapi/dbx"
+	"github.com/zhenruyan/postgrebase/dbx"
 )
 
 // Normalizes old single and multiple values of MultiValuer fields (file, select, relation).

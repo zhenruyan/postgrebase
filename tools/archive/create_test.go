@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/free/postgresqlbaseapi/tools/archive"
+	"github.com/zhenruyan/postgrebase/tools/archive"
 )
 
 func TestCreateFailure(t *testing.T) {

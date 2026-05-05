@@ -3,7 +3,7 @@ package schema_test
 import (
 	"testing"
 
-	"github.com/free/postgresqlbaseapi/models/schema"
+	"github.com/zhenruyan/postgrebase/models/schema"
 )
 
 func TestNewSchemaAndFields(t *testing.T) {

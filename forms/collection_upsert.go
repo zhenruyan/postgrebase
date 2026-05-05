@@ -7,16 +7,16 @@ import (
 	"strconv"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
-	"github.com/free/postgresqlbaseapi/core"
-	"github.com/free/postgresqlbaseapi/daos"
-	"github.com/free/postgresqlbaseapi/forms/validators"
-	"github.com/free/postgresqlbaseapi/models"
-	"github.com/free/postgresqlbaseapi/models/schema"
-	"github.com/free/postgresqlbaseapi/resolvers"
-	"github.com/free/postgresqlbaseapi/tools/dbutils"
-	"github.com/free/postgresqlbaseapi/tools/list"
-	"github.com/free/postgresqlbaseapi/tools/search"
-	"github.com/free/postgresqlbaseapi/tools/types"
+	"github.com/zhenruyan/postgrebase/core"
+	"github.com/zhenruyan/postgrebase/daos"
+	"github.com/zhenruyan/postgrebase/forms/validators"
+	"github.com/zhenruyan/postgrebase/models"
+	"github.com/zhenruyan/postgrebase/models/schema"
+	"github.com/zhenruyan/postgrebase/resolvers"
+	"github.com/zhenruyan/postgrebase/tools/dbutils"
+	"github.com/zhenruyan/postgrebase/tools/list"
+	"github.com/zhenruyan/postgrebase/tools/search"
+	"github.com/zhenruyan/postgrebase/tools/types"
 )
 
 var collectionNameRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_]*$`)

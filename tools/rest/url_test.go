@@ -3,7 +3,7 @@ package rest_test
 import (
 	"testing"
 
-	"github.com/free/postgresqlbaseapi/tools/rest"
+	"github.com/zhenruyan/postgrebase/tools/rest"
 )
 
 func TestNormalizeUrl(t *testing.T) {

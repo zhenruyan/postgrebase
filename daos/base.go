@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/free/postgresqlbaseapi/dbx"
-	"github.com/free/postgresqlbaseapi/models"
+	"github.com/zhenruyan/postgrebase/dbx"
+	"github.com/zhenruyan/postgrebase/models"
 )
 
 // New creates a new Dao instance with the provided db builder

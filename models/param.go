@@ -1,7 +1,7 @@
 package models
 
 import (
-	"github.com/free/postgresqlbaseapi/tools/types"
+	"github.com/zhenruyan/postgrebase/tools/types"
 )
 
 var _ Model = (*Param)(nil)

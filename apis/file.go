@@ -7,12 +7,12 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v5"
-	"github.com/free/postgresqlbaseapi/core"
-	"github.com/free/postgresqlbaseapi/models"
-	"github.com/free/postgresqlbaseapi/models/schema"
-	"github.com/free/postgresqlbaseapi/tokens"
-	"github.com/free/postgresqlbaseapi/tools/list"
-	"github.com/free/postgresqlbaseapi/tools/security"
+	"github.com/zhenruyan/postgrebase/core"
+	"github.com/zhenruyan/postgrebase/models"
+	"github.com/zhenruyan/postgrebase/models/schema"
+	"github.com/zhenruyan/postgrebase/tokens"
+	"github.com/zhenruyan/postgrebase/tools/list"
+	"github.com/zhenruyan/postgrebase/tools/security"
 	"github.com/spf13/cast"
 )
 

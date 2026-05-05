@@ -14,9 +14,9 @@ import (
 
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
-	"github.com/free/postgresqlbaseapi/core"
-	"github.com/free/postgresqlbaseapi/tools/rest"
-	"github.com/free/postgresqlbaseapi/ui"
+	"github.com/zhenruyan/postgrebase/core"
+	"github.com/zhenruyan/postgrebase/tools/rest"
+	"github.com/zhenruyan/postgrebase/ui"
 	"github.com/spf13/cast"
 )
 

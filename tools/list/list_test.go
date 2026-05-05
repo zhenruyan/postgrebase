@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/free/postgresqlbaseapi/tools/list"
-	"github.com/free/postgresqlbaseapi/tools/types"
+	"github.com/zhenruyan/postgrebase/tools/list"
+	"github.com/zhenruyan/postgrebase/tools/types"
 )
 
 func TestSubtractSliceString(t *testing.T) {

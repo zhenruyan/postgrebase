@@ -5,9 +5,9 @@ import (
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/labstack/echo/v5"
-	"github.com/free/postgresqlbaseapi/core"
-	"github.com/free/postgresqlbaseapi/forms"
-	"github.com/free/postgresqlbaseapi/models/settings"
+	"github.com/zhenruyan/postgrebase/core"
+	"github.com/zhenruyan/postgrebase/forms"
+	"github.com/zhenruyan/postgrebase/models/settings"
 )
 
 // bindSettingsApi registers the settings api endpoints.

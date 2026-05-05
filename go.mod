@@ -1,4 +1,4 @@
-module github.com/free/postgresqlbaseapi
+module github.com/zhenruyan/postgrebase
 
 go 1.18
 

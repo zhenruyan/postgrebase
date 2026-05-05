@@ -7,14 +7,14 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/free/postgresqlbaseapi/dbx"
-	"github.com/free/postgresqlbaseapi/models"
-	"github.com/free/postgresqlbaseapi/models/schema"
-	"github.com/free/postgresqlbaseapi/tools/inflector"
-	"github.com/free/postgresqlbaseapi/tools/list"
-	"github.com/free/postgresqlbaseapi/tools/security"
-	"github.com/free/postgresqlbaseapi/tools/tokenizer"
-	"github.com/free/postgresqlbaseapi/tools/types"
+	"github.com/zhenruyan/postgrebase/dbx"
+	"github.com/zhenruyan/postgrebase/models"
+	"github.com/zhenruyan/postgrebase/models/schema"
+	"github.com/zhenruyan/postgrebase/tools/inflector"
+	"github.com/zhenruyan/postgrebase/tools/list"
+	"github.com/zhenruyan/postgrebase/tools/security"
+	"github.com/zhenruyan/postgrebase/tools/tokenizer"
+	"github.com/zhenruyan/postgrebase/tools/types"
 )
 
 // DeleteView drops the specified view name.

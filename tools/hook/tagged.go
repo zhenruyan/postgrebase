@@ -1,7 +1,7 @@
 package hook
 
 import (
-	"github.com/free/postgresqlbaseapi/tools/list"
+	"github.com/zhenruyan/postgrebase/tools/list"
 )
 
 // Tagger defines an interface for event data structs that support tags/groups/categories/etc.

@@ -12,10 +12,10 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/labstack/echo/v5/middleware"
-	"github.com/free/postgresqlbaseapi/dbx"
-	"github.com/free/postgresqlbaseapi/core"
-	"github.com/free/postgresqlbaseapi/migrations"
-	"github.com/free/postgresqlbaseapi/tools/migrate"
+	"github.com/zhenruyan/postgrebase/dbx"
+	"github.com/zhenruyan/postgrebase/core"
+	"github.com/zhenruyan/postgrebase/migrations"
+	"github.com/zhenruyan/postgrebase/tools/migrate"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 )

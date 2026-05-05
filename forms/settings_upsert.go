@@ -3,9 +3,9 @@ package forms
 import (
 	"os"
 
-	"github.com/free/postgresqlbaseapi/core"
-	"github.com/free/postgresqlbaseapi/daos"
-	"github.com/free/postgresqlbaseapi/models/settings"
+	"github.com/zhenruyan/postgrebase/core"
+	"github.com/zhenruyan/postgrebase/daos"
+	"github.com/zhenruyan/postgrebase/models/settings"
 )
 
 // SettingsUpsert is a [settings.Settings] upsert (create/update) form.

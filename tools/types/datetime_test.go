@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/free/postgresqlbaseapi/tools/types"
+	"github.com/zhenruyan/postgrebase/tools/types"
 )
 
 func TestNowDateTime(t *testing.T) {

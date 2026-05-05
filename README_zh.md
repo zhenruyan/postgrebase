@@ -26,7 +26,7 @@
 ### 2. 编译构建
 
 ```bash
-git clone https://github.com/free/postgresqlbaseapi.git
+git clone https://github.com/zhenruyan/postgrebase.git
 cd postgresqlbaseapi
 # 编译二进制
 go build -o pb ./build/

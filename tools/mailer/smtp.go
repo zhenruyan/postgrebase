@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/domodwyer/mailyak/v3"
-	"github.com/free/postgresqlbaseapi/tools/security"
+	"github.com/zhenruyan/postgrebase/tools/security"
 )
 
 var _ Mailer = (*SmtpClient)(nil)

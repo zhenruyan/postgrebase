@@ -3,7 +3,7 @@ package models_test
 import (
 	"testing"
 
-	"github.com/free/postgresqlbaseapi/models"
+	"github.com/zhenruyan/postgrebase/models"
 )
 
 func TestParamTableName(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v5"
-	"github.com/free/postgresqlbaseapi/core"
+	"github.com/zhenruyan/postgrebase/core"
 )
 
 // bindHealthApi registers the health api endpoint.

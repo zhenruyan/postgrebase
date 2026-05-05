@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v5"
-	"github.com/free/postgresqlbaseapi/tools/search"
+	"github.com/zhenruyan/postgrebase/tools/search"
 )
 
 // Serializer represents custom REST JSON serializer based on echo.DefaultJSONSerializer,

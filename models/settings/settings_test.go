@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
-	"github.com/free/postgresqlbaseapi/models/settings"
-	"github.com/free/postgresqlbaseapi/tools/auth"
-	"github.com/free/postgresqlbaseapi/tools/mailer"
+	"github.com/zhenruyan/postgrebase/models/settings"
+	"github.com/zhenruyan/postgrebase/tools/auth"
+	"github.com/zhenruyan/postgrebase/tools/mailer"
 )
 
 func TestSettingsValidate(t *testing.T) {

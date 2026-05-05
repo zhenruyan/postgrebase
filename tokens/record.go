@@ -4,9 +4,9 @@ import (
 	"errors"
 
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/free/postgresqlbaseapi/core"
-	"github.com/free/postgresqlbaseapi/models"
-	"github.com/free/postgresqlbaseapi/tools/security"
+	"github.com/zhenruyan/postgrebase/core"
+	"github.com/zhenruyan/postgrebase/models"
+	"github.com/zhenruyan/postgrebase/tools/security"
 )
 
 // NewRecordAuthToken generates and returns a new auth record authentication token.

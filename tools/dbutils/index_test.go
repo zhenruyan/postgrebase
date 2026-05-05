@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/free/postgresqlbaseapi/tools/dbutils"
+	"github.com/zhenruyan/postgrebase/tools/dbutils"
 )
 
 func TestParseIndex(t *testing.T) {

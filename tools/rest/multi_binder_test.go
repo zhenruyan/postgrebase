@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v5"
-	"github.com/free/postgresqlbaseapi/tools/rest"
+	"github.com/zhenruyan/postgrebase/tools/rest"
 )
 
 func TestBindBody(t *testing.T) {

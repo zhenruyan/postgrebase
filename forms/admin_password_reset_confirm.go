@@ -2,10 +2,10 @@ package forms
 
 import (
 	validation "github.com/go-ozzo/ozzo-validation/v4"
-	"github.com/free/postgresqlbaseapi/core"
-	"github.com/free/postgresqlbaseapi/daos"
-	"github.com/free/postgresqlbaseapi/forms/validators"
-	"github.com/free/postgresqlbaseapi/models"
+	"github.com/zhenruyan/postgrebase/core"
+	"github.com/zhenruyan/postgrebase/daos"
+	"github.com/zhenruyan/postgrebase/forms/validators"
+	"github.com/zhenruyan/postgrebase/models"
 )
 
 // AdminPasswordResetConfirm is an admin password reset confirmation form.

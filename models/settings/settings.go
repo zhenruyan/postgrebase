@@ -9,11 +9,11 @@ import (
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
-	"github.com/free/postgresqlbaseapi/tools/auth"
-	"github.com/free/postgresqlbaseapi/tools/cron"
-	"github.com/free/postgresqlbaseapi/tools/mailer"
-	"github.com/free/postgresqlbaseapi/tools/rest"
-	"github.com/free/postgresqlbaseapi/tools/security"
+	"github.com/zhenruyan/postgrebase/tools/auth"
+	"github.com/zhenruyan/postgrebase/tools/cron"
+	"github.com/zhenruyan/postgrebase/tools/mailer"
+	"github.com/zhenruyan/postgrebase/tools/rest"
+	"github.com/zhenruyan/postgrebase/tools/security"
 )
 
 // SecretMask is the default settings secrets replacement value
