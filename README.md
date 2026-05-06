@@ -20,7 +20,7 @@ By moving away from SQLite's write-locking limitations, this project is designed
 
 ### 1. Prerequisites
 
-- Go 1.18+
+- Go 1.26.2+
 - PostgreSQL or MySQL instance
 
 ### 2. Build

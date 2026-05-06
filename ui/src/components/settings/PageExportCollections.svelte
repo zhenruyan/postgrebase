@@ -2,12 +2,13 @@
     import CodeBlock from "@/components/base/CodeBlock.svelte";
     import PageWrapper from "@/components/base/PageWrapper.svelte";
     import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
+    import { t } from "@/i18n";
     import { pageTitle } from "@/stores/app";
     import { addInfoToast } from "@/stores/toasts";
     import ApiClient from "@/utils/ApiClient";
     import CommonHelper from "@/utils/CommonHelper";
 
-    $pageTitle = "导出表结构";
+    $: $pageTitle = $t("Export Collections");
 
     const uniqueId = "export_" + CommonHelper.randomString(5);
 
@@ -45,7 +46,7 @@
 
     function copy() {
         CommonHelper.copyToClipboard(schema);
-        addInfoToast("The configuration was copied to your clipboard!", 3000);
+        addInfoToast($t("The configuration was copied to your clipboard!"), 3000);
     }
 </script>
 
@@ -54,7 +55,7 @@
 <PageWrapper>
     <header class="page-header">
         <nav class="breadcrumbs">
-            <div class="breadcrumb-item">设置</div>
+            <div class="breadcrumb-item">{$t("Settings")}</div>
             <div class="breadcrumb-item">{$pageTitle}</div>
         </nav>
     </header>
@@ -66,7 +67,7 @@
             {:else}
                 <div class="content txt-xl m-b-base">
                     <p>
-                        导出所有表结构，可以在另一个实例中导入
+                        {$t("Export all collection schemas so they can be imported into another instance.")}
                     </p>
                 </div>
 
@@ -92,7 +93,7 @@
                         class="btn btn-sm btn-transparent fade copy-schema"
                         on:click={() => copy()}
                     >
-                        <span class="txt">Copy</span>
+                        <span class="txt">{$t("Copy")}</span>
                     </button>
 
                     <CodeBlock content={schema} />
@@ -102,7 +103,7 @@
                     <div class="flex-fill" />
                     <button type="button" class="btn btn-expanded" on:click={() => download()}>
                         <i class="ri-download-line" />
-                        <span class="txt">下载</span>
+                        <span class="txt">{$t("Download")}</span>
                     </button>
                 </div>
             {/if}

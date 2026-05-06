@@ -1,6 +1,7 @@
 <script>
     import Field from "@/components/base/Field.svelte";
     import FullPage from "@/components/base/FullPage.svelte";
+    import { t } from "@/i18n";
     import ApiClient from "@/utils/ApiClient";
     import { link } from "svelte-spa-router";
 
@@ -31,18 +32,20 @@
         <div class="alert alert-success">
             <div class="icon"><i class="ri-checkbox-circle-line" /></div>
             <div class="content">
-                <p>检查 <strong class="txt-nowrap">{email}</strong> 是否是您的邮箱</p>
+                <p>
+                    {$t("Check {email} for password reset instructions.", { email })}
+                </p>
             </div>
         </div>
     {:else}
         <form class="m-b-base" on:submit|preventDefault={submit}>
             <div class="content txt-center m-b-sm">
-                <h4 class="m-b-xs">忘记密码</h4>
-                <p>邮箱发送验证码</p>
+                <h4 class="m-b-xs">{$t("Forgot password")}</h4>
+                <p>{$t("Send password reset instructions to your email.")}</p>
             </div>
 
             <Field class="form-field required" name="email" let:uniqueId>
-                <label for={uniqueId}>邮箱</label>
+                <label for={uniqueId}>{$t("Email")}</label>
                 <!-- svelte-ignore a11y-autofocus -->
                 <input type="email" id={uniqueId} required autofocus bind:value={email} />
             </Field>
@@ -54,12 +57,12 @@
                 disabled={isLoading}
             >
                 <i class="ri-mail-send-line" />
-                <span class="txt">发送验证</span>
+                <span class="txt">{$t("Send reset email")}</span>
             </button>
         </form>
     {/if}
 
     <div class="content txt-center">
-        <a href="/login" class="link-hint" use:link>返回登录</a>
+        <a href="/login" class="link-hint" use:link>{$t("Back to login")}</a>
     </div>
 </FullPage>

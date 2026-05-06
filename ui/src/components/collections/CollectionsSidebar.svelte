@@ -17,7 +17,7 @@
         try {
             projects = await ApiClient.collection("project").getFullList(200, {
                 sort: "name",
-                $autoCancel: false, // 禁用自动取消，防止响应式触发导致的并发请求失败
+                $autoCancel: false,
             });
         } catch (err) {
             if (!err?.isAbort) {
@@ -160,7 +160,7 @@
         {/if}
 
         {#if filtered.length === 0 && normalizedSearch.length}
-            <p class="txt-hint m-t-10 m-b-10 txt-center">未搜索到表</p>
+            <p class="txt-hint m-t-10 m-b-10 txt-center">{$t("No tables found.")}</p>
         {/if}
     </div>
 

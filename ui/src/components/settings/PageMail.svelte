@@ -7,6 +7,7 @@
     import EmailTemplateAccordion from "@/components/settings/EmailTemplateAccordion.svelte";
     import EmailTestPopup from "@/components/settings/EmailTestPopup.svelte";
     import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
+    import { t } from "@/i18n";
     import { pageTitle } from "@/stores/app";
     import { setErrors } from "@/stores/errors";
     import { addSuccessToast } from "@/stores/toasts";
@@ -24,7 +25,7 @@
         { label: "LOGIN", value: "LOGIN" },
     ];
 
-    $pageTitle = "邮箱设置";
+    $: $pageTitle = $t("Mail Settings");
 
     let testPopup;
     let originalFormSettings = {};
@@ -62,7 +63,7 @@
             const settings = await ApiClient.settings.update(CommonHelper.filterRedactedProps(formSettings));
             init(settings);
             setErrors({});
-            addSuccessToast("成功保存邮箱设置。");
+            addSuccessToast($t("Successfully saved mail settings."));
         } catch (err) {
             ApiClient.error(err);
         }
@@ -93,7 +94,7 @@
 <PageWrapper>
     <header class="page-header">
         <nav class="breadcrumbs">
-            <div class="breadcrumb-item">设置</div>
+            <div class="breadcrumb-item">{$t("Settings")}</div>
             <div class="breadcrumb-item">{$pageTitle}</div>
         </nav>
     </header>
@@ -101,7 +102,7 @@
     <div class="wrapper">
         <form class="panel" autocomplete="off" on:submit|preventDefault={() => save()}>
             <div class="content txt-xl m-b-base">
-                <p>配置通用的邮件发送模板</p>
+                <p>{$t("Configure common email sending templates.")}</p>
             </div>
 
             {#if isLoading}
@@ -110,7 +111,7 @@
                 <div class="grid m-b-base">
                     <div class="col-lg-6">
                         <Field class="form-field required" name="meta.senderName" let:uniqueId>
-                            <label for={uniqueId}>发送名</label>
+                            <label for={uniqueId}>{$t("Sender name")}</label>
                             <input
                                 type="text"
                                 id={uniqueId}
@@ -122,7 +123,7 @@
 
                     <div class="col-lg-6">
                         <Field class="form-field required" name="meta.senderAddress" let:uniqueId>
-                            <label for={uniqueId}>邮件发送地址</label>
+                            <label for={uniqueId}>{$t("Sender email address")}</label>
                             <input
                                 type="email"
                                 id={uniqueId}
@@ -137,21 +138,21 @@
                     <EmailTemplateAccordion
                         single
                         key="meta.verificationTemplate"
-                        title={'默认的 "验证" 邮件模板'}
+                        title={$t("Default verification email template")}
                         bind:config={formSettings.meta.verificationTemplate}
                     />
 
                     <EmailTemplateAccordion
                         single
                         key="meta.resetPasswordTemplate"
-                        title={'默认的 "重置密码" 邮箱模板'}
+                        title={$t("Default password reset email template")}
                         bind:config={formSettings.meta.resetPasswordTemplate}
                     />
 
                     <EmailTemplateAccordion
                         single
                         key="meta.confirmEmailChangeTemplate"
-                        title={'默认的 "绑定邮箱" 邮箱模板'}
+                        title={$t("Default email change email template")}
                         bind:config={formSettings.meta.confirmEmailChangeTemplate}
                     />
                 </div>
@@ -161,11 +162,11 @@
                 <Field class="form-field form-field-toggle m-b-sm" let:uniqueId>
                     <input type="checkbox" id={uniqueId} required bind:checked={formSettings.smtp.enabled} />
                     <label for={uniqueId}>
-                        <span class="txt">使用smtp服务 <strong>(recommended)</strong></span>
+                        <span class="txt">{$t("Use SMTP service")} <strong>({$t("recommended")})</strong></span>
                         <i
                             class="ri-information-line link-hint"
                             use:tooltip={{
-                                text: '默认我是用的unix的sendmail 但是还是推荐smtp',
+                                text: $t("Sendmail is used by default, but SMTP is recommended."),
                                 position: "top",
                             }}
                         />
@@ -176,7 +177,7 @@
                     <div class="grid" transition:slide|local={{ duration: 150 }}>
                         <div class="col-lg-4">
                             <Field class="form-field required" name="smtp.host" let:uniqueId>
-                                <label for={uniqueId}>SMTP 地址</label>
+                                <label for={uniqueId}>{$t("SMTP host")}</label>
                                 <input
                                     type="text"
                                     id={uniqueId}
@@ -187,7 +188,7 @@
                         </div>
                         <div class="col-lg-2">
                             <Field class="form-field required" name="smtp.port" let:uniqueId>
-                                <label for={uniqueId}>端口</label>
+                                <label for={uniqueId}>{$t("Port")}</label>
                                 <input
                                     type="number"
                                     id={uniqueId}
@@ -198,7 +199,7 @@
                         </div>
                         <div class="col-lg-3">
                             <Field class="form-field required" name="smtp.tls" let:uniqueId>
-                                <label for={uniqueId}>TLS验证</label>
+                                <label for={uniqueId}>{$t("TLS")}</label>
                                 <ObjectSelect
                                     id={uniqueId}
                                     items={tlsOptions}
@@ -208,7 +209,7 @@
                         </div>
                         <div class="col-lg-3">
                             <Field class="form-field" name="smtp.authMethod" let:uniqueId>
-                                <label for={uniqueId}>登录类型</label>
+                                <label for={uniqueId}>{$t("Auth method")}</label>
                                 <ObjectSelect
                                     id={uniqueId}
                                     items={authMethods}
@@ -218,13 +219,13 @@
                         </div>
                         <div class="col-lg-6">
                             <Field class="form-field" name="smtp.username" let:uniqueId>
-                                <label for={uniqueId}>smtp服务器用户名</label>
+                                <label for={uniqueId}>{$t("SMTP username")}</label>
                                 <input type="text" id={uniqueId} bind:value={formSettings.smtp.username} />
                             </Field>
                         </div>
                         <div class="col-lg-6">
                             <Field class="form-field" name="smtp.password" let:uniqueId>
-                                <label for={uniqueId}>smtp密码</label>
+                                <label for={uniqueId}>{$t("SMTP password")}</label>
                                 <RedactedPasswordInput
                                     id={uniqueId}
                                     bind:value={formSettings.smtp.password}
@@ -246,7 +247,7 @@
                             disabled={isSaving}
                             on:click={() => reset()}
                         >
-                            <span class="txt">取消</span>
+                            <span class="txt">{$t("Cancel")}</span>
                         </button>
                         <button
                             type="submit"
@@ -255,7 +256,7 @@
                             disabled={!hasChanges || isSaving}
                             on:click={() => save()}
                         >
-                            <span class="txt">保存</span>
+                            <span class="txt">{$t("Save")}</span>
                         </button>
                     {:else}
                         <button
@@ -264,7 +265,7 @@
                             on:click={() => testPopup?.show()}
                         >
                             <i class="ri-mail-check-line" />
-                            <span class="txt">发送测试邮件</span>
+                            <span class="txt">{$t("Send test email")}</span>
                         </button>
                     {/if}
                 </div>

@@ -1,6 +1,7 @@
 <script>
     import Field from "@/components/base/Field.svelte";
     import FullPage from "@/components/base/FullPage.svelte";
+    import { t } from "@/i18n";
     import { addSuccessToast } from "@/stores/toasts";
     import ApiClient from "@/utils/ApiClient";
     import CommonHelper from "@/utils/CommonHelper";
@@ -23,7 +24,7 @@
 
         try {
             await ApiClient.admins.confirmPasswordReset(params?.token, newPassword, newPasswordConfirm);
-            addSuccessToast("成功设置新的密码");
+            addSuccessToast($t("Successfully set new password."));
             replace("/");
         } catch (err) {
             ApiClient.error(err);
@@ -37,30 +38,30 @@
     <form class="m-b-base" on:submit|preventDefault={submit}>
         <div class="content txt-center m-b-sm">
             <h4 class="m-b-xs">
-                重置管理员密码
+                {$t("Reset admin password")}
                 {#if email}
-                    for <strong class="txt-nowrap">{email}</strong>
+                    {$t("for")} <strong class="txt-nowrap">{email}</strong>
                 {/if}
             </h4>
         </div>
 
         <Field class="form-field required" name="password" let:uniqueId>
-            <label for={uniqueId}>新密码</label>
+            <label for={uniqueId}>{$t("New password")}</label>
             <!-- svelte-ignore a11y-autofocus -->
             <input type="password" id={uniqueId} required autofocus bind:value={newPassword} />
         </Field>
 
         <Field class="form-field required" name="passwordConfirm" let:uniqueId>
-            <label for={uniqueId}>验证新密码</label>
+            <label for={uniqueId}>{$t("New password confirm")}</label>
             <input type="password" id={uniqueId} required bind:value={newPasswordConfirm} />
         </Field>
 
         <button type="submit" class="btn btn-lg btn-block" class:btn-loading={isLoading} disabled={isLoading}>
-            <span class="txt">设置新密码</span>
+            <span class="txt">{$t("Set new password")}</span>
         </button>
     </form>
 
     <div class="content txt-center">
-        <a href="/login" class="link-hint" use:link>返回到登录页面</a>
+        <a href="/login" class="link-hint" use:link>{$t("Back to login")}</a>
     </div>
 </FullPage>

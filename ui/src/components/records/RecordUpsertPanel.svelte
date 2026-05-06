@@ -16,6 +16,7 @@
     import SelectField from "@/components/records/fields/SelectField.svelte";
     import TextField from "@/components/records/fields/TextField.svelte";
     import UrlField from "@/components/records/fields/UrlField.svelte";
+    import { t } from "@/i18n";
     import { confirm } from "@/stores/confirmation";
     import { setErrors } from "@/stores/errors";
     import { addSuccessToast } from "@/stores/toasts";
@@ -191,7 +192,7 @@
 
         request
             .then((result) => {
-                addSuccessToast(isNew ? "成功创建一条记录." : "成功更新一条记录.");
+                addSuccessToast(isNew ? $t("Successfully created record.") : $t("Successfully updated record."));
 
                 deleteDraft();
 
@@ -217,12 +218,12 @@
             return; // nothing to delete
         }
 
-        confirm(`是否删除`, () => {
+        confirm($t("Delete record?"), () => {
             return ApiClient.collection(original.collectionId)
                 .delete(original.id)
                 .then(() => {
                     hide();
-                    addSuccessToast("成功删除");
+                    addSuccessToast($t("Successfully deleted record."));
                     dispatch("delete", original);
                 })
                 .catch((err) => {
@@ -291,11 +292,11 @@
             return;
         }
 
-        confirm(`是否发送验证邮件到： ${original.email}?`, () => {
+        confirm($t("Send verification email to {email}?", { email: original.email }), () => {
             return ApiClient.collection(collection.id)
                 .requestVerification(original.email)
                 .then(() => {
-                    addSuccessToast(`成功发送到： ${original.email}.`);
+                    addSuccessToast($t("Successfully sent to {email}.", { email: original.email }));
                 })
                 .catch((err) => {
                     ApiClient.error(err);
@@ -308,11 +309,11 @@
             return;
         }
 
-        confirm(`是否发送密码重置邮件到： ${original.email}?`, () => {
+        confirm($t("Send password reset email to {email}?", { email: original.email }), () => {
             return ApiClient.collection(collection.id)
                 .requestPasswordReset(original.email)
                 .then(() => {
-                    addSuccessToast(`成功发送密码重置邮件到： ${original.email}.`);
+                    addSuccessToast($t("Successfully sent password reset email to {email}.", { email: original.email }));
                 })
                 .catch((err) => {
                     ApiClient.error(err);
@@ -322,7 +323,7 @@
 
     function duplicateConfirm() {
         if (hasChanges) {
-            confirm("是否不保存就退出", () => {
+            confirm($t("Discard unsaved changes?"), () => {
                 duplicate();
             });
         } else {
@@ -373,7 +374,7 @@
     "
     beforeHide={() => {
         if (hasChanges && confirmClose) {
-            confirm("是否不保存就退出 ?", () => {
+            confirm($t("Discard unsaved changes?"), () => {
                 confirmClose = false;
                 hide();
             });
@@ -391,8 +392,8 @@
 >
     <svelte:fragment slot="header">
         <h4 class="panel-title">
-            {isNew ? "新建" : "修改"}
-            <strong>{collection?.name}</strong> 记录
+            {isNew ? $t("New") : $t("Edit")}
+            <strong>{collection?.name}</strong> {$t("record")}
         </h4>
 
         {#if !isNew}
@@ -407,7 +408,7 @@
                             on:click={() => sendVerificationEmail()}
                         >
                             <i class="ri-mail-check-line" />
-                            <span class="txt">发送验证邮件</span>
+                            <span class="txt">{$t("Send verification email")}</span>
                         </button>
                     {/if}
                     {#if collection.$isAuth && original.email}
@@ -417,12 +418,12 @@
                             on:click={() => sendPasswordResetEmail()}
                         >
                             <i class="ri-mail-lock-line" />
-                            <span class="txt">发送密码重置邮件</span>
+                            <span class="txt">{$t("Send password reset email")}</span>
                         </button>
                     {/if}
                     <button type="button" class="dropdown-item closable" on:click={() => duplicateConfirm()}>
                         <i class="ri-file-copy-line" />
-                        <span class="txt">复制</span>
+                        <span class="txt">{$t("Duplicate")}</span>
                     </button>
                     <button
                         type="button"
@@ -430,7 +431,7 @@
                         on:click|preventDefault|stopPropagation={() => deleteConfirm()}
                     >
                         <i class="ri-delete-bin-7-line" />
-                        <span class="txt">删除</span>
+                        <span class="txt">{$t("Delete")}</span>
                     </button>
                 </Toggler>
             </button>
@@ -444,7 +445,7 @@
                     class:active={activeTab === tabFormKey}
                     on:click={() => (activeTab = tabFormKey)}
                 >
-                    用户数据
+                    {$t("User data")}
                 </button>
                 <button
                     type="button"
@@ -452,7 +453,7 @@
                     class:active={activeTab === tabProviderKey}
                     on:click={() => (activeTab = tabProviderKey)}
                 >
-                    第三方登录（默认关闭）
+                    {$t("External auth")}
                 </button>
             </div>
         {/if}
@@ -473,13 +474,13 @@
                             <i class="ri-information-line" />
                         </div>
                         <div class="flex flex-gap-xs">
-                            当前记录存在草稿
+                            {$t("Current record has a draft")}
                             <button
                                 type="button"
                                 class="btn btn-sm btn-secondary"
                                 on:click={() => restoreDraft()}
                             >
-                                恢复草稿
+                                {$t("Restore draft")}
                             </button>
                         </div>
                         <button
@@ -573,7 +574,7 @@
 
     <svelte:fragment slot="footer">
         <button type="button" class="btn btn-transparent" disabled={isSaving} on:click={() => hide()}>
-            <span class="txt">取消</span>
+            <span class="txt">{$t("Cancel")}</span>
         </button>
 
         <button
@@ -583,7 +584,7 @@
             class:btn-loading={isSaving}
             disabled={!canSave || isSaving}
         >
-            <span class="txt">{isNew ? "创建" : "保存"}</span>
+            <span class="txt">{isNew ? $t("Create") : $t("Save")}</span>
         </button>
     </svelte:fragment>
 </OverlayPanel>
