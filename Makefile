@@ -18,7 +18,7 @@ else
 UPX_CMD = @true
 endif
 
-.PHONY: help build build-all clean lint fmt run
+.PHONY: help build build-all clean lint fmt run dist
 .PHONY: build-linux build-linux-musl build-darwin build-windows
 .PHONY: npm-version npm-packages npm-pack npm-publish-all npm-publish-pre
 .PHONY: sdk-build sdk-test sdk-pack sdk-publish sdk-publish-pre
@@ -48,6 +48,9 @@ help:
 	@echo "  sdk-pack          Pack JS SDK for publishing"
 	@echo "  sdk-publish       Publish JS SDK to npm"
 	@echo "  sdk-publish-pre   Publish JS SDK pre-release"
+	@echo ""
+	@echo "Distribution targets:"
+	@echo "  dist              Build all platforms and package distributable archives"
 	@echo ""
 	@echo "Other targets:"
 	@echo "  lint              Run linter"
@@ -118,6 +121,40 @@ clean:
 # Run
 run: build
 	./$(BIN_DIR)/$(BINARY_NAME) serve --dataDsn "sqlite://./pb_data/dev.db"
+
+# ============================================================================
+# Distribution targets
+# ============================================================================
+
+# Build all platforms and package into distributable archives in $(DIST_DIR)/
+dist: build-all
+	@echo ""
+	@echo "Packaging distributable archives into $(DIST_DIR)/..."
+	@mkdir -p $(DIST_DIR)
+	@cd $(BIN_DIR) && for bin in $(BINARY_NAME)-*; do \
+		name="$(BINARY_NAME)_$(VERSION)"; \
+		ext=""; \
+		case "$$bin" in \
+			*.exe) \
+				platform=$$(echo "$$bin" | sed 's/$(BINARY_NAME)-//; s/\.exe//'); \
+				archive="../$(DIST_DIR)/$${name}_$${platform}.zip"; \
+				rm -f "$$archive"; \
+				zip -q "$$archive" "$$bin"; \
+				echo "  Created $${platform}.zip"; \
+				;; \
+			*) \
+				platform=$$(echo "$$bin" | sed 's/$(BINARY_NAME)-//'); \
+				archive="../$(DIST_DIR)/$${name}_$${platform}.tar.gz"; \
+				tar -czf "$$archive" "$$bin"; \
+				echo "  Created $${platform}.tar.gz"; \
+				;; \
+		esac; \
+	done
+	@echo ""
+	@echo "Generating checksums..."
+	@cd $(DIST_DIR) && sha256sum *.tar.gz *.zip 2>/dev/null > checksums.txt || true
+	@echo "Done! Distributable archives in $(DIST_DIR)/:"
+	@ls -lh $(DIST_DIR)/
 
 # ============================================================================
 # NPM Installer targets
