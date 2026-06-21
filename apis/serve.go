@@ -122,6 +122,7 @@ func Serve(app core.App, config ServeConfig) (*http.Server, error) {
 
 		regular := color.New()
 		regular.Printf("├─ REST API: %s\n", color.CyanString("%s://%s/api/", schema, server.Addr))
+		regular.Printf("├─ MCP SSE:  %s\n", color.CyanString("%s://%s/api/mcp/sse", schema, server.Addr))
 		regular.Printf("└─ Admin UI: %s\n", color.CyanString("%s://%s/_/", schema, server.Addr))
 	}
 

@@ -15,6 +15,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 	"github.com/zhenruyan/postgrebase/core"
+	"github.com/zhenruyan/postgrebase/mcp"
 	"github.com/zhenruyan/postgrebase/tools/rest"
 	"github.com/zhenruyan/postgrebase/ui"
 	"github.com/spf13/cast"
@@ -133,6 +134,9 @@ func InitApi(app core.App) (*echo.Echo, error) {
 	bindRealtimeApi(app, api)
 	bindHealthApi(app, api)
 	bindBackupApi(app, api)
+
+	// MCP (Model Context Protocol) routes
+	mcp.BindMCPRoutes(app, e, "1.0.0")
 
 	// catch all any route
 	api.Any("/*", func(c echo.Context) error {
