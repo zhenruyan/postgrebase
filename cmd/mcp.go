@@ -15,8 +15,10 @@ func NewMCPCommand(app core.App, version string) *cobra.Command {
 
 	command := &cobra.Command{
 		Use:   "mcp",
-		Short: "Starts the MCP server in stdio mode (for AI tool integration)",
-		Long: `Starts the Model Context Protocol (MCP) server in stdio mode.
+		Short: "Starts the MCP server in stdio mode (AI-native no-code API platform)",
+		Long: `PostgreBase — AI-Native No-Code API Platform
+
+Starts the Model Context Protocol (MCP) server in stdio mode.
 This allows AI tools like Claude Desktop, Cursor, and Windsurf to connect
 directly to your PostgreBase instance via stdin/stdout.
 
@@ -25,7 +27,7 @@ Example Claude Desktop configuration:
   "mcpServers": {
     "postgrebase": {
       "command": "/path/to/pb",
-      "args": ["mcp", "--dataDsn", "postgres://...", "--mcp-token", "your-admin-token"]
+      "args": ["mcp", "--dataDsn", "sqlite:///path/to/dev.db", "--mcp-no-auth"]
     }
   }
 }`,

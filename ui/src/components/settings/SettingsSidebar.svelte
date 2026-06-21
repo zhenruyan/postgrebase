@@ -89,5 +89,16 @@
             <i class="ri-shield-user-line" />
             <span class="txt">{$t("Admin Management")}</span>
         </a>
+
+        <div class="sidebar-title">{$t("MCP")}</div>
+        <a
+            href="/settings/mcp-tokens"
+            class="sidebar-list-item"
+            use:active={{ path: "/settings/mcp-tokens/?.*" }}
+            use:link
+        >
+            <i class="ri-key-2-line" />
+            <span class="txt">{$t("MCP Tokens")}</span>
+        </a>
     </div>
 </aside>

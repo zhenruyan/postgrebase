@@ -1,6 +1,6 @@
-// Package core is the backbone of PocketBase.
+// Package core is the backbone of PostgreBase.
 //
-// It defines the main PocketBase App interface and its base implementation.
+// It defines the main PostgreBase App interface and its base implementation.
 package core
 
 import (
@@ -17,7 +17,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// App defines the main PocketBase app interface.
+// App defines the main PostgreBase app interface.
 type App interface {
 	// Deprecated:
 	// This method may get removed in the near future.

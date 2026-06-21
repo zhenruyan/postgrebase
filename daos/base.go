@@ -1,4 +1,4 @@
-// Package daos handles common PocketBase DB model manipulations.
+// Package daos handles common PostgreBase DB model manipulations.
 //
 // Think of daos as DB repository and service layer in one.
 package daos

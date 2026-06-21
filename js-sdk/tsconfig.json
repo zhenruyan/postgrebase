@@ -3,7 +3,7 @@
     "declaration": true,
     "declarationDir": "./dist",
     "moduleResolution": "node",
-    "target": "es5",
+    "target": "es2017",
     "module": "esnext",
     "strict": true,
     "esModuleInterop": true,
@@ -14,8 +14,8 @@
     "baseUrl": ".",
     "rootDir": "./src",
     "paths": {
-      "@/*": ["./src/*"],
-    },
+      "@/*": ["./src/*"]
+    }
   },
   "include": ["./src", "./tests"]
 }

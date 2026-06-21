@@ -1,4 +1,4 @@
-// Package migrations contains the system PocketBase DB migrations.
+// Package migrations contains the system PostgreBase DB migrations.
 package migrations
 
 import (
@@ -94,6 +94,65 @@ func init() {
 					return err
 				}
 			}
+		} else if db.DriverName() == "sqlite" || db.DriverName() == "sqlite3" {
+			// SQLite-specific SQL
+			statements := []string{
+				`CREATE TABLE IF NOT EXISTS {{_admins}} (
+					[[id]]              TEXT NOT NULL PRIMARY KEY,
+					[[avatar]]          INTEGER DEFAULT 0 NOT NULL,
+					[[email]]           TEXT UNIQUE NOT NULL,
+					[[tokenKey]]        TEXT UNIQUE NOT NULL,
+					[[passwordHash]]    TEXT NOT NULL,
+					[[lastResetSentAt]] TEXT DEFAULT '' NOT NULL,
+					[[created]]         TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')) NOT NULL,
+					[[updated]]         TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')) NOT NULL
+				);`,
+				`CREATE TABLE IF NOT EXISTS {{_collections}} (
+					[[id]]             TEXT NOT NULL PRIMARY KEY,
+					[[system]]         INTEGER DEFAULT 0 NOT NULL,
+					[[type]]           TEXT DEFAULT 'base' NOT NULL,
+					[[name]]           TEXT UNIQUE NOT NULL,
+					[[display_name]]   TEXT DEFAULT NULL,
+					[[project]]        TEXT DEFAULT NULL,
+					[[cache_enabled]]  INTEGER DEFAULT 0 NOT NULL,
+					[[list_cache_enabled]] INTEGER DEFAULT 0 NOT NULL,
+					[[search_cache_enabled]] INTEGER DEFAULT 0 NOT NULL,
+					[[cache_duration]] INTEGER DEFAULT 0 NOT NULL,
+					[[schema]]         TEXT DEFAULT '[]' NOT NULL,
+					[[indexes]]        TEXT DEFAULT '[]' NOT NULL,
+					[[listRule]]       TEXT DEFAULT NULL,
+					[[viewRule]]       TEXT DEFAULT NULL,
+					[[createRule]]     TEXT DEFAULT NULL,
+					[[updateRule]]     TEXT DEFAULT NULL,
+					[[deleteRule]]     TEXT DEFAULT NULL,
+					[[options]]        TEXT DEFAULT '{}' NOT NULL,
+					[[created]]        TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')) NOT NULL,
+					[[updated]]        TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')) NOT NULL
+				);`,
+				`CREATE TABLE IF NOT EXISTS {{_params}} (
+					[[id]]      TEXT NOT NULL PRIMARY KEY,
+					[[key]]     TEXT UNIQUE NOT NULL,
+					[[value]]   TEXT DEFAULT NULL,
+					[[created]] TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')) NOT NULL,
+					[[updated]] TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')) NOT NULL
+				);`,
+				`CREATE TABLE IF NOT EXISTS {{_externalAuths}} (
+					[[id]]           TEXT NOT NULL PRIMARY KEY,
+					[[collectionId]] TEXT NOT NULL,
+					[[recordId]]     TEXT NOT NULL,
+					[[provider]]     TEXT NOT NULL,
+					[[providerId]]   TEXT NOT NULL,
+					[[created]]      TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')) NOT NULL,
+					[[updated]]      TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')) NOT NULL,
+					FOREIGN KEY ([[collectionId]]) REFERENCES {{_collections}} ([[id]]) ON UPDATE CASCADE ON DELETE CASCADE
+				);`,
+			}
+
+			for _, s := range statements {
+				if _, err := db.NewQuery(s).Execute(); err != nil {
+					return err
+				}
+			}
 		} else {
 			statements := []string{
 				`create extension IF NOT EXISTS "uuid-ossp";`,
@@ -180,6 +239,17 @@ func init() {
 					continue
 				}
 
+				if _, err := db.NewQuery(s).Execute(); err != nil {
+					return err
+				}
+			}
+		} else {
+			// Postgres and SQLite support CREATE UNIQUE INDEX IF NOT EXISTS
+			indexStatements := []string{
+				`CREATE UNIQUE INDEX IF NOT EXISTS _externalAuths_record_provider_idx ON {{_externalAuths}} ([[recordId]], [[provider]]);`,
+				`CREATE UNIQUE INDEX IF NOT EXISTS _externalAuths_collection_provider_idx ON {{_externalAuths}} ([[collectionId]], [[provider]], [[providerId]]);`,
+			}
+			for _, s := range indexStatements {
 				if _, err := db.NewQuery(s).Execute(); err != nil {
 					return err
 				}

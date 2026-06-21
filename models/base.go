@@ -1,4 +1,4 @@
-// Package models implements all PocketBase DB models and DTOs.
+// Package models implements all PostgreBase DB models and DTOs.
 package models
 
 import (

@@ -1,4 +1,4 @@
-// Package ui handles the PocketBase Admin frontend embedding.
+// Package ui handles the PostgreBase Admin frontend embedding.
 package ui
 
 import (

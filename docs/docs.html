@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Documentation - PostgresBase</title>
+    <title>Documentation - PostgreBase</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <style>
@@ -98,7 +98,7 @@
 <body>
 
     <aside class="sidebar">
-        <h2>PostgresBase Docs</h2>
+        <h2>PostgreBase Docs</h2>
         <button id="lang-toggle" class="lang-btn">
             <span class="material-symbols-outlined" style="font-size: 16px;">translate</span>
             <span data-i18n="lang-toggle">中文</span>
@@ -132,7 +132,7 @@
     <main class="content">
         <section id="introduction">
             <h1 data-i18n="docs-intro-title">Introduction</h1>
-            <p data-i18n="docs-intro-p1">PostgresBase is a modified version of PocketBase that replaces the default SQLite database with <strong>PostgreSQL</strong> or <strong>MySQL</strong>.</p>
+            <p data-i18n="docs-intro-p1">PostgreBase is a modified version of PocketBase that replaces the default SQLite database with <strong>PostgreSQL</strong> or <strong>MySQL</strong>.</p>
             <p data-i18n="docs-intro-p2">This project was born out of the need to run PocketBase in highly available, clustered, or high-concurrency environments where SQLite's file-locking mechanism might become a bottleneck.</p>
         </section>
 
@@ -159,10 +159,10 @@
 
         <section id="ha">
             <h2 data-i18n="docs-ha-title">High Availability (HA)</h2>
-            <p data-i18n="docs-ha-desc">PostgresBase is designed for clustered environments. To deploy in HA mode:</p>
+            <p data-i18n="docs-ha-desc">PostgreBase is designed for clustered environments. To deploy in HA mode:</p>
             <ul>
                 <li data-i18n="docs-ha-step1">Use a managed database (RDS, Cloud SQL) or a high-availability DB cluster.</li>
-                <li data-i18n="docs-ha-step2">Deploy multiple PostgresBase instances behind a Load Balancer (Nginx, HAProxy).</li>
+                <li data-i18n="docs-ha-step2">Deploy multiple PostgreBase instances behind a Load Balancer (Nginx, HAProxy).</li>
                 <li data-i18n="docs-ha-step3">Connect all instances to the same Redis cluster for shared caching.</li>
                 <li data-i18n="docs-ha-step4">Ensure <code>pb_data</code> (for storage) is shared using S3 or a networked file system if not using S3 storage.</li>
             </ul>
@@ -195,7 +195,7 @@
 
         <section id="sdk">
             <h2 data-i18n="docs-sdk-title">JS-SDK Tutorial</h2>
-            <p data-i18n="docs-sdk-desc">Integration with PostgresBase is easy using the official-compatible JS-SDK.</p>
+            <p data-i18n="docs-sdk-desc">Integration with PostgreBase is easy using the official-compatible JS-SDK.</p>
             <h3>1. Initialization</h3>
             <pre><code>import PocketBase from 'pocketbase';
 

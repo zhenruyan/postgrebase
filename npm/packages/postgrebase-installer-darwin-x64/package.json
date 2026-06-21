@@ -1,0 +1,14 @@
+{
+  "name": "postgrebase-installer-darwin-x64",
+  "version": "0.0.3",
+  "description": "PostgreBase native binary for darwin-x64",
+  "os": ["darwin"],
+  "cpu": ["x64"],
+  "files": ["bin/"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zhenruyan/postgrebase.git",
+    "directory": "npm"
+  }
+}

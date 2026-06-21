@@ -26,6 +26,39 @@ func init() {
 						}
 					}
 				}
+			} else if db.DriverName() == "sqlite" || db.DriverName() == "sqlite3" {
+				// SQLite doesn't support IF NOT EXISTS for ADD COLUMN
+				// Use PRAGMA to check existing columns
+				cols := map[string]string{
+					"cache_enabled":        "INTEGER DEFAULT 0 NOT NULL",
+					"list_cache_enabled":   "INTEGER DEFAULT 0 NOT NULL",
+					"search_cache_enabled": "INTEGER DEFAULT 0 NOT NULL",
+					"cache_duration":       "INTEGER DEFAULT 0 NOT NULL",
+				}
+				existingCols := map[string]bool{}
+				rows, err := db.NewQuery("PRAGMA table_info({{" + table + "}})").Rows()
+				if err != nil {
+					return err
+				}
+				for rows.Next() {
+					var cid int
+					var name, colType string
+					var notNull, pk int
+					var dfltValue interface{}
+					if err := rows.Scan(&cid, &name, &colType, &notNull, &dfltValue, &pk); err != nil {
+						rows.Close()
+						return err
+					}
+					existingCols[name] = true
+				}
+				rows.Close()
+				for col, def := range cols {
+					if !existingCols[col] {
+						if _, err := db.NewQuery("ALTER TABLE {{" + table + "}} ADD COLUMN [[" + col + "]] " + def).Execute(); err != nil {
+							return err
+						}
+					}
+				}
 			} else {
 				// Postgres
 				cols := map[string]string{

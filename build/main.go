@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhenruyan/postgrebase"
+	postgrebase "github.com/zhenruyan/postgrebase"
 	"github.com/zhenruyan/postgrebase/apis"
 	"github.com/zhenruyan/postgrebase/core"
 )
 
 func main() {
-	app := pocketbase.New()
+	app := postgrebase.New()
 
 	// ---------------------------------------------------------------
 	// Optional plugin flags:

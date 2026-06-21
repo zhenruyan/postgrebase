@@ -1,0 +1,15 @@
+{
+  "name": "postgrebase-installer-linux-arm64",
+  "version": "0.0.3",
+  "description": "PostgreBase native binary for linux-arm64",
+  "os": ["linux"],
+  "cpu": ["arm64"],
+  "libc": ["glibc"],
+  "files": ["bin/"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zhenruyan/postgrebase.git",
+    "directory": "npm"
+  }
+}

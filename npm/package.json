@@ -1,0 +1,43 @@
+{
+  "name": "postgrebase-installer",
+  "version": "0.0.3",
+  "description": "AI-Native No-Code API Platform with PostgreSQL/MySQL/SQLite support",
+  "bin": {
+    "postgrebase": "bin/postgrebase"
+  },
+  "files": [
+    "bin/",
+    "README.md"
+  ],
+  "keywords": [
+    "api",
+    "backend",
+    "postgresql",
+    "mysql",
+    "sqlite",
+    "rest-api",
+    "mcp",
+    "ai",
+    "no-code",
+    "pocketbase"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zhenruyan/postgrebase.git",
+    "directory": "npm"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "optionalDependencies": {
+    "postgrebase-installer-linux-x64": "0.0.3",
+    "postgrebase-installer-linux-arm64": "0.0.3",
+    "postgrebase-installer-linux-musl-x64": "0.0.3",
+    "postgrebase-installer-darwin-x64": "0.0.3",
+    "postgrebase-installer-darwin-arm64": "0.0.3",
+    "postgrebase-installer-win32-x64": "0.0.3",
+    "postgrebase-installer-win32-arm64": "0.0.3"
+  }
+}

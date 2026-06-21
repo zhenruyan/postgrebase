@@ -10,7 +10,7 @@ import (
 )
 
 // NewServeCommand creates and returns new command responsible for
-// starting the default PocketBase web server.
+// starting the default PostgreBase web server.
 func NewServeCommand(app core.App, showStartBanner bool) *cobra.Command {
 	var allowedOrigins []string
 	var httpAddr string

@@ -13,6 +13,7 @@ import PageTokenOptions from "@/components/settings/PageTokenOptions.svelte";
 import PageExportCollections from "@/components/settings/PageExportCollections.svelte";
 import PageImportCollections from "@/components/settings/PageImportCollections.svelte";
 import PageBackups from "@/components/settings/PageBackups.svelte";
+import PageMCPTokens from "@/components/settings/PageMCPTokens.svelte";
 import PageProjects from "@/components/projects/PageProjects.svelte";
 
 const baseConditions = [
@@ -102,6 +103,12 @@ const routes = {
 
     "/settings/backups": wrap({
         component: PageBackups,
+        conditions: baseConditions.concat([(_) => ApiClient.authStore.isValid]),
+        userData: { showAppSidebar: true },
+    }),
+
+    "/settings/mcp-tokens": wrap({
+        component: PageMCPTokens,
         conditions: baseConditions.concat([(_) => ApiClient.authStore.isValid]),
         userData: { showAppSidebar: true },
     }),

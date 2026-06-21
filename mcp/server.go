@@ -186,7 +186,7 @@ func (s *Server) handleInitialize(req *JSONRPCRequest) *JSONRPCResponse {
 			},
 		},
 		ServerInfo: ServerInfo{
-			Name:    "PostgreBase MCP Server",
+			Name:    "PostgreBase - AI-Native No-Code API Platform",
 			Version: s.version,
 		},
 	}
@@ -329,7 +329,7 @@ func (s *Server) handleToolsList(req *JSONRPCRequest) *JSONRPCResponse {
 		},
 		{
 			Name:        "search_records",
-			Description: "Search records in a collection using a PocketBase filter expression. The query must be a valid filter expression such as 'name ~ \"John\"' (contains), 'age > 18', 'email = \"test@example.com\"', or 'created >= \"2024-01-01\"'. Supported operators: =, !=, >, <, >=, <=, ~ (like/contains), !~ (not like), ? (in). Combine with && (and) and || (or).",
+			Description: "Search records in a collection using a PostgreBase filter expression. The query must be a valid filter expression such as 'name ~ \"John\"' (contains), 'age > 18', 'email = \"test@example.com\"', or 'created >= \"2024-01-01\"'. Supported operators: =, !=, >, <, >=, <=, ~ (like/contains), !~ (not like), ? (in). Combine with && (and) and || (or).",
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
@@ -339,7 +339,7 @@ func (s *Server) handleToolsList(req *JSONRPCRequest) *JSONRPCResponse {
 					},
 					"query": map[string]interface{}{
 						"type":        "string",
-						"description": "Primary PocketBase filter expression (e.g., 'name ~ \"John\"' or 'age > 18')",
+						"description": "Primary PostgreBase filter expression (e.g., 'name ~ \"John\"' or 'age > 18')",
 					},
 					"filter": map[string]interface{}{
 						"type":        "string",

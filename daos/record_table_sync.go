@@ -31,6 +31,12 @@ func (dao *Dao) SyncRecordTableSchema(newCollection *models.Collection, oldColle
 				schema.FieldNameCreated: "DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) NOT NULL",
 				schema.FieldNameUpdated: "DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) NOT NULL",
 			}
+		} else if driver == "sqlite" || driver == "sqlite3" {
+			cols = map[string]string{
+				schema.FieldNameId:      "TEXT NOT NULL PRIMARY KEY",
+				schema.FieldNameCreated: "TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')) NOT NULL",
+				schema.FieldNameUpdated: "TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')) NOT NULL",
+			}
 		} else {
 			cols = map[string]string{
 				schema.FieldNameId:      "text NOT NULL DEFAULT uuid_generate_v4()::text  PRIMARY KEY",
@@ -49,6 +55,15 @@ func (dao *Dao) SyncRecordTableSchema(newCollection *models.Collection, oldColle
 				cols[schema.FieldNamePasswordHash] = "VARCHAR(255) NOT NULL"
 				cols[schema.FieldNameLastResetSentAt] = "VARCHAR(255) DEFAULT '' NOT NULL"
 				cols[schema.FieldNameLastVerificationSentAt] = "VARCHAR(255) DEFAULT '' NOT NULL"
+			} else if driver == "sqlite" || driver == "sqlite3" {
+				cols[schema.FieldNameUsername] = "TEXT NOT NULL"
+				cols[schema.FieldNameEmail] = "TEXT DEFAULT '' NOT NULL"
+				cols[schema.FieldNameEmailVisibility] = "INTEGER DEFAULT 0 NOT NULL"
+				cols[schema.FieldNameVerified] = "INTEGER DEFAULT 0 NOT NULL"
+				cols[schema.FieldNameTokenKey] = "TEXT NOT NULL"
+				cols[schema.FieldNamePasswordHash] = "TEXT NOT NULL"
+				cols[schema.FieldNameLastResetSentAt] = "TEXT DEFAULT '' NOT NULL"
+				cols[schema.FieldNameLastVerificationSentAt] = "TEXT DEFAULT '' NOT NULL"
 			} else {
 				cols[schema.FieldNameUsername] = "text NOT NULL"
 				cols[schema.FieldNameEmail] = "text DEFAULT '' NOT NULL"
@@ -99,6 +114,17 @@ func (dao *Dao) SyncRecordTableSchema(newCollection *models.Collection, oldColle
 					fmt.Sprintf("CREATE UNIQUE INDEX _%s_username_idx ON {{%s}} ([[username]])", newCollection.Id, tableName),
 					fmt.Sprintf("CREATE UNIQUE INDEX _%s_email_idx ON {{%s}} ([[email]])", newCollection.Id, tableName),
 					fmt.Sprintf("CREATE UNIQUE INDEX _%s_tokenKey_idx ON {{%s}} ([[tokenKey]])", newCollection.Id, tableName),
+				}
+				for _, s := range indexStatements {
+					if _, err := dao.DB().NewQuery(s).Execute(); err != nil {
+						return err
+					}
+				}
+			} else if driver == "sqlite" || driver == "sqlite3" {
+				indexStatements := []string{
+					fmt.Sprintf("CREATE UNIQUE INDEX IF NOT EXISTS _%s_username_idx ON {{%s}} ([[username]])", newCollection.Id, tableName),
+					fmt.Sprintf("CREATE UNIQUE INDEX IF NOT EXISTS _%s_email_idx ON {{%s}} ([[email]]) WHERE [[email]] != ''", newCollection.Id, tableName),
+					fmt.Sprintf("CREATE UNIQUE INDEX IF NOT EXISTS _%s_tokenKey_idx ON {{%s}} ([[tokenKey]])", newCollection.Id, tableName),
 				}
 				for _, s := range indexStatements {
 					if _, err := dao.DB().NewQuery(s).Execute(); err != nil {
@@ -220,7 +246,7 @@ func (dao *Dao) SyncRecordTableSchema(newCollection *models.Collection, oldColle
 			if oldField == nil || oldField.Remark != field.Remark {
 				// Re-apply column definition to update comment
 				// Note: This might be slightly dangerous if ColDefinition doesn't match perfectly,
-				// but in PocketBase, ColDefinition is the source of truth.
+				// but in PostgreBase, ColDefinition is the source of truth.
 				modifySql := fmt.Sprintf("ALTER TABLE {{%s}} MODIFY [[%s]] %s", newTableName, field.Name, field.ColDefinition(driver))
 				if _, err := dao.DB().NewQuery(modifySql).Execute(); err != nil {
 					fmt.Printf("failed to set mysql comment for %s.%s: %v\n", newTableName, field.Name, err)

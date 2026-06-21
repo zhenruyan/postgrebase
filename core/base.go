@@ -40,7 +40,7 @@ const (
 
 var _ App = (*BaseApp)(nil)
 
-// BaseApp implements core.App and defines the base PocketBase app structure.
+// BaseApp implements core.App and defines the base PostgreBase app structure.
 type BaseApp struct {
 	// configurable parameters
 	isDebug          bool

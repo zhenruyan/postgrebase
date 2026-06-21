@@ -1,75 +1,209 @@
-# PostgreSQL & MySQL 版 PocketBase (企业级增强版)
+# PostgreBase — AI原生的无代码API开发工具
 
-本项目是 [PocketBase](https://pocketbase.io) 的深度定制开发版本。针对企业级生产环境进行了核心重构，旨在提供比原版（SQLite）更高性能、更强扩展性的后端服务。
-
-通过将底层存储引擎从 SQLite 替换为 **PostgreSQL** 和 **MySQL**，本项目能够完美胜任高并发、多节点集群以及复杂的数据分片场景。
+PostgreBase 是 AI 原生的无代码 API 开发平台，基于 [PocketBase](https://pocketbase.io) 重构。内置 MCP (Model Context Protocol) 服务器，让 AI 工具（Claude、Cursor、Windsurf）直接操作你的数据。支持 PostgreSQL、MySQL、SQLite 三种数据库，提供即时 REST API + 实时订阅 + Admin UI，5分钟上线你的后端服务。
 
 ## 核心特性
 
-- **企业级性能：** 摆脱 SQLite 的写锁限制，利用 PostgreSQL/MySQL 的并发处理能力。
-- **集群化架构：** 原生支持多实例部署。由于不再依赖本地文件数据库，您可以轻松地在负载均衡器后运行多个 PocketBase 实例。
-- **双数据库引擎：**
-    - **PostgreSQL:** 默认引擎，支持标准 DSN 接入。
-    - **MySQL:** 完全兼容，通过 `mysql://` 前缀进行连接。
-- **灵活缓存：**
-    - **Redis 缓存：** 支持集群环境下的分布式缓存，通过 `--redisDsn` 启用。同时，**SSE 实时订阅 (Realtime) 也会自动切换至 Redis Pub/Sub 模式**，确保跨节点的消息同步。
-    - **内存缓存：** 在未配置 Redis 时，自动回退到高效的本地内存缓存，确保单机环境下也能获得极致响应。
+- **三数据库引擎：**
+    - **PostgreSQL**（默认）— 生产级并发、集群和复杂查询。
+    - **MySQL** — 完全兼容，通过 `mysql://` DSN 前缀接入。
+    - **SQLite**（纯 Go，无 CGO）— 零依赖本地开发和测试，通过 `sqlite://` DSN 或 `.db` 文件路径使用。
+- **集群化架构：** 不依赖本地数据库文件，多实例可轻松部署在负载均衡器后。
+- **混合缓存：**
+    - **Redis 缓存**（`--redisDsn`）— 集群环境分布式缓存；SSE 实时订阅通过 Redis Pub/Sub 跨节点同步。
+    - **内存缓存** — 未配置 Redis 时自动回退到高性能本地内存缓存。
+- **MCP (Model Context Protocol) 服务器：**
+    - JSON-RPC 2.0 协议，让 AI 工具（Claude Desktop、Cursor、Windsurf）直接操作你的数据。
+    - 8 个内置工具：`list_collections`、`get_collection`、`list_records`、`get_record`、`create_record`、`update_record`、`delete_record`、`search_records`。
+    - 资源：`postgrebase://collections`、`postgrebase://settings`。
+    - 三种传输模式：SSE（HTTP）、Streamable HTTP 和 Stdio。
+    - MCP 专用 API Token，支持过期时间，可在 Admin UI 中管理。
+- **SQLite 零外部依赖：** 使用 `modernc.org/sqlite`（纯 Go 编译的 SQLite），支持 `CGO_ENABLED=0` 构建。
 - **保持 PocketBase 的极致体验：** 100% 兼容原有的 API、Admin UI 和业务逻辑。
 
 ## 快速上手
 
-### 1. 环境准备
+### 环境准备
 
 - Go 1.18+
-- PostgreSQL 或 MySQL 实例
+- PostgreSQL、MySQL，或者不需要任何数据库（SQLite 开箱即用）
 
-### 2. 编译构建
+### 编译构建
 
 ```bash
 git clone https://github.com/zhenruyan/postgrebase.git
 cd postgrebase
-# 编译二进制
 go build -o pb ./build/
 ```
 
-### 3. 运行服务
+静态构建（无 CGO）：
 
-默认情况下，程序会尝试连接 `127.0.0.1:5432` 上的 PostgreSQL。
+```bash
+CGO_ENABLED=0 go build -o pb ./build/
+```
 
-#### 使用 PostgreSQL (推荐用于生产)
+### 运行服务
+
+#### SQLite（本地开发）
+
+```bash
+# 使用 sqlite:// 前缀
+./pb serve --dataDsn "sqlite://./pb_data/dev.db"
+
+# 或者直接传 .db 文件路径
+./pb serve --dataDsn "./pb_data/dev.db"
+```
+
+#### PostgreSQL（推荐用于生产）
+
 ```bash
 ./pb serve --dataDsn "postgresql://user:password@127.0.0.1:5432/dbname?sslmode=disable"
 ```
 
-#### 使用 MySQL
+#### MySQL
+
 ```bash
 ./pb serve --dataDsn "mysql://user:password@tcp(127.0.0.1:3306)/dbname"
 ```
 
-#### 启用 Redis 缓存 (提升集群性能)
+#### 启用 Redis 缓存
+
 ```bash
-./pb serve --redisDsn "redis://127.0.0.1:6379/0"
+./pb serve --dataDsn "postgres://..." --redisDsn "redis://127.0.0.1:6379/0"
+```
+
+启动后服务器会打印接入地址：
+
+```
+PostgreBase — AI原生的无代码API开发工具
+├─ REST API: http://127.0.0.1:8090/api/
+├─ MCP SSE:  http://127.0.0.1:8090/api/mcp/sse
+└─ Admin UI: http://127.0.0.1:8090/_/
 ```
 
 ## 配置参数说明
 
-- `--dataDsn`: 数据库连接字符串。
-    - PostgreSQL: `postgres://user:pass@host:port/db?sslmode=disable`
-    - MySQL: `mysql://user:pass@tcp(host:port)/db`
-- `--redisDsn`: (可选) Redis 连接字符串。**如果不指定，则默认使用高性能本地内存缓存**。
-- `--dir`: PocketBase 数据目录（用于存储文件附件、备份等非数据库数据）。
-- `--encryptionEnv`: 用于加密设置的系统环境变量名。
+| 参数 | 说明 | 示例 |
+|------|------|------|
+| `--dataDsn` | 数据库连接字符串 | `postgres://user:pass@host:5432/db?sslmode=disable` |
+| `--redisDsn` | （可选）Redis 连接字符串，未指定时使用内存缓存 | `redis://localhost:6379/0` |
+| `--dir` | 数据目录（文件上传、备份等） | `./pb_data` |
+| `--encryptionEnv` | 用于加密设置的系统环境变量名 | `PB_ENCRYPTION` |
+| `--debug` | 开启调试模式，输出详细日志 | _(flag)_ |
+
+### DSN 格式
+
+| 引擎 | 格式 |
+|------|------|
+| PostgreSQL | `postgres://user:pass@host:port/db?sslmode=disable` 或 `postgresql://...` |
+| MySQL | `mysql://user:pass@tcp(host:port)/db` |
+| SQLite | `sqlite:///path/to/file.db`、`sqlite3://...` 或 `./file.db` |
+
+## MCP（Model Context Protocol）
+
+PostgreBase 内置 MCP 服务器，通过标准化 JSON-RPC 2.0 协议让 AI 工具直接操作你的数据。
+
+### 传输模式
+
+#### SSE（Server-Sent Events）— HTTP
+
+运行 `./pb serve` 后可用。连接地址：
+
+```
+GET  http://localhost:8090/api/mcp/sse      # SSE 事件流
+POST http://localhost:8090/api/mcp/message   # 发送 JSON-RPC 请求
+POST http://localhost:8090/api/mcp/stream    # Streamable HTTP（单次请求/响应）
+```
+
+#### Stdio — CLI
+
+以独立进程运行 MCP 服务器，通过 stdin/stdout 通信：
+
+```bash
+./pb mcp --dataDsn "sqlite://./dev.db" --mcp-token "YOUR_TOKEN"
+
+# 或禁用认证（不推荐用于生产）
+./pb mcp --dataDsn "sqlite://./dev.db" --mcp-no-auth
+```
+
+| 参数 | 说明 |
+|------|------|
+| `--mcp-token` | Admin JWT token 或 MCP 专用 token |
+| `--mcp-no-auth` | 禁用认证（仅限开发环境） |
+
+### Claude Desktop 配置
+
+```json
+{
+  "mcpServers": {
+    "postgrebase": {
+      "command": "/path/to/pb",
+      "args": ["mcp", "--dataDsn", "sqlite:///path/to/dev.db", "--mcp-no-auth"]
+    }
+  }
+}
+```
+
+### MCP Token
+
+在生产环境中，建议通过 Admin UI 的 **Settings → MCP Tokens** 创建专用 MCP Token（`mcp_` 前缀）。这些 Token：
+
+- 与 Admin JWT Token 独立。
+- 可单独撤销。
+- 支持可选过期时间。
+- 创建时仅显示一次完整值。
+
+### 可用工具
+
+| 工具 | 说明 |
+|------|------|
+| `list_collections` | 列出所有集合 |
+| `get_collection` | 获取集合的 Schema 和设置 |
+| `list_records` | 列出记录（支持分页、过滤、排序） |
+| `get_record` | 通过 ID 获取单条记录 |
+| `create_record` | 创建新记录 |
+| `update_record` | 更新已有记录 |
+| `delete_record` | 删除记录 |
+| `search_records` | 使用 PostgreBase 过滤表达式搜索记录 |
+
+### 可用资源
+
+| URI | 说明 |
+|-----|------|
+| `postgrebase://collections` | 所有集合及其 Schema |
+| `postgrebase://settings` | 应用设置（已脱敏，不含敏感信息） |
 
 ## 开发与扩展
 
 ### Admin UI 构建
 
-如果您修改了前端管理界面，请执行以下操作重新构建嵌入资源：
+修改前端管理界面后，需重新构建嵌入资源再编译 Go 二进制：
 
 ```bash
 cd ui
 npm install
 npm run build
+cd ..
+go build -o pb ./build/
+```
+
+### 项目结构
+
+```
+postgrebase/
+├── build/           # 服务器入口 (main.go)
+├── core/            # 应用逻辑、数据库连接、缓存
+├── daos/            # 数据访问对象（CRUD 操作）
+├── models/          # 数据模型和 Schema 定义
+├── apis/            # HTTP API 处理器（REST + MCP 路由）
+├── mcp/             # MCP 服务器：协议、工具、资源、传输
+├── migrations/      # 数据库迁移（Postgres/MySQL/SQLite）
+├── cmd/             # CLI 命令（serve, mcp, admin）
+├── dbx/             # 数据库查询构建器（ozzo-dbx 分支）
+├── tools/           # 共享工具（安全、类型、搜索等）
+├── ui/              # Admin UI（Svelte + Vite）
+├── vendor/          # Go 依赖（保留用于离线构建）
+└── postgrebase.go  # 根包：CLI 设置、配置、引导
 ```
 
 ### 贡献指南

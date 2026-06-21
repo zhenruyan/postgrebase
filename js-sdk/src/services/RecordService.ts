@@ -53,10 +53,10 @@ export interface OAuth2AuthConfig {
     // optional callback that is triggered after the OAuth2 sign-in/sign-up url generation
     urlCallback?: OAuth2UrlCallback;
 
-    // optional query params to send with the PocketBase auth request (eg. fields, expand, etc.)
+    // optional query params to send with the PostgreBase auth request (eg. fields, expand, etc.)
     query?: RecordQueryParams;
 
-    // optional body params to send with the PocketBase auth request
+    // optional body params to send with the PostgreBase auth request
     body?: {[key: string]: any};
 }
 
@@ -100,7 +100,7 @@ export default class RecordService extends CrudService<Record> {
      * Subscribe to the realtime changes of a single record in the collection.
      */
     async subscribeOne<T = Record>(recordId: string, callback: (data: RecordSubscription<T>) => void): Promise<UnsubscribeFunc> {
-        console.warn("PocketBase: subscribeOne(recordId, callback) is deprecated. Please replace it with subscribe(recordId, callback).");
+        console.warn("PostgreBase: subscribeOne(recordId, callback) is deprecated. Please replace it with subscribe(recordId, callback).");
         return this.client.realtime.subscribe(this.collectionIdOrName + "/" + recordId, callback);
     }
 
@@ -129,7 +129,7 @@ export default class RecordService extends CrudService<Record> {
         callback?: (data: RecordSubscription<T>) => void
     ): Promise<UnsubscribeFunc> {
         if (typeof topicOrCallback === 'function') {
-            console.warn("PocketBase: subscribe(callback) is deprecated. Please replace it with subscribe('*', callback).");
+            console.warn("PostgreBase: subscribe(callback) is deprecated. Please replace it with subscribe('*', callback).");
             return this.client.realtime.subscribe(this.collectionIdOrName, topicOrCallback);
         }
 
@@ -421,7 +421,7 @@ export default class RecordService extends CrudService<Record> {
     async authWithOAuth2<T = Record>(...args: any): Promise<RecordAuthResponse<T>> {
         // fallback to legacy format
         if (args.length > 1 || typeof args?.[0] === 'string') {
-            console.warn("PocketBase: This form of authWithOAuth2() is deprecated and may get removed in the future. Please replace with authWithOAuth2Code() OR use the authWithOAuth2() realtime form as shown in https://pocketbase.io/docs/authentication/#oauth2-integration.");
+            console.warn("PostgreBase: This form of authWithOAuth2() is deprecated and may get removed in the future. Please replace with authWithOAuth2Code() OR use the authWithOAuth2() realtime form as shown in https://pocketbase.io/docs/authentication/#oauth2-integration.");
             return this.authWithOAuth2Code<T>(
                 args?.[0] || '',
                 args?.[1] || '',

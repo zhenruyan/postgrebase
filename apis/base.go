@@ -1,4 +1,4 @@
-// Package apis implements the default PocketBase api services and middlewares.
+// Package apis implements the default PostgreBase api services and middlewares.
 package apis
 
 import (
@@ -134,6 +134,7 @@ func InitApi(app core.App) (*echo.Echo, error) {
 	bindRealtimeApi(app, api)
 	bindHealthApi(app, api)
 	bindBackupApi(app, api)
+	bindMcpTokenApi(app, api)
 
 	// MCP (Model Context Protocol) routes
 	mcp.BindMCPRoutes(app, e, "1.0.0")

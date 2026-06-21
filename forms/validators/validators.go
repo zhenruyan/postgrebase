@@ -1,2 +1,2 @@
-// Package validators implements custom shared PocketBase validators.
+// Package validators implements custom shared PostgreBase validators.
 package validators

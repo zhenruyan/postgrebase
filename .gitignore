@@ -18,7 +18,7 @@ README.html
 CHANGELOG.html
 LICENSE.html
 
-# PocketBase data and migrations
+# PostgreBase data and migrations
 pb_data/
 pb_migrations/
 pb_public/
@@ -26,9 +26,19 @@ pb_public/
 # Binaries
 /pb
 /pb.exe
-/pocketbase
-/pocketbase.exe
+/postgrebase
+/postgrebase.exe
+
+# Build artifacts
+/bin/
+*.tgz
 
 # Local environment variables
 .env
 .env.local
+
+# Node modules
+node_modules/
+
+# Development database
+*.db

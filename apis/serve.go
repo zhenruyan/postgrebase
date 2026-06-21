@@ -115,9 +115,8 @@ func Serve(app core.App, config ServeConfig) (*http.Server, error) {
 
 		bold := color.New(color.Bold).Add(color.FgGreen)
 		bold.Printf(
-			"%s Server started at %s\n",
+			"\n%s PostgreBase — AI-Native No-Code API Platform\n",
 			strings.TrimSpace(date.String()),
-			color.CyanString("%s://%s", schema, server.Addr),
 		)
 
 		regular := color.New()

@@ -154,6 +154,8 @@ func (f *SchemaField) ColDefinition(driverName string) string {
 	case FieldTypeBool:
 		if driverName == "mysql" {
 			colDef = "TINYINT(1) DEFAULT 0 NOT NULL"
+		} else if driverName == "sqlite" || driverName == "sqlite3" {
+			colDef = "INTEGER DEFAULT 0 NOT NULL"
 		} else {
 			colDef = "BOOLEAN DEFAULT FALSE NOT NULL"
 		}

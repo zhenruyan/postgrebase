@@ -1,10 +1,10 @@
-PocketBase Admin dashboard UI
+PostgreBase Admin dashboard UI
 ======================================================================
 
-This is the PocketBase Admin dashboard UI (built with Svelte and Vite).
+This is the PostgreBase Admin dashboard UI (built with Svelte and Vite).
 
 Although it could be used independently, it is mainly intended to be embedded
-as part of a PocketBase app executable (hence the `embed.go` file).
+as part of a PostgreBase app executable (hence the `embed.go` file).
 
 ## Development
 
