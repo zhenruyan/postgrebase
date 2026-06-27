@@ -4,7 +4,7 @@
 
 ## 环境准备
 
-- **Go 1.18+**（从源码构建时需要）
+- **Go 1.26.2+**（从源码构建时需要）
 - **PostgreSQL** 或 **MySQL**（可选 —— SQLite 开箱即用）
 
 ## 安装
@@ -56,6 +56,34 @@ CGO_ENABLED=0 go build -o pb ./build/
 ```bash
 ./pb serve --dataDsn "postgres://..." --redisDsn "redis://127.0.0.1:6379/0"
 ```
+
+### Docker
+
+从项目中的 Dockerfile 构建镜像：
+
+```bash
+docker build -t postgrebase .
+```
+
+使用 SQLite 运行：
+
+```bash
+docker run -p 8090:8090 -v pb_data:/pb/pb_data postgrebase serve --dataDsn "sqlite:///pb/pb_data/dev.db"
+```
+
+使用 PostgreSQL 运行：
+
+```bash
+docker run -p 8090:8090 postgrebase serve --dataDsn "postgres://user:pass@host:5432/dbname?sslmode=disable"
+```
+
+使用 Redis 运行：
+
+```bash
+docker run -p 8090:8090 postgrebase serve --dataDsn "postgres://..." --redisDsn "redis://host:6379/0"
+```
+
+Docker 镜像使用 Alpine Linux，暴露 8090 端口，数据存储在 `/pb/pb_data`。
 
 ## 首次使用
 

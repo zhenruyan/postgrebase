@@ -76,7 +76,23 @@ See the [High Availability](high-availability.md) guide. In short: shared Postgr
 
 ### Can I use Docker?
 
-Yes. Build the Docker image from the Dockerfile or use the binary directly in your container.
+Yes. Build the Docker image from the included Dockerfile:
+
+```bash
+docker build -t postgrebase .
+```
+
+Run with your preferred database:
+
+```bash
+# SQLite
+docker run -p 8090:8090 -v pb_data:/pb/pb_data postgrebase serve --dataDsn "sqlite:///pb/pb_data/dev.db"
+
+# PostgreSQL
+docker run -p 8090:8090 postgrebase serve --dataDsn "postgres://user:pass@host:5432/db?sslmode=disable"
+```
+
+The image is based on Alpine Linux, runs as non-root user `pocketbase`, exposes port 8090, and uses `/pb/pb_data` as the data volume.
 
 ## Development
 

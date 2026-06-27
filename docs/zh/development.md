@@ -4,7 +4,7 @@
 
 ### 环境准备
 
-- Go 1.18+
+- Go 1.26.2+
 - Node.js（Admin UI 开发时需要）
 
 ### 构建服务器
@@ -19,6 +19,22 @@ go build -o pb ./build/
 
 ```bash
 CGO_ENABLED=0 go build -o pb ./build/
+```
+
+### 使用 Makefile 构建
+
+```bash
+make build              # 构建当前平台
+make build-all          # 构建所有平台（Linux、macOS、Windows）
+make dist               # 构建并打包可分发归档
+make lint               # 运行 linter
+make fmt                # 格式化代码
+```
+
+### 构建 Docker 镜像
+
+```bash
+docker build -t postgrebase .
 ```
 
 ### 构建 Admin UI
@@ -155,3 +171,27 @@ err := dao.DeleteRecord(record)
 
 - **GitHub Actions** 在 `.github/workflows/`（构建检查和 GoReleaser）
 - **版本号** 通过 `.goreleaser.yaml` 中的 `ldflags` 设置
+
+## npm 安装器
+
+PostgreBase 提供平台特定的 npm 包便于安装：
+
+```bash
+make npm-version       # 同步版本到 npm 安装器包
+make npm-packages      # 构建平台特定 npm 包
+make npm-pack          # 打包主包和所有平台包
+make npm-publish-all   # 发布主包和所有平台包
+make npm-publish-pre   # 发布预发布包
+```
+
+## JavaScript SDK
+
+JS SDK（`js-sdk/`）提供了与 PostgreBase 交互的客户端库：
+
+```bash
+make sdk-build         # 构建 JavaScript SDK
+make sdk-test          # 运行 JS SDK 测试
+make sdk-pack          # 打包 JS SDK
+make sdk-publish       # 发布 JS SDK 到 npm
+make sdk-publish-pre   # 发布 JS SDK 预发布版本
+```

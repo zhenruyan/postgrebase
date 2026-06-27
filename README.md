@@ -71,6 +71,22 @@ CGO_ENABLED=0 go build -o pb ./build/
 ./pb serve --dataDsn "postgres://..." --redisDsn "redis://127.0.0.1:6379/0"
 ```
 
+#### Docker
+
+```bash
+# Build the image
+docker build -t postgrebase .
+
+# Run with SQLite
+docker run -p 8090:8090 -v pb_data:/pb/pb_data postgrebase serve --dataDsn "sqlite:///pb/pb_data/dev.db"
+
+# Run with PostgreSQL
+docker run -p 8090:8090 postgrebase serve --dataDsn "postgres://user:pass@host:5432/db?sslmode=disable"
+
+# Run with Redis
+docker run -p 8090:8090 postgrebase serve --dataDsn "postgres://..." --redisDsn "redis://host:6379/0"
+```
+
 On startup the server prints its endpoints:
 
 ```

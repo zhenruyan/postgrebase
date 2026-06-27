@@ -8,7 +8,7 @@ PostgreBase 是 AI 原生的无代码 API 开发平台，基于 [PocketBase](htt
 
 ## Tech Stack
 
-- **Language:** Go 1.18+ (builds with `CGO_ENABLED=0`)
+- **Language:** Go 1.26.2+ (builds with `CGO_ENABLED=0`)
 - **HTTP Framework:** `github.com/labstack/echo/v5`
 - **CLI:** `github.com/spf13/cobra`
 - **Database Drivers:**

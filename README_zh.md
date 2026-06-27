@@ -72,6 +72,22 @@ CGO_ENABLED=0 go build -o pb ./build/
 ./pb serve --dataDsn "postgres://..." --redisDsn "redis://127.0.0.1:6379/0"
 ```
 
+#### Docker
+
+```bash
+# 构建镜像
+docker build -t postgrebase .
+
+# 使用 SQLite 运行
+docker run -p 8090:8090 -v pb_data:/pb/pb_data postgrebase serve --dataDsn "sqlite:///pb/pb_data/dev.db"
+
+# 使用 PostgreSQL 运行
+docker run -p 8090:8090 postgrebase serve --dataDsn "postgres://user:pass@host:5432/db?sslmode=disable"
+
+# 使用 Redis 运行
+docker run -p 8090:8090 postgrebase serve --dataDsn "postgres://..." --redisDsn "redis://host:6379/0"
+```
+
 启动后服务器会打印接入地址：
 
 ```

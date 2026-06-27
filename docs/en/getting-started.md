@@ -4,7 +4,7 @@ This guide helps you get PostgreBase running in 5 minutes.
 
 ## Prerequisites
 
-- **Go 1.18+** (for building from source)
+- **Go 1.26.2+** (for building from source)
 - **PostgreSQL** or **MySQL** (optional — SQLite works out of the box)
 
 ## Installation
@@ -56,6 +56,34 @@ Download the latest binary from [GitHub Releases](https://github.com/zhenruyan/p
 ```bash
 ./pb serve --dataDsn "postgres://..." --redisDsn "redis://127.0.0.1:6379/0"
 ```
+
+### Docker
+
+Build the image from the included Dockerfile:
+
+```bash
+docker build -t postgrebase .
+```
+
+Run with SQLite:
+
+```bash
+docker run -p 8090:8090 -v pb_data:/pb/pb_data postgrebase serve --dataDsn "sqlite:///pb/pb_data/dev.db"
+```
+
+Run with PostgreSQL:
+
+```bash
+docker run -p 8090:8090 postgrebase serve --dataDsn "postgres://user:pass@host:5432/dbname?sslmode=disable"
+```
+
+Run with Redis:
+
+```bash
+docker run -p 8090:8090 postgrebase serve --dataDsn "postgres://..." --redisDsn "redis://host:6379/0"
+```
+
+The Docker image uses Alpine Linux, exposes port 8090, and stores data in `/pb/pb_data`.
 
 ## First Steps
 

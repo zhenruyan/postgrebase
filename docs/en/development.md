@@ -4,7 +4,7 @@
 
 ### Prerequisites
 
-- Go 1.18+
+- Go 1.26.2+
 - Node.js (for Admin UI development)
 
 ### Build Server
@@ -19,6 +19,22 @@ Static build (no CGO):
 
 ```bash
 CGO_ENABLED=0 go build -o pb ./build/
+```
+
+### Build with Makefile
+
+```bash
+make build              # Build for current platform
+make build-all          # Build for all platforms (Linux, macOS, Windows)
+make dist               # Build and package distributable archives
+make lint               # Run linter
+make fmt                # Format code
+```
+
+### Build Docker Image
+
+```bash
+docker build -t postgrebase .
 ```
 
 ### Build Admin UI
@@ -155,3 +171,27 @@ The `/vendor/` directory contains all Go dependencies and **must not be deleted*
 
 - **GitHub Actions** in `.github/workflows/` (Build Check and GoReleaser)
 - **Version** is set via `ldflags` in `.goreleaser.yaml`
+
+## npm Installer
+
+PostgreBase provides platform-specific npm packages for easy installation:
+
+```bash
+make npm-version       # Sync version to npm installer package
+make npm-packages      # Build platform-specific npm packages
+make npm-pack          # Pack main + all platform packages
+make npm-publish-all   # Publish main + all platform packages
+make npm-publish-pre   # Publish pre-release packages
+```
+
+## JavaScript SDK
+
+The JS SDK (`js-sdk/`) provides a client library for interacting with PostgreBase:
+
+```bash
+make sdk-build         # Build the JavaScript SDK
+make sdk-test          # Run JS SDK tests
+make sdk-pack          # Pack JS SDK for publishing
+make sdk-publish       # Publish JS SDK to npm
+make sdk-publish-pre   # Publish JS SDK pre-release
+```
