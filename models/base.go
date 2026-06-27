@@ -8,10 +8,7 @@ import (
 
 const (
 	// DefaultIdLength is the default length of the generated model id.
-	DefaultIdLength = 15
-
-	// DefaultIdAlphabet is the default characters set used for generating the model id.
-	DefaultIdAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+	DefaultIdLength = 36
 )
 
 // ColumnValueMapper defines an interface for custom db model data serialization.
@@ -98,9 +95,9 @@ func (m *BaseModel) GetUpdated() types.DateTime {
 
 // RefreshId generates and sets a new model id.
 //
-// The generated id is a cryptographically random 15 characters length string.
+// The generated id is a cryptographically random UUID string.
 func (m *BaseModel) RefreshId() {
-	m.Id = security.RandomStringWithAlphabet(DefaultIdLength, DefaultIdAlphabet)
+	m.Id = security.NewUUIDString()
 }
 
 // RefreshCreated updates the model Created field with the current datetime.

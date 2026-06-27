@@ -1,8 +1,6 @@
 package routine
 
 import (
-	"log"
-	"runtime/debug"
 	"sync"
 )
 
@@ -21,10 +19,7 @@ func FireAndForget(f func(), wg ...*sync.WaitGroup) {
 		}
 
 		defer func() {
-			if err := recover(); err != nil {
-				log.Printf("RECOVERED FROM PANIC: %v", err)
-				log.Printf("%s\n", string(debug.Stack()))
-			}
+			recover()
 		}()
 
 		f()

@@ -141,7 +141,7 @@ func TestSchemaFieldString(t *testing.T) {
 	}
 
 	result := f.String()
-	expected := `{"system":true,"id":"abc","name":"test","type":"text","required":true,"unique":false,"options":{"min":null,"max":null,"pattern":"test"}}`
+	expected := `{"system":true,"id":"abc","name":"test","type":"text","remark":"","required":true,"unique":false,"options":{"min":null,"max":null,"pattern":"test"}}`
 
 	if result != expected {
 		t.Errorf("Expected \n%v, got \n%v", expected, result)
@@ -156,7 +156,7 @@ func TestSchemaFieldMarshalJSON(t *testing.T) {
 		// empty
 		{
 			schema.SchemaField{},
-			`{"system":false,"id":"","name":"","type":"","required":false,"unique":false,"options":null}`,
+			`{"system":false,"id":"","name":"","type":"","remark":"","required":false,"unique":false,"options":null}`,
 		},
 		// without defined options
 		{
@@ -168,7 +168,7 @@ func TestSchemaFieldMarshalJSON(t *testing.T) {
 				Unique:   false,
 				System:   true,
 			},
-			`{"system":true,"id":"abc","name":"test","type":"text","required":true,"unique":false,"options":{"min":null,"max":null,"pattern":""}}`,
+			`{"system":true,"id":"abc","name":"test","type":"text","remark":"","required":true,"unique":false,"options":{"min":null,"max":null,"pattern":""}}`,
 		},
 		// with defined options
 		{
@@ -182,7 +182,7 @@ func TestSchemaFieldMarshalJSON(t *testing.T) {
 					Pattern: "test",
 				},
 			},
-			`{"system":true,"id":"","name":"test","type":"text","required":true,"unique":false,"options":{"min":null,"max":null,"pattern":"test"}}`,
+			`{"system":true,"id":"","name":"test","type":"text","remark":"","required":true,"unique":false,"options":{"min":null,"max":null,"pattern":"test"}}`,
 		},
 	}
 
@@ -207,32 +207,32 @@ func TestSchemaFieldUnmarshalJSON(t *testing.T) {
 		{
 			nil,
 			true,
-			`{"system":false,"id":"","name":"","type":"","required":false,"unique":false,"options":null}`,
+			`{"system":false,"id":"","name":"","type":"","remark":"","required":false,"unique":false,"options":null}`,
 		},
 		{
 			[]byte{},
 			true,
-			`{"system":false,"id":"","name":"","type":"","required":false,"unique":false,"options":null}`,
+			`{"system":false,"id":"","name":"","type":"","remark":"","required":false,"unique":false,"options":null}`,
 		},
 		{
 			[]byte(`{"system": true}`),
 			true,
-			`{"system":true,"id":"","name":"","type":"","required":false,"unique":false,"options":null}`,
+			`{"system":true,"id":"","name":"","type":"","remark":"","required":false,"unique":false,"options":null}`,
 		},
 		{
 			[]byte(`{"invalid"`),
 			true,
-			`{"system":false,"id":"","name":"","type":"","required":false,"unique":false,"options":null}`,
+			`{"system":false,"id":"","name":"","type":"","remark":"","required":false,"unique":false,"options":null}`,
 		},
 		{
 			[]byte(`{"type":"text","system":true}`),
 			false,
-			`{"system":true,"id":"","name":"","type":"text","required":false,"unique":false,"options":{"min":null,"max":null,"pattern":""}}`,
+			`{"system":true,"id":"","name":"","type":"text","remark":"","required":false,"unique":false,"options":{"min":null,"max":null,"pattern":""}}`,
 		},
 		{
 			[]byte(`{"type":"text","options":{"pattern":"test"}}`),
 			false,
-			`{"system":false,"id":"","name":"","type":"text","required":false,"unique":false,"options":{"min":null,"max":null,"pattern":"test"}}`,
+			`{"system":false,"id":"","name":"","type":"text","remark":"","required":false,"unique":false,"options":{"min":null,"max":null,"pattern":"test"}}`,
 		},
 	}
 
@@ -470,72 +470,72 @@ func TestSchemaFieldInitOptions(t *testing.T) {
 		{
 			schema.SchemaField{},
 			true,
-			`{"system":false,"id":"","name":"","type":"","required":false,"unique":false,"options":null}`,
+			`{"system":false,"id":"","name":"","type":"","remark":"","required":false,"unique":false,"options":null}`,
 		},
 		{
 			schema.SchemaField{Type: "unknown"},
 			true,
-			`{"system":false,"id":"","name":"","type":"unknown","required":false,"unique":false,"options":null}`,
+			`{"system":false,"id":"","name":"","type":"unknown","remark":"","required":false,"unique":false,"options":null}`,
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeText},
 			false,
-			`{"system":false,"id":"","name":"","type":"text","required":false,"unique":false,"options":{"min":null,"max":null,"pattern":""}}`,
+			`{"system":false,"id":"","name":"","type":"text","remark":"","required":false,"unique":false,"options":{"min":null,"max":null,"pattern":""}}`,
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeNumber},
 			false,
-			`{"system":false,"id":"","name":"","type":"number","required":false,"unique":false,"options":{"min":null,"max":null}}`,
+			`{"system":false,"id":"","name":"","type":"number","remark":"","required":false,"unique":false,"options":{"min":null,"max":null}}`,
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeBool},
 			false,
-			`{"system":false,"id":"","name":"","type":"bool","required":false,"unique":false,"options":{}}`,
+			`{"system":false,"id":"","name":"","type":"bool","remark":"","required":false,"unique":false,"options":{}}`,
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeEmail},
 			false,
-			`{"system":false,"id":"","name":"","type":"email","required":false,"unique":false,"options":{"exceptDomains":null,"onlyDomains":null}}`,
+			`{"system":false,"id":"","name":"","type":"email","remark":"","required":false,"unique":false,"options":{"exceptDomains":null,"onlyDomains":null}}`,
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeUrl},
 			false,
-			`{"system":false,"id":"","name":"","type":"url","required":false,"unique":false,"options":{"exceptDomains":null,"onlyDomains":null}}`,
+			`{"system":false,"id":"","name":"","type":"url","remark":"","required":false,"unique":false,"options":{"exceptDomains":null,"onlyDomains":null}}`,
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeEditor},
 			false,
-			`{"system":false,"id":"","name":"","type":"editor","required":false,"unique":false,"options":{}}`,
+			`{"system":false,"id":"","name":"","type":"editor","remark":"","required":false,"unique":false,"options":{}}`,
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeDate},
 			false,
-			`{"system":false,"id":"","name":"","type":"date","required":false,"unique":false,"options":{"min":"","max":""}}`,
+			`{"system":false,"id":"","name":"","type":"date","remark":"","required":false,"unique":false,"options":{"min":"","max":""}}`,
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeSelect},
 			false,
-			`{"system":false,"id":"","name":"","type":"select","required":false,"unique":false,"options":{"maxSelect":0,"values":null}}`,
+			`{"system":false,"id":"","name":"","type":"select","remark":"","required":false,"unique":false,"options":{"maxSelect":0,"values":null}}`,
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeJson},
 			false,
-			`{"system":false,"id":"","name":"","type":"json","required":false,"unique":false,"options":{}}`,
+			`{"system":false,"id":"","name":"","type":"json","remark":"","required":false,"unique":false,"options":{}}`,
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeFile},
 			false,
-			`{"system":false,"id":"","name":"","type":"file","required":false,"unique":false,"options":{"maxSelect":0,"maxSize":0,"mimeTypes":null,"thumbs":null,"protected":false}}`,
+			`{"system":false,"id":"","name":"","type":"file","remark":"","required":false,"unique":false,"options":{"maxSelect":0,"maxSize":0,"mimeTypes":null,"thumbs":null,"protected":false}}`,
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeRelation},
 			false,
-			`{"system":false,"id":"","name":"","type":"relation","required":false,"unique":false,"options":{"collectionId":"","cascadeDelete":false,"minSelect":null,"maxSelect":null,"displayFields":null}}`,
+			`{"system":false,"id":"","name":"","type":"relation","remark":"","required":false,"unique":false,"options":{"collectionId":"","cascadeDelete":false,"minSelect":null,"maxSelect":null,"displayFields":null}}`,
 		},
 		{
 			schema.SchemaField{Type: schema.FieldTypeUser},
 			false,
-			`{"system":false,"id":"","name":"","type":"user","required":false,"unique":false,"options":{"maxSelect":0,"cascadeDelete":false}}`,
+			`{"system":false,"id":"","name":"","type":"user","remark":"","required":false,"unique":false,"options":{"maxSelect":0,"cascadeDelete":false}}`,
 		},
 		{
 			schema.SchemaField{
@@ -543,7 +543,7 @@ func TestSchemaFieldInitOptions(t *testing.T) {
 				Options: &schema.TextOptions{Pattern: "test"},
 			},
 			false,
-			`{"system":false,"id":"","name":"","type":"text","required":false,"unique":false,"options":{"min":null,"max":null,"pattern":"test"}}`,
+			`{"system":false,"id":"","name":"","type":"text","remark":"","required":false,"unique":false,"options":{"min":null,"max":null,"pattern":"test"}}`,
 		},
 	}
 

@@ -62,7 +62,7 @@ func TestSelectQuery(t *testing.T) {
 }
 
 func TestSelectQuery_Data(t *testing.T) {
-	db := getPreparedDB()
+	db := getPreparedDBT(t)
 	defer db.Close()
 
 	q := db.Select("id", "email").From("customer").OrderBy("id")
@@ -99,7 +99,7 @@ func TestSelectQuery_Data(t *testing.T) {
 }
 
 func TestSelectQuery_Model(t *testing.T) {
-	db := getPreparedDB()
+	db := getPreparedDBT(t)
 	defer db.Close()
 
 	{
@@ -161,7 +161,7 @@ func TestSelectQuery_Model(t *testing.T) {
 }
 
 func TestSelectWithBuildHook(t *testing.T) {
-	db := getPreparedDB()
+	db := getPreparedDBT(t)
 	defer db.Close()
 
 	var buildSQL string

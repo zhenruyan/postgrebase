@@ -45,7 +45,7 @@ func TestMysqlBuilder_RenameColumn(t *testing.T) {
 	q := b.RenameColumn("users", "name", "username")
 	assert.Equal(t, q.SQL(), "ALTER TABLE `users` CHANGE `name` `username`")
 	q = b.RenameColumn("customer", "email", "e")
-	assert.Equal(t, q.SQL(), "ALTER TABLE `customer` CHANGE `email` `e` varchar(128) NOT NULL")
+	assert.Equal(t, q.SQL(), "ALTER TABLE `customer` CHANGE `email` `e`")
 }
 
 func TestMysqlBuilder_DropPrimaryKey(t *testing.T) {

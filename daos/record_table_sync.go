@@ -27,7 +27,7 @@ func (dao *Dao) SyncRecordTableSchema(newCollection *models.Collection, oldColle
 
 		if driver == "mysql" {
 			cols = map[string]string{
-				schema.FieldNameId:      "VARCHAR(150) NOT NULL PRIMARY KEY",
+				schema.FieldNameId:      "VARCHAR(36) NOT NULL PRIMARY KEY",
 				schema.FieldNameCreated: "DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) NOT NULL",
 				schema.FieldNameUpdated: "DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) NOT NULL",
 			}
@@ -39,7 +39,7 @@ func (dao *Dao) SyncRecordTableSchema(newCollection *models.Collection, oldColle
 			}
 		} else {
 			cols = map[string]string{
-				schema.FieldNameId:      "text NOT NULL DEFAULT uuid_generate_v4()::text  PRIMARY KEY",
+				schema.FieldNameId:      "text NOT NULL PRIMARY KEY",
 				schema.FieldNameCreated: "timestamp NOT NULL DEFAULT now()::TIMESTAMP",
 				schema.FieldNameUpdated: "timestamp NOT NULL DEFAULT now()::TIMESTAMP",
 			}
@@ -317,6 +317,17 @@ func (dao *Dao) dropCollectionIndex(collection *models.Collection) error {
 		if !parsed.IsValid() {
 			continue
 		}
+		if dao.DB().DriverName() == "mysql" {
+			var count int
+			checkSql := "SELECT COUNT(1) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = '" + collection.Name + "' AND index_name = '" + parsed.IndexName + "'"
+			if err := dao.DB().NewQuery(checkSql).Row(&count); err == nil && count == 0 {
+				continue
+			}
+			if _, err := dao.DB().NewQuery(fmt.Sprintf("DROP INDEX [[%s]] ON {{%s}}", parsed.IndexName, collection.Name)).Execute(); err != nil {
+				return err
+			}
+			continue
+		}
 		if _, err := dao.DB().NewQuery(fmt.Sprintf(`DROP INDEX IF EXISTS [[%s]]`, parsed.IndexName)).Execute(); err != nil {
 			return err
 		}
@@ -355,7 +366,7 @@ func (dao *Dao) createCollectionIndexes(collection *models.Collection) error {
 			continue
 		}
 
-		if _, err := dao.DB().NewQuery(parsed.Build()).Execute(); err != nil {
+		if _, err := dao.DB().NewQuery(parsed.BuildForDriver(dao.DB().DriverName())).Execute(); err != nil {
 			errs[strconv.Itoa(i)] = validation.NewError(
 				"validation_invalid_index_expression",
 				fmt.Sprintf("Failed to create index %s - %v.", parsed.IndexName, err.Error()),

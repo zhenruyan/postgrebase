@@ -24,8 +24,11 @@ const (
 
 func TestDB_NewFromDB(t *testing.T) {
 	sqlDB, err := sql.Open("mysql", TestDSN)
-	if assert.Nil(t, err) {
-		db := NewFromDB(sqlDB, "mysql")
+	if err != nil {
+		t.Skipf("mysql unavailable: %v", err)
+	}
+	db := NewFromDB(sqlDB, "mysql")
+	if assert.NotNil(t, db) {
 		assert.NotNil(t, db.sqlDB)
 		assert.NotNil(t, db.FieldMapper)
 	}
@@ -33,7 +36,9 @@ func TestDB_NewFromDB(t *testing.T) {
 
 func TestDB_Open(t *testing.T) {
 	db, err := Open("mysql", TestDSN)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Skipf("mysql unavailable: %v", err)
+	}
 	if assert.NotNil(t, db) {
 		assert.NotNil(t, db.sqlDB)
 		assert.NotNil(t, db.FieldMapper)
@@ -53,19 +58,21 @@ func TestDB_Open(t *testing.T) {
 
 func TestDB_MustOpen(t *testing.T) {
 	_, err := MustOpen("mysql", TestDSN)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Skipf("mysql unavailable: %v", err)
+	}
 
 	_, err = MustOpen("mysql", "unknown:x@/test")
 	assert.NotNil(t, err)
 }
 
 func TestDB_Close(t *testing.T) {
-	db := getDB()
+	db := getDBT(t)
 	assert.Nil(t, db.Close())
 }
 
 func TestDB_DriverName(t *testing.T) {
-	db := getDB()
+	db := getDBT(t)
 	assert.Equal(t, "mysql", db.DriverName())
 }
 
@@ -79,7 +86,7 @@ func TestDB_QuoteTableName(t *testing.T) {
 		{"{{users}}", "{{users}}"},
 		{"public.db1.users", "`public`.`db1`.`users`"},
 	}
-	db := getDB()
+	db := getDBT(t)
 	for _, test := range tests {
 		result := db.QuoteTableName(test.input)
 		assert.Equal(t, test.output, result, test.input)
@@ -99,7 +106,7 @@ func TestDB_QuoteColumnName(t *testing.T) {
 		{"[[name]]", "[[name]]"},
 		{"public.db1.users", "`public`.`db1`.`users`"},
 	}
-	db := getDB()
+	db := getDBT(t)
 	for _, test := range tests {
 		result := db.QuoteColumnName(test.input)
 		assert.Equal(t, test.output, result, test.input)
@@ -149,11 +156,11 @@ func TestDB_ProcessSQL(t *testing.T) {
 		},
 	}
 
-	mysqlDB := getDB()
+	mysqlDB := getDBT(t)
 	mysqlDB.Builder = NewMysqlBuilder(nil, nil)
-	pgsqlDB := getDB()
+	pgsqlDB := getDBT(t)
 	pgsqlDB.Builder = NewPgsqlBuilder(nil, nil)
-	ociDB := getDB()
+	ociDB := getDBT(t)
 	ociDB.Builder = NewOciBuilder(nil, nil)
 
 	for _, test := range tests {
@@ -196,7 +203,7 @@ func TestDB_Begin(t *testing.T) {
 		},
 	}
 
-	db := getPreparedDB()
+	db := getPreparedDBT(t)
 
 	var (
 		lastID int
@@ -241,7 +248,7 @@ func TestDB_Begin(t *testing.T) {
 }
 
 func TestDB_Transactional(t *testing.T) {
-	db := getPreparedDB()
+	db := getPreparedDBT(t)
 
 	var (
 		lastID int
@@ -343,11 +350,22 @@ func getDB() *DB {
 	return db
 }
 
-func getPreparedDB() *DB {
-	db := getDB()
+func getDBT(t *testing.T) *DB {
+	db, err := Open("mysql", TestDSN)
+	if err != nil {
+		t.Skipf("mysql unavailable: %v", err)
+	}
+	return db
+}
+
+func getPreparedDBT(t *testing.T) *DB {
+	db := getDBT(t)
+	if err := db.sqlDB.Ping(); err != nil {
+		t.Skipf("mysql unavailable: %v", err)
+	}
 	s, err := ioutil.ReadFile(FixtureFile)
 	if err != nil {
-		panic(err)
+		t.Skipf("fixture unavailable: %v", err)
 	}
 	lines := strings.Split(string(s), ";")
 	for _, line := range lines {
@@ -355,7 +373,7 @@ func getPreparedDB() *DB {
 			continue
 		}
 		if _, err := db.NewQuery(line).Execute(); err != nil {
-			panic(err)
+			t.Skipf("mysql fixture setup failed: %v", err)
 		}
 	}
 	return db

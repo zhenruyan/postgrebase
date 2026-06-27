@@ -39,7 +39,7 @@ func init() {
 		if db.DriverName() == "mysql" {
 			statements := []string{
 				`CREATE TABLE IF NOT EXISTS {{_admins}} (
-					[[id]]              VARCHAR(150) NOT NULL PRIMARY KEY,
+					[[id]]              VARCHAR(36) NOT NULL PRIMARY KEY,
 					[[avatar]]          INT DEFAULT 0 NOT NULL,
 					[[email]]           VARCHAR(255) UNIQUE NOT NULL,
 					[[tokenKey]]        VARCHAR(255) UNIQUE NOT NULL,
@@ -49,7 +49,7 @@ func init() {
 					[[updated]]         DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) NOT NULL
 				);`,
 				`CREATE TABLE IF NOT EXISTS {{_collections}} (
-					[[id]]             VARCHAR(150) NOT NULL PRIMARY KEY,
+					[[id]]             VARCHAR(36) NOT NULL PRIMARY KEY,
 					[[system]]         TINYINT(1) DEFAULT 0 NOT NULL,
 					[[type]]           VARCHAR(255) DEFAULT 'base' NOT NULL,
 					[[name]]           VARCHAR(255) UNIQUE NOT NULL,
@@ -71,16 +71,16 @@ func init() {
 					[[updated]]        DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) NOT NULL
 				);`,
 				`CREATE TABLE IF NOT EXISTS {{_params}} (
-					[[id]]      VARCHAR(150) NOT NULL PRIMARY KEY,
+					[[id]]      VARCHAR(36) NOT NULL PRIMARY KEY,
 					[[key]]     VARCHAR(255) UNIQUE NOT NULL,
 					[[value]]   JSON DEFAULT NULL,
 					[[created]] DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
 					[[updated]] DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) NOT NULL
 				);`,
 				`CREATE TABLE IF NOT EXISTS {{_externalAuths}} (
-					[[id]]           VARCHAR(150) NOT NULL PRIMARY KEY,
-					[[collectionId]] VARCHAR(150) NOT NULL,
-					[[recordId]]     VARCHAR(150) NOT NULL,
+					[[id]]           VARCHAR(36) NOT NULL PRIMARY KEY,
+					[[collectionId]] VARCHAR(36) NOT NULL,
+					[[recordId]]     VARCHAR(36) NOT NULL,
 					[[provider]]     VARCHAR(255) NOT NULL,
 					[[providerId]]   VARCHAR(255) NOT NULL,
 					[[created]]      DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
@@ -155,9 +155,8 @@ func init() {
 			}
 		} else {
 			statements := []string{
-				`create extension IF NOT EXISTS "uuid-ossp";`,
-				`CREATE TABLE IF NOT EXISTS {{_admins}} (
-					[[id]]              text NOT NULL DEFAULT uuid_generate_v4()::text PRIMARY KEY,
+			`CREATE TABLE IF NOT EXISTS {{_admins}} (
+					[[id]]              text NOT NULL PRIMARY KEY,
 					[[avatar]]          int DEFAULT 0 NOT NULL,
 					[[email]]           text UNIQUE NOT NULL,
 					[[tokenKey]]        text UNIQUE NOT NULL,
@@ -167,7 +166,7 @@ func init() {
 					[[updated]]          timestamp NOT NULL DEFAULT now()::TIMESTAMP
 				);`,
 				`CREATE TABLE IF NOT EXISTS {{_collections}} (
-					[[id]]         text NOT NULL DEFAULT uuid_generate_v4()::text PRIMARY KEY,
+					[[id]]         text NOT NULL PRIMARY KEY,
 					[[system]]     BOOLEAN DEFAULT FALSE NOT NULL,
 					[[type]]       text DEFAULT 'base' NOT NULL,
 					[[name]]       text UNIQUE NOT NULL,
@@ -189,14 +188,14 @@ func init() {
 					[[updated]]     timestamp NOT NULL DEFAULT now()::TIMESTAMP
 				);`,
 				`CREATE TABLE IF NOT EXISTS {{_params}} (
-					[[id]]      text NOT NULL DEFAULT uuid_generate_v4()::text PRIMARY KEY,
+					[[id]]      text NOT NULL PRIMARY KEY,
 					[[key]]     text UNIQUE NOT NULL,
 					[[value]]   text DEFAULT NULL,
 					[[created]]  timestamp NOT NULL DEFAULT now()::TIMESTAMP,
 					[[updated]]  timestamp NOT NULL DEFAULT now()::TIMESTAMP
 				);`,
 				`CREATE TABLE IF NOT EXISTS {{_externalAuths}} (
-					[[id]]           text NOT NULL DEFAULT uuid_generate_v4()::text  PRIMARY KEY,
+					[[id]]           text NOT NULL PRIMARY KEY,
 					[[collectionId]] text NOT NULL,
 					[[recordId]]     text NOT NULL,
 					[[provider]]     text NOT NULL,

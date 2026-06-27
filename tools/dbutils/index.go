@@ -121,6 +121,102 @@ func (idx Index) Build() string {
 	return str.String()
 }
 
+// BuildForDriver returns a "CREATE INDEX" SQL string using the provided driver.
+func (idx Index) BuildForDriver(driverName string) string {
+	if !idx.IsValid() {
+		return ""
+	}
+
+	switch driverName {
+	case "mysql":
+		return idx.buildQuotedIndex("`", "`", false)
+	case "sqlite", "sqlite3":
+		return idx.buildQuotedIndex("`", "`", true)
+	default:
+		return idx.Build()
+	}
+}
+
+func (idx Index) buildQuotedIndex(quoteStart, quoteEnd string, optional bool) string {
+	var str strings.Builder
+
+	str.WriteString("CREATE ")
+
+	if idx.Unique {
+		str.WriteString("UNIQUE ")
+	}
+
+	str.WriteString("INDEX ")
+	if optional {
+		str.WriteString("IF NOT EXISTS ")
+	}
+
+	if idx.SchemaName != "" {
+		str.WriteString(quoteStart)
+		str.WriteString(idx.SchemaName)
+		str.WriteString(quoteEnd)
+		str.WriteString(".")
+	}
+
+	str.WriteString(quoteStart)
+	str.WriteString(idx.IndexName)
+	str.WriteString(quoteEnd)
+	str.WriteString(" ON ")
+	str.WriteString(quoteStart)
+	str.WriteString(idx.TableName)
+	str.WriteString(quoteEnd)
+	str.WriteString(" (")
+
+	if len(idx.Columns) > 1 {
+		str.WriteString("\n  ")
+	}
+
+	var hasCol bool
+	for _, col := range idx.Columns {
+		trimmedColName := strings.TrimSpace(col.Name)
+		if trimmedColName == "" {
+			continue
+		}
+
+		if hasCol {
+			str.WriteString(",\n  ")
+		}
+
+		if strings.Contains(col.Name, "(") || strings.Contains(col.Name, " ") {
+			str.WriteString(trimmedColName)
+		} else {
+			str.WriteString(quoteStart)
+			str.WriteString(trimmedColName)
+			str.WriteString(quoteEnd)
+		}
+
+		if col.Collate != "" {
+			str.WriteString(" COLLATE ")
+			str.WriteString(col.Collate)
+		}
+
+		if col.Sort != "" {
+			str.WriteString(" ")
+			str.WriteString(strings.ToUpper(col.Sort))
+		}
+
+		hasCol = true
+	}
+
+	if hasCol && len(idx.Columns) > 1 {
+		str.WriteString("\n")
+	}
+
+	str.WriteString(")")
+
+	if idx.Where != "" {
+		str.WriteString(" WHERE ")
+		str.WriteString(idx.Where)
+	}
+
+	return str.String()
+}
+
 // ParseIndex parses the provided "CREATE INDEX" SQL string into Index struct.
 func ParseIndex(createIndexExpr string) Index {
 	result := Index{}

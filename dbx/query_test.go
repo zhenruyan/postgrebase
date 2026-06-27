@@ -32,7 +32,7 @@ func TestNewQuery(t *testing.T) {
 }
 
 func TestQuery_Execute(t *testing.T) {
-	db := getPreparedDB()
+	db := getPreparedDBT(t)
 	defer db.Close()
 
 	result, err := db.NewQuery("INSERT INTO item (name) VALUES ('test')").Execute()
@@ -110,7 +110,7 @@ type InnerCustomer struct {
 }
 
 func TestQuery_Rows(t *testing.T) {
-	db := getPreparedDB()
+	db := getPreparedDBT(t)
 	defer db.Close()
 
 	var (
@@ -356,7 +356,7 @@ func TestReplacePlaceholders(t *testing.T) {
 }
 
 func TestIssue6(t *testing.T) {
-	db := getPreparedDB()
+	db := getPreparedDBT(t)
 	q := db.Select("*").From("customer").Where(HashExp{"id": 1})
 	var customer Customer
 	assert.Equal(t, q.One(&customer), nil)
@@ -371,7 +371,7 @@ type User struct {
 }
 
 func TestIssue13(t *testing.T) {
-	db := getPreparedDB()
+	db := getPreparedDBT(t)
 	var user User
 	err := db.Select().From("user").Where(HashExp{"id": 1}).One(&user)
 	if assert.Nil(t, err) {
@@ -402,7 +402,7 @@ func TestIssue13(t *testing.T) {
 }
 
 func TestQueryWithExecHook(t *testing.T) {
-	db := getPreparedDB()
+	db := getPreparedDBT(t)
 	defer db.Close()
 
 	// error return
@@ -498,7 +498,7 @@ func TestQueryWithExecHook(t *testing.T) {
 }
 
 func TestQueryWithOneHook(t *testing.T) {
-	db := getPreparedDB()
+	db := getPreparedDBT(t)
 	defer db.Close()
 
 	// error return
@@ -548,7 +548,7 @@ func TestQueryWithOneHook(t *testing.T) {
 }
 
 func TestQueryWithAllHook(t *testing.T) {
-	db := getPreparedDB()
+	db := getPreparedDBT(t)
 	defer db.Close()
 
 	// error return

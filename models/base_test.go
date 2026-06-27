@@ -1,6 +1,7 @@
 package models_test
 
 import (
+	"regexp"
 	"testing"
 
 	"github.com/zhenruyan/postgrebase/models"
@@ -48,8 +49,11 @@ func TestBaseModelId(t *testing.T) {
 
 	m.RefreshId()
 
-	if len(m.GetId()) != 15 {
-		t.Fatalf("Expected 15 chars id, got %v", m.GetId())
+	if len(m.GetId()) != 36 {
+		t.Fatalf("Expected 36 chars id, got %v", m.GetId())
+	}
+	if !regexp.MustCompile(`^[0-9a-f-]{36}$`).MatchString(m.GetId()) {
+		t.Fatalf("Expected uuid-like id, got %v", m.GetId())
 	}
 }
 

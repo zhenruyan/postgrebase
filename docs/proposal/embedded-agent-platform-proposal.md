@@ -19,7 +19,9 @@ PostgreBase 当前已经具备数据库抽象、MCP 工具、REST API、Admin UI
 3. 支持图片、PDF、文档、表格等输入。
 4. 支持项目内“建表”但不暴露 SQL，统一走注册工具。
 5. 支持“灌入数据”和“查询数据”全部走注册工具。
-6. 复用 `github.com/startvibecoding/vibecoding/agent` 作为外层 Agent SDK。
+6. 支持向量数据库类型，后端基于 `sqlite-vec`（modernc）实现。
+7. 支持配置 `embedded` 的 LLM 模型自动进行 embedding。
+8. 复用 `github.com/startvibecoding/vibecoding/agent` 作为外层 Agent SDK。
 
 ## 3. 非目标
 
@@ -83,6 +85,7 @@ Agent 的运行必须约束在 PostgreBase 的项目层。
 - Agent 只做决策，不直接持久化。
 - Tool 只做受控能力，不暴露底层 SQL。
 - Schema 变更必须走规范化流程，保证 Postgres / MySQL / SQLite 一致。
+- 向量能力是独立的数据类型，不混入普通关系型表的 CRUD 流程。
 
 ## 5. Agent SDK 接入方式
 
@@ -125,7 +128,18 @@ Provider 需要支持：
 - 文档输入
 - 工具调用流
 
-推荐配置形式：
+### 5.3 后台配置与持久化
+
+LLM 厂商配置不放在启动配置文件里处理，而是放到后台管理界面里维护，并持久化到数据库配置表。
+
+这意味着：
+
+- provider、model、baseURL、apiKey、启用状态、默认模型等，都由后台管理配置。
+- 启动时只读取数据库配置，不从本地 config 文件解析厂商列表。
+- 配置变更后立即生效，或通过轻量热加载刷新缓存。
+- 配置表需要支持审计和权限控制，避免普通用户修改。
+
+示意结构：
 
 ```jsonc
 {
@@ -152,6 +166,8 @@ Provider 需要支持：
 }
 ```
 
+实际落库时可拆成独立的 provider / model 配置表，而不是依赖静态配置文件。
+
 ## 6. 多模态输入
 
 ### 6.1 输入类型
@@ -167,6 +183,17 @@ Provider 需要支持：
 3. 图片直接进入模型视觉输入链路。
 4. 结果以 message content blocks 形式喂给 Agent。
 5. Agent 只看“内容”，不直接接触底层文件系统。
+
+### 6.3 向量输入
+
+向量能力用于检索、相似度搜索和语义组织，不作为 Agent 的主输入格式。
+
+- 向量库类型：`sqlite-vec`（modernc）
+- embedding 来源：配置的 `embedded` 模型
+- embedding 触发：在写入、导入、更新时自动生成
+- 向量查询：通过单独的向量查询 tool 或检索 service 完成
+
+向量索引和普通业务数据保持解耦，但必须共享同一项目边界和权限模型。
 
 ## 7. 统一 tool 流程
 

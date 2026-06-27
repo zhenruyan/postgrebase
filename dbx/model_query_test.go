@@ -13,7 +13,7 @@ type Item struct {
 }
 
 func TestModelQuery_Insert(t *testing.T) {
-	db := getPreparedDB()
+	db := getPreparedDBT(t)
 	defer db.Close()
 
 	name := "test"
@@ -128,7 +128,7 @@ func TestModelQuery_Insert(t *testing.T) {
 }
 
 func TestModelQuery_Update(t *testing.T) {
-	db := getPreparedDB()
+	db := getPreparedDBT(t)
 	defer db.Close()
 
 	id := 2
@@ -211,7 +211,7 @@ func TestModelQuery_Update(t *testing.T) {
 }
 
 func TestModelQuery_Delete(t *testing.T) {
-	db := getPreparedDB()
+	db := getPreparedDBT(t)
 	defer db.Close()
 
 	customer := Customer{
