@@ -1,4 +1,5 @@
-import Client, {
+import Client from '@sdk/Client';
+import type {
     SendOptions,
     BeforeSendResult,
 } from '@sdk/Client';
@@ -23,10 +24,11 @@ import {
     getTokenPayload,
     isTokenExpired,
 } from '@sdk/stores/utils/jwt';
-import BaseAuthStore, {
+import BaseAuthStore from '@sdk/stores/BaseAuthStore';
+import type {
     OnStoreChangeFunc,
 } from '@sdk/stores/BaseAuthStore';
-import {
+import type {
     RecordAuthResponse,
     AuthProviderInfo,
     AuthMethodsList,
@@ -34,10 +36,10 @@ import {
     OAuth2UrlCallback,
     OAuth2AuthConfig,
 } from '@sdk/services/RecordService';
-import { UnsubscribeFunc } from '@sdk/services/RealtimeService';
-import { BackupFileInfo } from '@sdk/services/BackupService';
-import { HealthCheckResponse } from '@sdk/services/HealthService';
-import {
+import type { UnsubscribeFunc } from '@sdk/services/RealtimeService';
+import type { BackupFileInfo } from '@sdk/services/BackupService';
+import type { HealthCheckResponse } from '@sdk/services/HealthService';
+import type {
     BaseQueryParams,
     ListQueryParams,
     RecordQueryParams,
@@ -71,8 +73,9 @@ export {
     RealtimeService,
     RecordService,
     SettingsService,
+};
 
-    //types
+export type {
     HealthCheckResponse,
     BackupFileInfo,
     SendOptions,

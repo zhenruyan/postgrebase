@@ -383,7 +383,7 @@
                         <button
                             type="button"
                             id={uniqueId}
-                            class="btn btn-block btn-outline justify-content-start"
+                            class="btn btn-transparent btn-block justify-content-start type-select"
                             disabled={!collection.$isNew}
                         >
                             <i class={CommonHelper.getCollectionTypeIcon(collection.type)} />
@@ -530,5 +530,26 @@
     }
     .tabs-content:focus-within {
         z-index: 9; /* autocomplete dropdown overlay fix */
+    }
+    /* make the Table Type selector blend with its form-field label
+       like the sibling input/select fields (single connected box) */
+    .type-select {
+        width: 100%;
+        min-height: var(--inputHeight);
+        justify-content: flex-start;
+        padding-left: var(--hPadding, 15px);
+        padding-right: var(--hPadding, 15px);
+        background: var(--baseAlt1Color);
+        border: 0;
+        box-shadow: none;
+        font-weight: normal;
+        color: var(--txtPrimaryColor);
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+        border-bottom-left-radius: var(--baseRadius);
+        border-bottom-right-radius: var(--baseRadius);
+    }
+    .type-select[disabled] {
+        background: var(--baseAlt1Color);
     }
 </style>

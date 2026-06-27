@@ -4,13 +4,16 @@
     import ApiClient from "@/utils/ApiClient";
     import FullPage from "@/components/base/FullPage.svelte";
     import Installer from "@/components/base/Installer.svelte";
+    import PageAdminLogin from "@/components/admins/PageAdminLogin.svelte";
 
     let showInstaller = false;
+    let showLogin = false;
 
     handler();
 
     function handler() {
         showInstaller = false;
+        showLogin = false;
 
         const realQueryParams = new URLSearchParams(window.location.search);
         if (realQueryParams.has(import.meta.env.PB_INSTALLER_PARAM)) {
@@ -22,7 +25,8 @@
         if (ApiClient.authStore.isValid) {
             replace("/collections");
         } else {
-            ApiClient.logout();
+            ApiClient.logout(false);
+            showLogin = true;
         }
     }
 </script>
@@ -40,4 +44,8 @@
             }}
         />
     </FullPage>
+{/if}
+
+{#if showLogin}
+    <PageAdminLogin />
 {/if}
