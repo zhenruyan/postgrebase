@@ -30,6 +30,7 @@ type Settings struct {
 	S3      S3Config      `form:"s3" json:"s3"`
 	WebDAV  WebDAVConfig  `form:"webdav" json:"webdav"`
 	Backups BackupsConfig `form:"backups" json:"backups"`
+	Agents  AgentConfig   `form:"agents" json:"agents"`
 
 	AdminAuthToken           TokenConfig `form:"adminAuthToken" json:"adminAuthToken"`
 	AdminPasswordResetToken  TokenConfig `form:"adminPasswordResetToken" json:"adminPasswordResetToken"`
@@ -209,6 +210,7 @@ func (s *Settings) Validate() error {
 		validation.Field(&s.S3),
 		validation.Field(&s.WebDAV),
 		validation.Field(&s.Backups),
+		validation.Field(&s.Agents),
 		validation.Field(&s.GoogleAuth),
 		validation.Field(&s.FacebookAuth),
 		validation.Field(&s.GithubAuth),
@@ -298,6 +300,11 @@ func (s *Settings) RedactClone() (*Settings, error) {
 		&clone.InstagramAuth.ClientSecret,
 		&clone.VKAuth.ClientSecret,
 		&clone.YandexAuth.ClientSecret,
+	}
+	for i := range clone.Agents.Providers {
+		if clone.Agents.Providers[i].ApiKey != "" {
+			clone.Agents.Providers[i].ApiKey = SecretMask
+		}
 	}
 
 	// mask all sensitive fields
@@ -486,6 +493,112 @@ func checkCronExpression(value any) error {
 	}
 
 	return nil
+}
+
+// -------------------------------------------------------------------
+
+type AgentConfig struct {
+	Enabled           bool                  `form:"enabled" json:"enabled"`
+	DefaultProvider   string                `form:"defaultProvider" json:"defaultProvider"`
+	DefaultModel      string                `form:"defaultModel" json:"defaultModel"`
+	AllowSchemaChange bool                  `form:"allowSchemaChange" json:"allowSchemaChange"`
+	AllowedTools      []string              `form:"allowedTools" json:"allowedTools"`
+	Providers         []AgentProviderConfig `form:"providers" json:"providers"`
+}
+
+// Validate makes AgentConfig validatable by implementing [validation.Validatable] interface.
+func (c AgentConfig) Validate() error {
+	if err := validation.ValidateStruct(&c,
+		validation.Field(&c.DefaultProvider, validation.When(c.Enabled && len(c.Providers) > 0, validation.Required)),
+		validation.Field(&c.DefaultModel, validation.When(c.Enabled && len(c.Providers) > 0, validation.Required)),
+		validation.Field(&c.AllowedTools, validation.Each(validation.Required)),
+	); err != nil {
+		return err
+	}
+
+	for i := range c.Providers {
+		if err := c.Providers[i].Validate(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// EmbeddingModel returns the first enabled embedding-capable model id.
+// It falls back to the configured default model when a dedicated embedding
+// model is not available.
+func (c AgentConfig) EmbeddingModel() string {
+	for _, provider := range c.Providers {
+		for _, model := range provider.Models {
+			if model.Enabled && model.Embedding && model.ProviderModelId != "" {
+				return model.ProviderModelId
+			}
+		}
+	}
+
+	if c.DefaultModel != "" {
+		return c.DefaultModel
+	}
+
+	for _, provider := range c.Providers {
+		if provider.Enabled && provider.DefaultModel != "" {
+			return provider.DefaultModel
+		}
+	}
+
+	return ""
+}
+
+// -------------------------------------------------------------------
+
+type AgentProviderConfig struct {
+	Id           string               `form:"id" json:"id"`
+	Vendor       string               `form:"vendor" json:"vendor"`
+	BaseUrl      string               `form:"baseUrl" json:"baseUrl"`
+	ApiKey       string               `form:"apiKey" json:"apiKey"`
+	Enabled      bool                 `form:"enabled" json:"enabled"`
+	DefaultModel string               `form:"defaultModel" json:"defaultModel"`
+	Models       []AgentProviderModel `form:"models" json:"models"`
+}
+
+// Validate makes AgentProviderConfig validatable by implementing [validation.Validatable] interface.
+func (c AgentProviderConfig) Validate() error {
+	if err := validation.ValidateStruct(&c,
+		validation.Field(&c.Id, validation.When(c.Enabled || c.Vendor != "" || c.BaseUrl != "" || c.ApiKey != "" || len(c.Models) > 0, validation.Required)),
+		validation.Field(&c.Vendor, validation.When(c.Enabled || c.Id != "" || c.BaseUrl != "" || c.ApiKey != "" || len(c.Models) > 0, validation.Required)),
+		validation.Field(&c.BaseUrl, is.URL),
+	); err != nil {
+		return err
+	}
+
+	for i := range c.Models {
+		if err := c.Models[i].Validate(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// -------------------------------------------------------------------
+
+type AgentProviderModel struct {
+	Name             string `form:"name" json:"name"`
+	ProviderModelId  string `form:"providerModelId" json:"providerModelId"`
+	SupportsVision   bool   `form:"supportsVision" json:"supportsVision"`
+	SupportsToolUse  bool   `form:"supportsToolUse" json:"supportsToolUse"`
+	SupportsDocument bool   `form:"supportsDocument" json:"supportsDocument"`
+	Enabled          bool   `form:"enabled" json:"enabled"`
+	Embedding        bool   `form:"embedding" json:"embedding"`
+}
+
+// Validate makes AgentProviderModel validatable by implementing [validation.Validatable] interface.
+func (c AgentProviderModel) Validate() error {
+	return validation.ValidateStruct(&c,
+		validation.Field(&c.Name, validation.When(c.Enabled || c.ProviderModelId != "" || c.SupportsVision || c.SupportsToolUse || c.SupportsDocument || c.Embedding, validation.Required)),
+		validation.Field(&c.ProviderModelId, validation.When(c.Enabled || c.Name != "" || c.SupportsVision || c.SupportsToolUse || c.SupportsDocument || c.Embedding, validation.Required)),
+	)
 }
 
 // -------------------------------------------------------------------

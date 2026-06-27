@@ -24,6 +24,7 @@ type healthCheckResponse struct {
 	Message string `json:"message"`
 	Data    struct {
 		CanBackup bool `json:"canBackup"`
+		Vector    any  `json:"vector"`
 	} `json:"data"`
 }
 
@@ -33,6 +34,9 @@ func (api *healthApi) healthCheck(c echo.Context) error {
 	resp.Code = http.StatusOK
 	resp.Message = "API is healthy."
 	resp.Data.CanBackup = !api.app.Cache().Has(core.CacheKeyActiveBackup)
+	if api.app.VectorManager() != nil {
+		resp.Data.Vector = api.app.VectorManager().Snapshot()
+	}
 
 	return c.JSON(http.StatusOK, resp)
 }

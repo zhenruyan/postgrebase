@@ -8,10 +8,10 @@ import (
 	"syscall"
 
 	"github.com/fatih/color"
+	"github.com/spf13/cobra"
 	"github.com/zhenruyan/postgrebase/cmd"
 	"github.com/zhenruyan/postgrebase/core"
 	"github.com/zhenruyan/postgrebase/tools/list"
-	"github.com/spf13/cobra"
 )
 
 var _ core.App = (*PostgreBase)(nil)
@@ -51,6 +51,7 @@ type Config struct {
 	DefaultDataDsn       string // if not set, it will fallback to "postgresql://<username>:<password>@<host>:<port>/<database>?sslmode=verify-full"
 	RedisDsn             string //redis://<user>:<pass>@localhost:6379/<db>
 	DefaultEncryptionEnv string
+	DisableVector        bool
 
 	// hide the default console server info on app startup
 	HideStartBanner bool
@@ -134,6 +135,7 @@ func NewWithConfig(config Config) *PostgreBase {
 		RedisDsn:         pb.redisFlag,
 		EncryptionEnv:    pb.encryptionEnvFlag,
 		IsDebug:          pb.debugFlag,
+		DisableVector:    config.DisableVector,
 		DataMaxOpenConns: config.DataMaxOpenConns,
 		DataMaxIdleConns: config.DataMaxIdleConns,
 		LogsMaxOpenConns: config.LogsMaxOpenConns,

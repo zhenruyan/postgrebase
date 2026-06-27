@@ -1,6 +1,6 @@
 {
   "name": "postgrebase-installer-darwin-x64",
-  "version": "0.0.3",
+  "version": "0.0.6",
   "description": "PostgreBase native binary for darwin-x64",
   "os": ["darwin"],
   "cpu": ["x64"],

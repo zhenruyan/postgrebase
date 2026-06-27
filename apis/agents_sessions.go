@@ -1,0 +1,121 @@
+package apis
+
+import (
+	"net/http"
+
+	"github.com/labstack/echo/v5"
+	"github.com/zhenruyan/postgrebase/agents"
+	"github.com/zhenruyan/postgrebase/core"
+)
+
+func bindAgentSessionApi(app core.App, rg *echo.Group) {
+	api := agentSessionApi{svc: agents.NewService(app)}
+
+	subGroup := rg.Group("/agents", ActivityLogger(app), RequireAdminAuth())
+	subGroup.GET("/sessions", api.list)
+	subGroup.GET("/sessions/:id", api.view)
+	subGroup.POST("/sessions", api.create)
+	subGroup.POST("/sessions/:id/messages", api.message)
+	subGroup.GET("/tools", api.tools)
+	subGroup.POST("/tools/:name", api.callTool)
+}
+
+type agentSessionApi struct {
+	svc *agents.Service
+}
+
+func (api *agentSessionApi) list(c echo.Context) error {
+	project := c.QueryParam("project")
+	return c.JSON(http.StatusOK, api.svc.ListSessions(project))
+}
+
+func (api *agentSessionApi) create(c echo.Context) error {
+	var body struct {
+		Project  string `json:"project"`
+		Name     string `json:"name"`
+		Provider string `json:"provider"`
+		Model    string `json:"model"`
+	}
+	if err := c.Bind(&body); err != nil {
+		return NewBadRequestError("Invalid request body", err)
+	}
+	if body.Project == "" {
+		return NewBadRequestError("Project is required", nil)
+	}
+	session := api.svc.CreateSession(body.Project, body.Name, body.Provider, body.Model)
+	return c.JSON(http.StatusOK, session)
+}
+
+func (api *agentSessionApi) view(c echo.Context) error {
+	id := c.PathParam("id")
+	if id == "" {
+		return NewNotFoundError("Session ID is required", nil)
+	}
+
+	session, err := api.svc.GetSession(id)
+	if err != nil {
+		return NewNotFoundError("", err)
+	}
+
+	messages, err := api.svc.SessionMessages(id)
+	if err != nil {
+		return NewNotFoundError("", err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"session":  session,
+		"messages": messages,
+	})
+}
+
+func (api *agentSessionApi) message(c echo.Context) error {
+	var body struct {
+		Role    string `json:"role"`
+		Content string `json:"content"`
+	}
+	if err := c.Bind(&body); err != nil {
+		return NewBadRequestError("Invalid request body", err)
+	}
+
+	id := c.PathParam("id")
+	if id == "" {
+		return NewNotFoundError("Session ID is required", nil)
+	}
+
+	session, messages, err := api.svc.AppendMessage(id, body.Role, body.Content)
+	if err != nil {
+		return NewNotFoundError("", err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"session":  session,
+		"messages": messages,
+	})
+}
+
+func (api *agentSessionApi) tools(c echo.Context) error {
+	return c.JSON(http.StatusOK, api.svc.Tools())
+}
+
+func (api *agentSessionApi) callTool(c echo.Context) error {
+	name := c.PathParam("name")
+	sessionID := c.QueryParam("session_id")
+	var body map[string]any
+	if err := c.Bind(&body); err != nil {
+		return NewBadRequestError("Invalid request body", err)
+	}
+
+	result, err := api.svc.ExecuteToolInSession(sessionID, name, body)
+	if err != nil {
+		return NewBadRequestError("Failed to execute tool", err)
+	}
+
+	history, _ := api.svc.SessionMessages(sessionID)
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"tool":    name,
+		"result":  result,
+		"session": sessionID,
+		"history": history,
+	})
+}

@@ -1,6 +1,6 @@
 {
   "name": "postgrebase-installer-linux-x64",
-  "version": "0.0.3",
+  "version": "0.0.6",
   "description": "PostgreBase native binary for linux-x64",
   "os": ["linux"],
   "cpu": ["x64"],

@@ -14,11 +14,11 @@ import (
 
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
+	"github.com/spf13/cast"
 	"github.com/zhenruyan/postgrebase/core"
 	"github.com/zhenruyan/postgrebase/mcp"
 	"github.com/zhenruyan/postgrebase/tools/rest"
 	"github.com/zhenruyan/postgrebase/ui"
-	"github.com/spf13/cast"
 )
 
 func init() {
@@ -135,6 +135,9 @@ func InitApi(app core.App) (*echo.Echo, error) {
 	bindHealthApi(app, api)
 	bindBackupApi(app, api)
 	bindMcpTokenApi(app, api)
+	bindAgentsApi(app, api)
+	bindAgentSessionApi(app, api)
+	bindVectorApi(app, api)
 
 	// MCP (Model Context Protocol) routes
 	mcp.BindMCPRoutes(app, e, "1.0.0")

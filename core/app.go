@@ -6,15 +6,16 @@ package core
 import (
 	"context"
 
-	"github.com/zhenruyan/postgrebase/dbx"
+	"github.com/redis/go-redis/v9"
 	"github.com/zhenruyan/postgrebase/daos"
+	"github.com/zhenruyan/postgrebase/dbx"
 	"github.com/zhenruyan/postgrebase/models/settings"
 	"github.com/zhenruyan/postgrebase/tools/filesystem"
 	"github.com/zhenruyan/postgrebase/tools/hook"
 	"github.com/zhenruyan/postgrebase/tools/mailer"
 	"github.com/zhenruyan/postgrebase/tools/store"
 	"github.com/zhenruyan/postgrebase/tools/subscriptions"
-	"github.com/redis/go-redis/v9"
+	"github.com/zhenruyan/postgrebase/vector"
 )
 
 // App defines the main PostgreBase app interface.
@@ -71,6 +72,9 @@ type App interface {
 
 	// RedisCache returns the app Redis client instance.
 	RedisCache() *redis.Client
+
+	// VectorManager returns the embedded vector runtime manager.
+	VectorManager() *vector.Manager
 
 	// Publish publishes a message to all application instances.
 	Publish(channel string, data any) error

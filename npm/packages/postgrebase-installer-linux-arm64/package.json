@@ -1,6 +1,6 @@
 {
   "name": "postgrebase-installer-linux-arm64",
-  "version": "0.0.3",
+  "version": "0.0.6",
   "description": "PostgreBase native binary for linux-arm64",
   "os": ["linux"],
   "cpu": ["arm64"],

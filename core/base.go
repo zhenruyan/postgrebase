@@ -14,8 +14,9 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/zhenruyan/postgrebase/dbx"
+	"github.com/redis/go-redis/v9"
 	"github.com/zhenruyan/postgrebase/daos"
+	"github.com/zhenruyan/postgrebase/dbx"
 	"github.com/zhenruyan/postgrebase/models"
 	"github.com/zhenruyan/postgrebase/models/settings"
 	"github.com/zhenruyan/postgrebase/tools/filesystem"
@@ -24,7 +25,7 @@ import (
 	"github.com/zhenruyan/postgrebase/tools/routine"
 	"github.com/zhenruyan/postgrebase/tools/store"
 	"github.com/zhenruyan/postgrebase/tools/subscriptions"
-	"github.com/redis/go-redis/v9"
+	"github.com/zhenruyan/postgrebase/vector"
 )
 
 const (
@@ -48,6 +49,7 @@ type BaseApp struct {
 	dataDsn          string
 	redisDsn         string
 	encryptionEnv    string
+	disableVector    bool
 	dataMaxOpenConns int
 	dataMaxIdleConns int
 	logsMaxOpenConns int
@@ -61,6 +63,7 @@ type BaseApp struct {
 	dao                 *daos.Dao
 	logsDao             *daos.Dao
 	subscriptionsBroker *subscriptions.Broker
+	vectorManager       *vector.Manager
 
 	// app event hooks
 	onBeforeBootstrap *hook.Hook[*BootstrapEvent]
@@ -184,6 +187,7 @@ type BaseAppConfig struct {
 	LogsMaxIdleConns int // default to 5
 	DataDsn          string
 	RedisDsn         string
+	DisableVector    bool
 }
 
 // NewBaseApp creates and returns a new BaseApp instance
@@ -197,6 +201,7 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 		redisDsn:            config.RedisDsn,
 		isDebug:             config.IsDebug,
 		encryptionEnv:       config.EncryptionEnv,
+		disableVector:       config.DisableVector,
 		dataMaxOpenConns:    config.DataMaxOpenConns,
 		dataMaxIdleConns:    config.DataMaxIdleConns,
 		logsMaxOpenConns:    config.LogsMaxOpenConns,
@@ -357,6 +362,12 @@ func (app *BaseApp) Bootstrap() error {
 		return err
 	}
 
+	if !app.disableVector {
+		if err := app.initVector(); err != nil {
+			return err
+		}
+	}
+
 	// we don't check for an error because the db migrations may have not been executed yet
 	app.RefreshSettings()
 
@@ -390,6 +401,10 @@ func (app *BaseApp) ResetBootstrapState() error {
 	app.dao = nil
 	app.logsDao = nil
 	app.settings = nil
+	if app.vectorManager != nil {
+		app.vectorManager.Stop()
+	}
+	app.vectorManager = nil
 
 	return nil
 }
@@ -477,6 +492,11 @@ func (app *BaseApp) SubscriptionsBroker() *subscriptions.Broker {
 // RedisCache returns the app Redis client instance.
 func (app *BaseApp) RedisCache() *redis.Client {
 	return app.redisCache
+}
+
+// VectorManager returns the embedded vector runtime manager.
+func (app *BaseApp) VectorManager() *vector.Manager {
+	return app.vectorManager
 }
 
 // NewMailClient creates and returns a new SMTP or Sendmail client
@@ -606,6 +626,10 @@ func (app *BaseApp) RefreshSettings() error {
 	// load the settings from the stored param into the app ones
 	if err := app.settings.Merge(storedSettings); err != nil {
 		return err
+	}
+
+	if app.vectorManager != nil {
+		app.vectorManager.UpdateEmbeddingModel(app.settings.Agents.EmbeddingModel())
 	}
 
 	return nil
@@ -1102,6 +1126,29 @@ func (app *BaseApp) initRedis() error {
 		}()
 	}
 
+	return nil
+}
+
+func (app *BaseApp) initVector() error {
+	app.vectorManager = vector.NewManager(vector.Config{
+		DataDsn:        app.dataDsn,
+		RedisDsn:       app.redisDsn,
+		DataDir:        app.dataDir,
+		EmbeddingModel: app.settings.Agents.EmbeddingModel(),
+	})
+	app.vectorManager.SetEngine(vector.NewDBEngine(app.Dao(), "vector_runtime"))
+	app.vectorManager.SetTaskStore(vector.NewDBTaskStore(app.Dao()))
+	app.vectorManager.SetEntryStore(vector.NewDBEntryStore(app.Dao()))
+	if err := app.vectorManager.Load(); err != nil {
+		return err
+	}
+	app.vectorManager.Start()
+	app.OnTerminate().Add(func(e *TerminateEvent) error {
+		if app.vectorManager != nil {
+			return app.vectorManager.Persist()
+		}
+		return nil
+	})
 	return nil
 }
 

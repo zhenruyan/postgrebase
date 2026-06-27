@@ -1,6 +1,6 @@
 {
   "name": "postgrebase-installer-win32-arm64",
-  "version": "0.0.3",
+  "version": "0.0.6",
   "description": "PostgreBase native binary for win32-arm64",
   "os": ["win32"],
   "cpu": ["arm64"],

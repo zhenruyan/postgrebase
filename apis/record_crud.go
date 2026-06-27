@@ -292,6 +292,10 @@ func (api *recordApi) create(c echo.Context) error {
 					log.Println(err)
 				}
 
+				if vectorManager := api.app.VectorManager(); vectorManager != nil {
+					vectorManager.TriggerRecordEmbedding(e.Record)
+				}
+
 				return api.app.OnRecordAfterCreateRequest().Trigger(event, func(e *core.RecordCreateEvent) error {
 					if e.HttpContext.Response().Committed {
 						return nil
@@ -377,6 +381,10 @@ func (api *recordApi) update(c echo.Context) error {
 
 				if err := EnrichRecord(e.HttpContext, api.app.Dao(), e.Record); err != nil && api.app.IsDebug() {
 					log.Println(err)
+				}
+
+				if vectorManager := api.app.VectorManager(); vectorManager != nil {
+					vectorManager.TriggerRecordEmbedding(e.Record)
 				}
 
 				return api.app.OnRecordAfterUpdateRequest().Trigger(event, func(e *core.RecordUpdateEvent) error {

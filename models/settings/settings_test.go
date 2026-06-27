@@ -187,6 +187,26 @@ func TestSettingsMerge(t *testing.T) {
 	s2.VKAuth.ClientId = "vk_test"
 	s2.YandexAuth.Enabled = true
 	s2.YandexAuth.ClientId = "yandex_test"
+	s2.Agents.Enabled = true
+	s2.Agents.DefaultProvider = "openai-main"
+	s2.Agents.DefaultModel = "gpt-4.1"
+	s2.Agents.AllowedTools = []string{"data.query"}
+	s2.Agents.Providers = []settings.AgentProviderConfig{
+		{
+			Id:           "openai-main",
+			Vendor:       "openai",
+			BaseUrl:      "https://api.openai.com/v1",
+			Enabled:      true,
+			DefaultModel: "gpt-4.1",
+			Models: []settings.AgentProviderModel{
+				{
+					Name:            "gpt-4.1",
+					ProviderModelId: "gpt-4.1",
+					Enabled:         true,
+				},
+			},
+		},
+	}
 
 	if err := s1.Merge(s2); err != nil {
 		t.Fatal(err)
@@ -243,6 +263,32 @@ func TestSettingsRedactClone(t *testing.T) {
 
 	// control fields
 	s1.Meta.AppName = "test123"
+	s1.Agents.Enabled = true
+	s1.Agents.DefaultProvider = "openai-main"
+	s1.Agents.DefaultModel = "gpt-4.1"
+	s1.Agents.AllowSchemaChange = true
+	s1.Agents.AllowedTools = []string{"data.query", "dataset.preview"}
+	s1.Agents.Providers = []settings.AgentProviderConfig{
+		{
+			Id:           "openai-main",
+			Vendor:       "openai",
+			BaseUrl:      "https://api.openai.com/v1",
+			ApiKey:       testSecret,
+			Enabled:      true,
+			DefaultModel: "gpt-4.1",
+			Models: []settings.AgentProviderModel{
+				{
+					Name:             "gpt-4.1",
+					ProviderModelId:  "gpt-4.1",
+					SupportsVision:   true,
+					SupportsToolUse:  true,
+					SupportsDocument: false,
+					Enabled:          true,
+					Embedding:        false,
+				},
+			},
+		},
+	}
 
 	// secrets
 	s1.Smtp.Password = testSecret
@@ -307,6 +353,14 @@ func TestSettingsRedactClone(t *testing.T) {
 
 	if !strings.Contains(string(s2Bytes), `"appName":"test123"`) {
 		t.Fatalf("Missing control field in \n%s", s2Bytes)
+	}
+
+	if !strings.Contains(string(s2Bytes), `"defaultProvider":"openai-main"`) {
+		t.Fatalf("Missing agent settings in \n%s", s2Bytes)
+	}
+
+	if strings.Contains(string(s2Bytes), "sk-test") {
+		t.Fatalf("Expected agent api key to be masked, got \n%s", s2Bytes)
 	}
 }
 
@@ -965,5 +1019,40 @@ func TestAuthProviderConfigSetupProvider(t *testing.T) {
 
 	if provider.TokenUrl() != c2.TokenUrl {
 		t.Fatalf("Expected TokenUrl %s, got %s", c2.TokenUrl, provider.TokenUrl())
+	}
+}
+
+func TestAgentEmbeddingModel(t *testing.T) {
+	cfg := settings.AgentConfig{
+		DefaultModel: "fallback-model",
+		Providers: []settings.AgentProviderConfig{
+			{
+				Id:           "provider-a",
+				Enabled:      true,
+				DefaultModel: "provider-default",
+				Models: []settings.AgentProviderModel{
+					{
+						Name:            "chat",
+						ProviderModelId: "chat-model",
+						Enabled:         true,
+					},
+					{
+						Name:            "embed",
+						ProviderModelId: "embed-model",
+						Enabled:         true,
+						Embedding:       true,
+					},
+				},
+			},
+		},
+	}
+
+	if got := cfg.EmbeddingModel(); got != "embed-model" {
+		t.Fatalf("expected embed-model, got %q", got)
+	}
+
+	cfg.Providers[0].Models[1].Embedding = false
+	if got := cfg.EmbeddingModel(); got != "fallback-model" {
+		t.Fatalf("expected fallback-model, got %q", got)
 	}
 }
