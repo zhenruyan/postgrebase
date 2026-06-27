@@ -1,6 +1,7 @@
 <script>
     import Field from "@/components/base/Field.svelte";
     import OverlayPanel from "@/components/base/OverlayPanel.svelte";
+    import { t } from "@/i18n";
     import { setErrors } from "@/stores/errors";
     import { addErrorToast, addSuccessToast } from "@/stores/toasts";
     import ApiClient from "@/utils/ApiClient";
@@ -14,9 +15,9 @@
     const testRequestKey = "email_test_request";
 
     const templateOptions = [
-        { label: '默认的 "验证" 邮件模板', value: "verification" },
-        { label: '默认的 "重置密码" 邮箱模板', value: "password-reset" },
-        { label: '默认的 "绑定邮箱" 邮箱模板', value: "email-change" },
+        { label: "Default verification email template", value: "verification" },
+        { label: "Default password reset email template", value: "password-reset" },
+        { label: "Default email change email template", value: "email-change" },
     ];
 
     let panel;
@@ -55,7 +56,7 @@
         clearTimeout(testTimeoutId);
         testTimeoutId = setTimeout(() => {
             ApiClient.cancelRequest(testRequestKey);
-            addErrorToast("发送邮件超时.");
+            addErrorToast($t("Email send timed out."));
         }, 30000);
 
         try {
@@ -63,7 +64,7 @@
                 $cancelKey: testRequestKey,
             });
 
-            addSuccessToast("发送邮件成功");
+            addSuccessToast($t("Email sent successfully."));
             dispatch("submit");
             isSubmitting = false;
 
@@ -90,7 +91,7 @@
     on:hide
 >
     <svelte:fragment slot="header">
-        <h4 class="center txt-break">发送测试邮件</h4>
+        <h4 class="center txt-break">{$t("Send test email")}</h4>
     </svelte:fragment>
 
     <form id={formId} autocomplete="off" on:submit|preventDefault={() => submit()}>
@@ -104,7 +105,7 @@
                         value={option.value}
                         bind:group={template}
                     />
-                    <label for={uniqueId + option.value}>{option.label}</label>
+                    <label for={uniqueId + option.value}>{$t(option.label)}</label>
                 </div>
             {/each}
         </Field>
@@ -118,7 +119,7 @@
 
     <svelte:fragment slot="footer">
         <button type="button" class="btn btn-transparent" on:click={hide} disabled={isSubmitting}
-            >取消</button
+            >{$t("Cancel")}</button
         >
         <button
             type="submit"
@@ -128,7 +129,7 @@
             disabled={!canSubmit || isSubmitting}
         >
             <i class="ri-mail-send-line" />
-            <span class="txt">发送</span>
+            <span class="txt">{$t("Send")}</span>
         </button>
     </svelte:fragment>
 </OverlayPanel>

@@ -3,6 +3,7 @@
     import PageWrapper from "@/components/base/PageWrapper.svelte";
     import ImportPopup from "@/components/settings/ImportPopup.svelte";
     import SettingsSidebar from "@/components/settings/SettingsSidebar.svelte";
+    import { t } from "@/i18n";
     import { pageTitle } from "@/stores/app";
     import { setErrors } from "@/stores/errors";
     import { addErrorToast } from "@/stores/toasts";
@@ -10,7 +11,7 @@
     import CommonHelper from "@/utils/CommonHelper";
     import { tick } from "svelte";
 
-    $pageTitle = "导入表结构";
+    $: $pageTitle = $t("Import Collections");
 
     let fileInput;
     let importPopup;
@@ -202,14 +203,14 @@
             await tick();
 
             if (!newCollections.length) {
-                addErrorToast("Invalid collections configuration.");
+                addErrorToast($t("Invalid collections configuration."));
                 clear();
             }
         };
 
         reader.onerror = (err) => {
             console.warn(err);
-            addErrorToast("Failed to load the imported JSON.");
+            addErrorToast($t("Failed to load the imported JSON."));
 
             isLoadingFile = false;
             fileInput.value = ""; // reset
@@ -230,7 +231,7 @@
 <PageWrapper>
     <header class="page-header">
         <nav class="breadcrumbs">
-            <div class="breadcrumb-item">设置</div>
+            <div class="breadcrumb-item">{$t("Settings")}</div>
             <div class="breadcrumb-item">{$pageTitle}</div>
         </nav>
     </header>
@@ -254,7 +255,7 @@
 
                 <div class="content txt-xl m-b-base">
                     <p>
-                        直接粘贴json或者导入文件：
+                        {$t("Paste JSON directly or import a file:")}
                         <button
                             class="btn btn-outline btn-sm m-l-5"
                             class:btn-loading={isLoadingFile}
@@ -262,7 +263,7 @@
                                 fileInput.click();
                             }}
                         >
-                            <span class="txt">点击上传</span>
+                            <span class="txt">{$t("Upload")}</span>
                         </button>
                     </p>
                 </div>
@@ -279,7 +280,7 @@
                     />
 
                     {#if !!schemas && !isValid}
-                        <div class="help-block help-block-error">Invalid collections configuration.</div>
+                        <div class="help-block help-block-error">{$t("Invalid collections configuration.")}</div>
                     {/if}
                 </Field>
 
@@ -302,19 +303,19 @@
                             <i class="ri-information-line" />
                         </div>
                         <div class="content">
-                            <string>Your collections configuration is already up-to-date!</string>
+                            <string>{$t("Your collections configuration is already up-to-date!")}</string>
                         </div>
                     </div>
                 {/if}
 
                 {#if isValid && newCollections.length && hasChanges}
-                    <h5 class="section-title">变更预览</h5>
+                    <h5 class="section-title">{$t("Changes preview")}</h5>
 
                     <div class="list">
                         {#if collectionsToDelete.length}
                             {#each collectionsToDelete as collection (collection.id)}
                                 <div class="list-item">
-                                    <span class="label label-danger list-label">删除</span>
+                                    <span class="label label-danger list-label">{$t("Delete")}</span>
                                     <strong>{collection.name}</strong>
                                     {#if collection.id}
                                         <small class="txt-hint">({collection.id})</small>
@@ -326,7 +327,7 @@
                         {#if collectionsToUpdate.length}
                             {#each collectionsToUpdate as pair (pair.old.id + pair.new.id)}
                                 <div class="list-item">
-                                    <span class="label label-warning list-label">修改</span>
+                                    <span class="label label-warning list-label">{$t("Update")}</span>
                                     <div class="inline-flex flex-gap-5">
                                         {#if pair.old.name !== pair.new.name}
                                             <strong class="txt-strikethrough txt-hint">{pair.old.name}</strong
@@ -347,7 +348,7 @@
                         {#if collectionsToAdd.length}
                             {#each collectionsToAdd as collection (collection.id)}
                                 <div class="list-item">
-                                    <span class="label label-success list-label">添加</span>
+                                    <span class="label label-success list-label">{$t("Add")}</span>
                                     <strong>{collection.name}</strong>
                                     {#if collection.id}
                                         <small class="txt-hint">({collection.id})</small>
@@ -365,7 +366,7 @@
                         </div>
                         <div class="content">
                             <string>
-                               重名可能导致被替换
+                                {$t("Matching names may be replaced.")}
                             </string>
                         </div>
                         <button
@@ -373,7 +374,7 @@
                             class="btn btn-warning btn-sm btn-outline"
                             on:click={() => replaceIds()}
                         >
-                            <span class="txt">通过ids 替换</span>
+                            <span class="txt">{$t("Replace by ids")}</span>
                         </button>
                     </div>
                 {/if}
@@ -381,7 +382,7 @@
                 <div class="flex m-t-base">
                     {#if !!schemas}
                         <button type="button" class="btn btn-transparent link-hint" on:click={() => clear()}>
-                            <span class="txt">清空</span>
+                            <span class="txt">{$t("Clear")}</span>
                         </button>
                     {/if}
                     <div class="flex-fill" />
@@ -391,7 +392,7 @@
                         disabled={!canImport}
                         on:click={() => importPopup?.show(oldCollections, newCollections, deleteMissing)}
                     >
-                        <span class="txt">确定</span>
+                        <span class="txt">{$t("Confirm")}</span>
                     </button>
                 </div>
             {/if}

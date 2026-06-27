@@ -25,7 +25,7 @@ PostgreBase 是 AI 原生的无代码 API 开发平台，基于 [PocketBase](htt
 
 ### 环境准备
 
-- Go 1.18+
+- Go 1.26.2+
 - PostgreSQL、MySQL，或者不需要任何数据库（SQLite 开箱即用）
 
 ### 编译构建

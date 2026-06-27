@@ -2,6 +2,7 @@
     import tooltip from "@/actions/tooltip";
     import BackupCreatePanel from "@/components/settings/BackupCreatePanel.svelte";
     import BackupRestorePanel from "@/components/settings/BackupRestorePanel.svelte";
+    import { t } from "@/i18n";
     import { confirm } from "@/stores/confirmation";
     import { addSuccessToast } from "@/stores/toasts";
     import ApiClient from "@/utils/ApiClient";
@@ -144,7 +145,7 @@
                             class:btn-loading={isDownloading[backup.key]}
                             disabled={isDeleting[backup.key] || isDownloading[backup.key]}
                             aria-label="Download"
-                            use:tooltip={"下载"}
+                            use:tooltip={$t("Download")}
                             on:click|preventDefault={() => download(backup.key)}
                         >
                             <i class="ri-download-line" />
@@ -154,7 +155,7 @@
                             class="btn btn-sm btn-circle btn-hint btn-transparent"
                             disabled={isDeleting[backup.key]}
                             aria-label="Restore"
-                            use:tooltip={"恢复"}
+                            use:tooltip={$t("Restore")}
                             on:click|preventDefault={() => restorePanel.show(backup.key)}
                         >
                             <i class="ri-restart-line" />
@@ -165,7 +166,7 @@
                             class:btn-loading={isDeleting[backup.key]}
                             disabled={isDeleting[backup.key]}
                             aria-label="Delete"
-                            use:tooltip={"删除"}
+                            use:tooltip={$t("Delete")}
                             on:click|preventDefault={() => deleteConfirm(backup.key)}
                         >
                             <i class="ri-delete-bin-7-line" />
@@ -174,7 +175,7 @@
                 </div>
             {:else}
                 <div class="list-item list-item-placeholder">
-                    <span class="txt">暂无备份.</span>
+                    <span class="txt">{$t("No backups.")}</span>
                 </div>
             {/each}
         {/if}
@@ -189,10 +190,10 @@
         >
             {#if canBackup}
                 <i class="ri-play-circle-line" />
-                <span class="txt">初始化一个新备份</span>
+                <span class="txt">{$t("Create a new backup")}</span>
             {:else}
                 <span class="loader loader-sm" />
-                <span class="txt">正在备份、恢复中，请稍后</span>
+                <span class="txt">{$t("Backup or restore in progress, please wait.")}</span>
             {/if}
         </button>
     </div>

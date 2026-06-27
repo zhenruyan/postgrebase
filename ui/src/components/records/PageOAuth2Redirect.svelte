@@ -1,4 +1,5 @@
 <script>
+    import { t } from "@/i18n";
     import { onMount } from "svelte";
 
     onMount(() => {
@@ -7,6 +8,6 @@
 </script>
 
 <div class="content txt-hint txt-center p-base">
-    <h3 class="m-b-sm">OAuth登录</h3>
-    <h5>如果窗口没能自动关闭，那么请手动关掉它。</h5>
+    <h3 class="m-b-sm">{$t("OAuth login")}</h3>
+    <h5>{$t("If this window doesn't close automatically, close it manually.")}</h5>
 </div>
