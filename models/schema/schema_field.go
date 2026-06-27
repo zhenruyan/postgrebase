@@ -8,10 +8,10 @@ import (
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
+	"github.com/spf13/cast"
 	"github.com/zhenruyan/postgrebase/tools/filesystem"
 	"github.com/zhenruyan/postgrebase/tools/list"
 	"github.com/zhenruyan/postgrebase/tools/types"
-	"github.com/spf13/cast"
 )
 
 var schemaFieldNameRegex = regexp.MustCompile(`^\w+$`)
@@ -166,7 +166,21 @@ func (f *SchemaField) ColDefinition(driverName string) string {
 			colDef = "text DEFAULT NULL"
 		}
 	default:
-		if opt, ok := f.Options.(MultiValuer); ok && opt.IsMultiple() {
+		if f.Type == FieldTypeRelation {
+			if opt, ok := f.Options.(MultiValuer); ok && opt.IsMultiple() {
+				if driverName == "mysql" {
+					colDef = "JSON NOT NULL"
+				} else {
+					colDef = "text DEFAULT '[]' NOT NULL"
+				}
+			} else {
+				if driverName == "mysql" {
+					colDef = "VARCHAR(255) DEFAULT '' NOT NULL"
+				} else {
+					colDef = "TEXT DEFAULT '' NOT NULL"
+				}
+			}
+		} else if opt, ok := f.Options.(MultiValuer); ok && opt.IsMultiple() {
 			if driverName == "mysql" {
 				colDef = "JSON NOT NULL"
 			} else {

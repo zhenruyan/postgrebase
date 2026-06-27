@@ -9,7 +9,7 @@ import (
 )
 
 // DefaultDateLayout specifies the default app date strings layout.
-const DefaultDateLayout = "2006-01-02 15:04:05.000"
+const DefaultDateLayout = "2006-01-02 15:04:05.000Z"
 
 // DateTime represents a [time.Time] instance in UTC that is wrapped
 // and serialized using the app default date layout.
@@ -84,19 +84,31 @@ func (d *DateTime) Scan(value any) error {
 		if v == "" {
 			d.t = time.Time{}
 		} else {
-			t, err := time.Parse(DefaultDateLayout, v)
-			if err != nil {
-				// check for other common date layouts
-				t = cast.ToTime(v)
+			layouts := []string{
+				DefaultDateLayout,
+				"2006-01-02 15:04:05.000",
+				time.RFC3339Nano,
+				time.RFC3339,
 			}
-			d.t = t
+			for _, layout := range layouts {
+				parsed, err := time.Parse(layout, v)
+				if err == nil {
+					d.t = parsed
+					return nil
+				}
+			}
+			d.t = cast.ToTime(v)
 		}
 	default:
 		str := cast.ToString(v)
 		if str == "" {
 			d.t = time.Time{}
 		} else {
-			d.t = cast.ToTime(str)
+			t, err := time.Parse(DefaultDateLayout, str)
+			if err != nil {
+				t = cast.ToTime(str)
+			}
+			d.t = t
 		}
 	}
 

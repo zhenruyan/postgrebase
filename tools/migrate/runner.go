@@ -7,8 +7,8 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
-	"github.com/zhenruyan/postgrebase/dbx"
 	"github.com/spf13/cast"
+	"github.com/zhenruyan/postgrebase/dbx"
 )
 
 const DefaultMigrationsTable = "_migrations"
@@ -207,6 +207,11 @@ func (r *Runner) createMigrationsTable() error {
 	if r.db.DriverName() == "mysql" {
 		rawQuery = fmt.Sprintf(
 			"CREATE TABLE IF NOT EXISTS %v (file VARCHAR(255) PRIMARY KEY, applied BIGINT NOT NULL)",
+			r.db.QuoteTableName(r.tableName),
+		)
+	} else if r.db.DriverName() == "sqlite" || r.db.DriverName() == "sqlite3" {
+		rawQuery = fmt.Sprintf(
+			"CREATE TABLE IF NOT EXISTS %v (file VARCHAR(255) PRIMARY KEY NOT NULL, applied INTEGER NOT NULL)",
 			r.db.QuoteTableName(r.tableName),
 		)
 	} else {

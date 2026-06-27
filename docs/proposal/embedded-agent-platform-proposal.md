@@ -55,6 +55,29 @@ PostgreBase 当前已经具备数据库抽象、MCP 工具、REST API、Admin UI
    - tool 内部调用现有 `Dao`、`Record`、`Collection`、`Migration`、`File` 逻辑。
    - 统一校验、事务、审计、权限、错误包装。
 
+### 4.3 统一业务内核
+
+Tool 走的逻辑和网页端 API 走的逻辑必须一致，不能出现两套实现。
+
+要求是：
+
+- Web API、Tool、后续可能的 CLI/批处理，都调用同一套 service/use-case。
+- 业务规则、权限校验、字段映射、默认值、事务边界都只保留一份。
+- Tool 只是 service 的一个调用入口，Web API 也是同一个 service 的另一个入口。
+- 如果某个能力需要调整，改 service 即可，同时影响网页端和 tool 端。
+
+### 4.4 项目边界约束
+
+Agent 的运行必须约束在 PostgreBase 的项目层。
+
+这里的“项目边界”不是抽象概念，而是明确落到项目 ID：
+
+- Agent 只能读取和操作当前 `project_id` 下的 collection、record、file 及其关联资源。
+- 所有 tool、API、后台任务都必须显式携带或继承 `project_id`。
+- 查询和写入都要先做 project scope 过滤，避免跨项目访问。
+- 现有 `collection.project` 字段可以直接作为第一层边界依据。
+- 若某个资源未绑定项目，默认不允许 Agent 直接操作。
+
 ### 4.2 核心原则
 
 - Agent 只做决策，不直接持久化。
@@ -74,6 +97,20 @@ PostgreBase 当前已经具备数据库抽象、MCP 工具、REST API、Admin UI
 - `WithTools(...)`
 - `WithApprovalHandler(...)`
 - `Run(...)` / `RunWithMessages(...)`
+
+### 5.1.1 依赖前置条件
+
+如果 `github.com/startvibecoding/vibecoding/agent` 的现有能力不足，优先改造 `vibecoding` 仓库，再回到 PostgreBase 接入。
+
+这是前置约束，不作为 PostgreBase 里临时绕过的理由。
+
+当前从接口层面已经能看出的潜在缺口包括：
+
+- **多模态消息粒度不够细**：现有 `ContentBlock` 有 `text` / `image` / `thinking` / `toolCall`，但没有显式的 `document` / `file` 语义，需要上层自己封装。
+- **运行时模型切换不够直接**：Builder 以单一 `Provider + Model` 为主，任务过程中如果要按步骤切模型，可能需要扩展 Agent 配置或会话级路由。
+- **文件解析不是 SDK 责任**：图片和文档输入需要在 Agent 外先做抽取，再以统一内容块喂入。
+
+如果后续评审确认这些限制会影响产品目标，应先在 `vibecoding/agent` 内补齐能力，再让 PostgreBase 复用。
 
 ### 5.2 Provider 接入策略
 
@@ -119,19 +156,15 @@ Provider 需要支持：
 
 ### 6.1 输入类型
 
-- **图片**：上传后转为 `ImageContent` 或 provider 可识别的多模态消息。
-- **PDF / 文档**：先做抽取，再把正文、标题、表格结构分段送入 Agent。
-- **表格**：解析为结构化行列，必要时附带原始文件片段。
-- **混合输入**：同一轮请求可包含文本 + 图片 + 文档摘要。
+- **图片**：由模型原生视觉能力解析，上传后直接作为图像内容输入 Agent。
+- **文档**：当前方案先不支持文档解析。
+- **混合输入**：同一轮请求可包含文本 + 图片。
 
 ### 6.2 推荐处理链路
 
 1. 文件先进入现有 file subsystem。
 2. 生成 `fileId`、mime type、hash、大小、来源。
-3. 对可解析文档做预处理：
-   - PDF -> 文字 + 页码
-   - DOCX -> 标题层级 + 段落 + 表格
-   - XLSX -> sheet / row / column 结构
+3. 图片直接进入模型视觉输入链路。
 4. 结果以 message content blocks 形式喂给 Agent。
 5. Agent 只看“内容”，不直接接触底层文件系统。
 
@@ -187,6 +220,16 @@ Provider 需要支持：
 
 不允许 Agent 拼接 SQL 片段。
 
+查询结果还应支持可视化输出，按需要渲染为图表：
+
+- 折线图
+- 柱状图
+- 饼图
+- 指标卡
+- 表格
+
+实现上建议由查询 tool 返回结构化数据 + 推荐图表类型，再由前端用 `echarts` 渲染，不把图表逻辑塞进 Agent 本身。
+
 ## 8. Tool 注册机制
 
 ### 8.1 注册表
@@ -202,16 +245,44 @@ Provider 需要支持：
 - required permissions
 - audit category
 
+工具注册保持静态化是一个特性，不是限制。
+这样可以：
+
+- 提高 token 缓存命中率
+- 减少每轮上下文中的 tool schema 波动
+- 让模型更稳定地学习可用工具集合
+- 降低工具定义频繁变化带来的 prompt 抖动
+
 ### 8.2 统一执行流程
 
 1. Agent 产生 tool call。
 2. Registry 校验 tool 是否存在。
-3. 校验权限、项目范围、collection 范围。
-4. 进入事务或分步执行器。
-5. 写审计日志。
-6. 返回标准化 tool result。
+3. 校验权限、`project_id`、collection 范围。
+4. 对写操作先走授权检查。
+5. 进入事务或分步执行器。
+6. 写审计日志。
+7. 返回标准化 tool result。
 
-### 8.3 好处
+### 8.3 写操作授权
+
+Agent 的写入性操作必须授权，不能默认放行。
+
+需要授权的操作包括但不限于：
+
+- schema 创建、修改、删除
+- collection 创建、修改、删除
+- record 创建、更新、删除
+- 批量导入
+- 文件入库后触发的持久化写入
+
+建议策略：
+
+- 读操作默认允许在项目边界内执行。
+- 写操作默认进入 pending 状态。
+- 由 UI、API 或审批策略显式授权后再执行。
+- 可以按 tool 名称、collection、风险等级、用户身份做细粒度授权。
+
+### 8.4 好处
 
 - 工具能力可复用到 UI、MCP、HTTP、批处理。
 - 便于后续加审批、配额、审计、回放。
@@ -238,6 +309,13 @@ Provider 需要支持：
 - **项目长期会话**：记住上下文，持续优化 schema 和数据。
 - **受控自动化会话**：在后台定时执行 tool 流程。
 
+会话展示规则：
+
+- `session_id` 只作为内部逻辑标识。
+- 用户第一次输入后，由 LLM 为当前 session 生成一次名称。
+- 名称生成后，UI 以及大部分对外展示都显示 session 名称，不再直接显示 session id。
+- session 名称只生成一次，后续沿用，除非用户显式重命名。
+
 ## 10. UI / API 建议
 
 ### 10.1 UI
@@ -248,6 +326,48 @@ Provider 需要支持：
 - 中间：对话流和 tool 结果
 - 右侧：provider / model / tools / files / schema 状态
 
+会话列表默认展示 session 名称，未命名前可短暂显示 `session_id` 作为占位。
+
+聊天框结构线框：
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Project: p_12345   Session: s_98765   Provider: openai   Model: gpt-4.1     │
+├───────────────┬───────────────────────────────────────────┬──────────────────┤
+│ Projects      │ Conversation                               │ Inspector        │
+│               │                                           │                  │
+│ • Project A   │  [system] 任务目标 / 约束                   │  Provider        │
+│ • Project B   │  [user]    上传图片并生成表结构             │  - openai        │
+│ • Project C   │  [assistant] 规划中...                     │  - deepseek      │
+│               │                                           │                  │
+│ Sessions      │  [tool]    schema.create_table             │  Model           │
+│ • s_98765     │  [tool result] created table users          │  - gpt-4.1       │
+│ • s_98766     │                                           │  - gpt-4o-mini   │
+│               │  [assistant] 需要授权写入                  │                  │
+│ Tools         │                                           │  Scope           │
+│ • query       │  [approval] Allow write? [Approve][Deny]   │  project_id      │
+│ • insert      │                                           │  collections     │
+│ • update      │  ───────────────────────────────────────   │  auth policy     │
+│ • schema.*    │  Message input...                           │                  │
+│               │  [Attach Image] [Choose Tool] [Send]        │  Files           │
+└───────────────┴───────────────────────────────────────────┴──────────────────┘
+```
+
+查询结果展示建议补一块图表预览区，和表格同级切换：
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Query Result                                                                 │
+├──────────────────────────────┬───────────────────────────────────────────────┤
+│ Table                         │ Chart                                         │
+│ ┌──────────┬──────────┐      │  [Line | Bar | Pie | Metric]                 │
+│ │ date     │ amount   │      │  ┌─────────────────────────────────────────┐  │
+│ │ 2026-01  │ 120      │      │  │                echarts                 │  │
+│ │ 2026-02  │ 180      │      │  │      series / axes / legend / tooltip   │  │
+│ └──────────┴──────────┘      │  └─────────────────────────────────────────┘  │
+└──────────────────────────────┴───────────────────────────────────────────────┘
+```
+
 ### 10.2 API
 
 建议新增：
@@ -257,6 +377,9 @@ Provider 需要支持：
 - `GET /api/agents/providers`
 - `GET /api/agents/models`
 - `POST /api/agents/tools/:name`
+
+这些接口不应该直接编排 DAO，而是转发到与 tool 共用的 service 层，确保网页端和 tool 的行为、错误码、权限规则、默认值保持一致。
+此外，所有接口必须先解析 `project_id`，再进入同一套项目级 service，不能绕过项目边界直接访问全局数据。
 
 文件输入则复用现有上传能力，再把 fileId 交给 Agent。
 

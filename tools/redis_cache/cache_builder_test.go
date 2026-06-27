@@ -14,9 +14,9 @@ type testStruct struct {
 func TestCache(t *testing.T) {
 	conn, cb := NewRedisParseUrl("redis://localhost:6379/0")
 	defer cb()
-	cmd := conn.Ping(context.TODO())
-	res := cmd.Val()
-	t.Error(res)
+	if err := conn.Ping(context.TODO()).Err(); err != nil {
+		t.Skipf("redis unavailable: %v", err)
+	}
 	IntTest := New[int](conn)
 	IntTestVal := 123
 	err := IntTest.Set(context.Background(), "int", IntTestVal, 10*time.Second)
@@ -52,5 +52,5 @@ func TestCache(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	t.Error(val3)
+	_ = val3
 }
