@@ -6,6 +6,8 @@ GOBUILD_FLAGS=-trimpath
 BIN_DIR=bin
 DIST_DIR=dist
 SDK_DIR=js-sdk
+UI_DIR=ui
+NPM_INSTALL ?= npm ci
 
 # UPX compression (skip unsupported architectures)
 USE_UPX ?= true
@@ -18,7 +20,7 @@ else
 UPX_CMD = @true
 endif
 
-.PHONY: help build build-all clean lint fmt run dist
+.PHONY: help build build-all clean lint fmt run dist ui-build
 .PHONY: build-linux build-linux-musl build-darwin build-windows
 .PHONY: npm-version npm-packages npm-pack npm-publish-all npm-publish-pre
 .PHONY: sdk-build sdk-test sdk-pack sdk-publish sdk-publish-pre
@@ -28,6 +30,7 @@ help:
 	@echo "PostgreBase Build System"
 	@echo ""
 	@echo "Build targets:"
+	@echo "  ui-build         Build the embedded Admin UI"
 	@echo "  build            Build for current platform"
 	@echo "  build-linux      Build for Linux (amd64, arm64)"
 	@echo "  build-linux-musl Build for Linux musl (amd64)"
@@ -59,12 +62,19 @@ help:
 	@echo "  run               Build and run"
 	@echo "  help              Show this help"
 
+# Build embedded Admin UI
+ui-build:
+	@echo "Building Admin UI..."
+	cd $(UI_DIR) && $(NPM_INSTALL) && npm run build
+	@echo "Admin UI built successfully!"
+
 # Build for current platform
-build:
+build: ui-build
+	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=0 go build $(GOBUILD_FLAGS) $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME) ./build/
 
 # Platform builds
-build-linux:
+build-linux: ui-build
 	@echo "Building for Linux..."
 	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GOBUILD_FLAGS) $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME)-linux-amd64 ./build/
@@ -73,14 +83,14 @@ build-linux:
 	$(UPX_CMD) $(BIN_DIR)/$(BINARY_NAME)-linux-amd64 || true
 	$(UPX_CMD) $(BIN_DIR)/$(BINARY_NAME)-linux-arm64 || true
 
-build-linux-musl:
+build-linux-musl: ui-build
 	@echo "Building for Linux musl..."
 	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GOBUILD_FLAGS) $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME)-linux-musl-amd64 ./build/
 	@echo "Compressing Linux musl binary with UPX..."
 	$(UPX_CMD) $(BIN_DIR)/$(BINARY_NAME)-linux-musl-amd64 || true
 
-build-darwin:
+build-darwin: ui-build
 	@echo "Building for macOS..."
 	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build $(GOBUILD_FLAGS) $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME)-darwin-amd64 ./build/
@@ -88,7 +98,7 @@ build-darwin:
 	@echo "Compressing macOS amd64 binary with UPX (arm64 not supported)..."
 	$(UPX_CMD) $(BIN_DIR)/$(BINARY_NAME)-darwin-amd64 || true
 
-build-windows:
+build-windows: ui-build
 	@echo "Building for Windows..."
 	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build $(GOBUILD_FLAGS) $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME)-windows-amd64.exe ./build/
