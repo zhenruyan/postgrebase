@@ -208,4 +208,21 @@ func restoreAgentProviderSecrets(old *settings.Settings, next *settings.Settings
 			}
 		}
 	}
+
+	existingEmbeddings := map[string]string{}
+	for _, p := range old.Agents.Embedding.Providers {
+		if p.Id != "" && p.ApiKey != "" {
+			existingEmbeddings[p.Id] = p.ApiKey
+		}
+	}
+	for i := range next.Agents.Embedding.Providers {
+		key := strings.TrimSpace(next.Agents.Embedding.Providers[i].ApiKey)
+		if key == "" || key == settings.SecretMask {
+			if old, ok := existingEmbeddings[next.Agents.Embedding.Providers[i].Id]; ok {
+				next.Agents.Embedding.Providers[i].ApiKey = old
+			} else if key == settings.SecretMask {
+				next.Agents.Embedding.Providers[i].ApiKey = ""
+			}
+		}
+	}
 }

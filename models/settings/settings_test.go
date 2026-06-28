@@ -366,7 +366,23 @@ func TestSettingsRedactClone(t *testing.T) {
 					SupportsToolUse:  true,
 					SupportsDocument: false,
 					Enabled:          true,
-					Embedding:        false,
+				},
+			},
+		},
+	}
+	s1.Agents.Embedding = settings.AgentEmbeddingConfig{
+		Enabled:      true,
+		DefaultModel: "text-embedding-3-small",
+		Providers: []settings.AgentEmbeddingProviderConfig{
+			{
+				Id:      "openai-embedding",
+				Vendor:  "openai",
+				Api:     "openai-embeddings",
+				BaseUrl: "https://api.openai.com/v1",
+				ApiKey:  testSecret,
+				Enabled: true,
+				Models: []settings.AgentEmbeddingModel{
+					{Name: "text-embedding-3-small", ProviderModelId: "text-embedding-3-small", Enabled: true},
 				},
 			},
 		},
@@ -1106,23 +1122,19 @@ func TestAuthProviderConfigSetupProvider(t *testing.T) {
 
 func TestAgentEmbeddingModel(t *testing.T) {
 	cfg := settings.AgentConfig{
-		DefaultModel: "fallback-model",
-		Providers: []settings.AgentProviderConfig{
-			{
-				Id:           "provider-a",
-				Enabled:      true,
-				DefaultModel: "provider-default",
-				Models: []settings.AgentProviderModel{
-					{
-						Name:            "chat",
-						ProviderModelId: "chat-model",
-						Enabled:         true,
-					},
-					{
-						Name:            "embed",
-						ProviderModelId: "embed-model",
-						Enabled:         true,
-						Embedding:       true,
+		Embedding: settings.AgentEmbeddingConfig{
+			Enabled:      true,
+			DefaultModel: "embed-model",
+			Providers: []settings.AgentEmbeddingProviderConfig{
+				{
+					Id:      "provider-a",
+					Enabled: true,
+					Models: []settings.AgentEmbeddingModel{
+						{
+							Name:            "embed",
+							ProviderModelId: "embed-model",
+							Enabled:         true,
+						},
 					},
 				},
 			},
@@ -1133,8 +1145,47 @@ func TestAgentEmbeddingModel(t *testing.T) {
 		t.Fatalf("expected embed-model, got %q", got)
 	}
 
-	cfg.Providers[0].Models[1].Embedding = false
-	if got := cfg.EmbeddingModel(); got != "fallback-model" {
-		t.Fatalf("expected fallback-model, got %q", got)
+	cfg.Embedding.DefaultModel = ""
+	if got := cfg.EmbeddingModel(); got != "" {
+		t.Fatalf("expected empty embedding model, got %q", got)
+	}
+
+	cfg.Embedding.DefaultModel = "embed-model"
+	cfg.Embedding.Enabled = false
+	if got := cfg.EmbeddingModel(); got != "" {
+		t.Fatalf("expected disabled embedding model to be empty, got %q", got)
+	}
+}
+
+func TestAgentEmbeddingProviderApiValidation(t *testing.T) {
+	cases := []struct {
+		name    string
+		api     string
+		wantErr bool
+	}{
+		{name: "openai", api: "openai-embeddings", wantErr: false},
+		{name: "empty", api: "", wantErr: false},
+		{name: "chat", api: "openai-chat", wantErr: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := settings.AgentEmbeddingProviderConfig{
+				Id:      "embed-main",
+				Vendor:  "openai",
+				Api:     tc.api,
+				BaseUrl: "https://example.com/v1",
+				Models: []settings.AgentEmbeddingModel{
+					{Name: "embed", ProviderModelId: "embed", Enabled: true},
+				},
+			}
+			err := cfg.Validate()
+			if tc.wantErr && err == nil {
+				t.Fatal("expected validation error")
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("unexpected validation error: %v", err)
+			}
+		})
 	}
 }

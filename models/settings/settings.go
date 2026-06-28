@@ -306,6 +306,11 @@ func (s *Settings) RedactClone() (*Settings, error) {
 			clone.Agents.Providers[i].ApiKey = SecretMask
 		}
 	}
+	for i := range clone.Agents.Embedding.Providers {
+		if clone.Agents.Embedding.Providers[i].ApiKey != "" {
+			clone.Agents.Embedding.Providers[i].ApiKey = SecretMask
+		}
+	}
 
 	// mask all sensitive fields
 	for _, v := range sensitiveFields {
@@ -503,6 +508,7 @@ type AgentConfig struct {
 	DefaultModel      string                `form:"defaultModel" json:"defaultModel"`
 	AllowSchemaChange bool                  `form:"allowSchemaChange" json:"allowSchemaChange"`
 	AllowedTools      []string              `form:"allowedTools" json:"allowedTools"`
+	Embedding         AgentEmbeddingConfig  `form:"embedding" json:"embedding"`
 	Providers         []AgentProviderConfig `form:"providers" json:"providers"`
 }
 
@@ -512,6 +518,7 @@ func (c AgentConfig) Validate() error {
 		validation.Field(&c.DefaultProvider, validation.When(c.Enabled && len(c.Providers) > 0, validation.Required)),
 		validation.Field(&c.DefaultModel, validation.When(c.Enabled && len(c.Providers) > 0, validation.Required)),
 		validation.Field(&c.AllowedTools, validation.Each(validation.Required)),
+		validation.Field(&c.Embedding),
 	); err != nil {
 		return err
 	}
@@ -525,29 +532,91 @@ func (c AgentConfig) Validate() error {
 	return nil
 }
 
-// EmbeddingModel returns the first enabled embedding-capable model id.
-// It falls back to the configured default model when a dedicated embedding
-// model is not available.
+// EmbeddingModel returns the configured default embedding model id.
 func (c AgentConfig) EmbeddingModel() string {
-	for _, provider := range c.Providers {
-		for _, model := range provider.Models {
-			if model.Enabled && model.Embedding && model.ProviderModelId != "" {
-				return model.ProviderModelId
+	if !c.Embedding.Enabled {
+		return ""
+	}
+	return strings.TrimSpace(c.Embedding.DefaultModel)
+}
+
+// -------------------------------------------------------------------
+
+type AgentEmbeddingConfig struct {
+	Enabled      bool                           `form:"enabled" json:"enabled"`
+	DefaultModel string                         `form:"defaultModel" json:"defaultModel"`
+	Providers    []AgentEmbeddingProviderConfig `form:"providers" json:"providers"`
+}
+
+// Validate makes AgentEmbeddingConfig validatable by implementing
+// [validation.Validatable] interface.
+func (c AgentEmbeddingConfig) Validate() error {
+	if err := validation.ValidateStruct(&c,
+		validation.Field(&c.DefaultModel, validation.When(c.Enabled && len(c.Providers) > 0, validation.Required)),
+	); err != nil {
+		return err
+	}
+
+	for i := range c.Providers {
+		if err := c.Providers[i].Validate(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+type AgentEmbeddingProviderConfig struct {
+	Id      string                `form:"id" json:"id"`
+	Vendor  string                `form:"vendor" json:"vendor"`
+	Api     string                `form:"api" json:"api"`
+	BaseUrl string                `form:"baseUrl" json:"baseUrl"`
+	ApiKey  string                `form:"apiKey" json:"apiKey"`
+	Enabled bool                  `form:"enabled" json:"enabled"`
+	Models  []AgentEmbeddingModel `form:"models" json:"models"`
+}
+
+// Validate makes AgentEmbeddingProviderConfig validatable by implementing
+// [validation.Validatable] interface.
+func (c AgentEmbeddingProviderConfig) Validate() error {
+	if err := validation.ValidateStruct(&c,
+		validation.Field(&c.Id, validation.When(c.Enabled || c.Vendor != "" || c.BaseUrl != "" || c.ApiKey != "" || len(c.Models) > 0, validation.Required)),
+		validation.Field(&c.Vendor, validation.When(c.Enabled || c.Id != "" || c.BaseUrl != "" || c.ApiKey != "" || len(c.Models) > 0, validation.Required)),
+		validation.Field(&c.BaseUrl, is.URL),
+	); err != nil {
+		return err
+	}
+
+	if api := strings.ToLower(strings.TrimSpace(c.Api)); api != "" {
+		if _, ok := supportedAgentEmbeddingApis[api]; !ok {
+			return validation.Errors{
+				"api": validation.NewError("validation_error", "unsupported embedding provider api"),
 			}
 		}
 	}
 
-	if c.DefaultModel != "" {
-		return c.DefaultModel
-	}
-
-	for _, provider := range c.Providers {
-		if provider.Enabled && provider.DefaultModel != "" {
-			return provider.DefaultModel
+	for i := range c.Models {
+		if err := c.Models[i].Validate(); err != nil {
+			return err
 		}
 	}
 
-	return ""
+	return nil
+}
+
+type AgentEmbeddingModel struct {
+	Name            string `form:"name" json:"name"`
+	ProviderModelId string `form:"providerModelId" json:"providerModelId"`
+	Enabled         bool   `form:"enabled" json:"enabled"`
+}
+
+// Validate makes AgentEmbeddingModel validatable by implementing
+// [validation.Validatable] interface.
+func (c AgentEmbeddingModel) Validate() error {
+	return validation.ValidateStruct(&c,
+		validation.Field(&c.Name, validation.When(c.Enabled || c.ProviderModelId != "", validation.Required)),
+		validation.Field(&c.ProviderModelId, validation.When(c.Enabled || c.Name != "", validation.Required)),
+	)
 }
 
 // -------------------------------------------------------------------
@@ -569,6 +638,10 @@ var supportedAgentProviderApis = map[string]struct{}{
 	"anthropic-messages": {},
 	"google-gemini":      {},
 	"google-vertex":      {},
+}
+
+var supportedAgentEmbeddingApis = map[string]struct{}{
+	"openai-embeddings": {},
 }
 
 // Validate makes AgentProviderConfig validatable by implementing [validation.Validatable] interface.
@@ -607,14 +680,13 @@ type AgentProviderModel struct {
 	SupportsToolUse  bool   `form:"supportsToolUse" json:"supportsToolUse"`
 	SupportsDocument bool   `form:"supportsDocument" json:"supportsDocument"`
 	Enabled          bool   `form:"enabled" json:"enabled"`
-	Embedding        bool   `form:"embedding" json:"embedding"`
 }
 
 // Validate makes AgentProviderModel validatable by implementing [validation.Validatable] interface.
 func (c AgentProviderModel) Validate() error {
 	return validation.ValidateStruct(&c,
-		validation.Field(&c.Name, validation.When(c.Enabled || c.ProviderModelId != "" || c.SupportsVision || c.SupportsToolUse || c.SupportsDocument || c.Embedding, validation.Required)),
-		validation.Field(&c.ProviderModelId, validation.When(c.Enabled || c.Name != "" || c.SupportsVision || c.SupportsToolUse || c.SupportsDocument || c.Embedding, validation.Required)),
+		validation.Field(&c.Name, validation.When(c.Enabled || c.ProviderModelId != "" || c.SupportsVision || c.SupportsToolUse || c.SupportsDocument, validation.Required)),
+		validation.Field(&c.ProviderModelId, validation.When(c.Enabled || c.Name != "" || c.SupportsVision || c.SupportsToolUse || c.SupportsDocument, validation.Required)),
 	)
 }
 

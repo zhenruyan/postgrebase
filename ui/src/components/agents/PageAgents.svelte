@@ -16,6 +16,7 @@
     // projects + sessions
     let projects = [];
     let selectedProject = "";
+    let projectSearch = "";
     let sessions = [];
     let activeSession = null;
     let messages = [];
@@ -73,11 +74,16 @@
     }
 
     async function selectProject(id) {
+        if (selectedProject === id) return;
         selectedProject = id;
         activeSession = null;
         messages = [];
         projectTables = [];
         await Promise.all([loadSessions(), loadProjectConfig(), loadProjectTables()]);
+    }
+
+    function onProjectSelectChange(e) {
+        selectProject(e.target.value);
     }
 
     async function loadProjectTables() {
@@ -459,6 +465,13 @@
     $: projectDefaultModel = projectConfig?.defaultModel || runtime.defaultModel || "";
     $: activeProvider = newProvider || projectDefaultProvider || "";
     $: providerModels = (runtime.providers || []).find((p) => p.id === activeProvider)?.models || [];
+    $: filteredProjects = projects.filter((project) => {
+        const q = projectSearch.trim().toLowerCase();
+        if (!q) return true;
+        return [project.name, project.id].some((value) => String(value || "").toLowerCase().includes(q));
+    });
+    $: projectConfigProvider = projectConfig?.defaultProvider || runtime.defaultProvider || "";
+    $: projectConfigModels = (runtime.providers || []).find((p) => p.id === projectConfigProvider)?.models || [];
 </script>
 
 <PageWrapper class="full-page">
@@ -467,20 +480,18 @@
         <aside class="aw-left">
             <div class="aw-section">
                 <div class="aw-section-title">{$t("Projects")}</div>
-                <div class="aw-list">
-                    {#each projects as project (project.id)}
-                        <button
-                            class="aw-list-item {selectedProject === project.id ? 'active' : ''}"
-                            on:click={() => selectProject(project.id)}
-                        >
-                            <i class="ri-folder-2-line" />
-                            <span>{project.name || project.id}</span>
-                        </button>
-                    {/each}
+                <input class="aw-select aw-project-search" type="search" bind:value={projectSearch} placeholder={$t("Search projects")} />
+                <select class="aw-select" value={selectedProject} on:change={onProjectSelectChange}>
                     {#if !projects.length}
-                        <div class="aw-empty">{$t("No projects")}</div>
+                        <option value="">{$t("No projects")}</option>
+                    {:else if !filteredProjects.length}
+                        <option value={selectedProject}>{$t("No matching projects")}</option>
+                    {:else}
+                        {#each filteredProjects as project (project.id)}
+                            <option value={project.id}>{project.name || project.id}</option>
+                        {/each}
                     {/if}
-                </div>
+                </select>
             </div>
 
             <div class="aw-section">
@@ -671,7 +682,11 @@
                     <div class="aw-section-title">{$t("Project agent config")}</div>
                     <div class="aw-pc-field">
                         <label>{$t("Default provider")}</label>
-                        <select bind:value={projectConfig.defaultProvider} class="aw-select">
+                        <select
+                            bind:value={projectConfig.defaultProvider}
+                            class="aw-select"
+                            on:change={() => (projectConfig.defaultModel = "")}
+                        >
                             <option value="">{$t("Inherit")}</option>
                             {#each runtime.providers || [] as p}
                                 <option value={p.id}>{p.id}</option>
@@ -680,7 +695,14 @@
                     </div>
                     <div class="aw-pc-field">
                         <label>{$t("Default model")}</label>
-                        <input class="aw-select" type="text" bind:value={projectConfig.defaultModel} placeholder={$t("Inherit")} />
+                        <select bind:value={projectConfig.defaultModel} class="aw-select">
+                            <option value="">{$t("Inherit")} ({runtime.defaultModel || "-"})</option>
+                            {#each projectConfigModels as m}
+                                <option value={m.providerModelId || m.name}>
+                                    {m.name || m.providerModelId}
+                                </option>
+                            {/each}
+                        </select>
                     </div>
                     <div class="aw-pc-field">
                         <label>{$t("Schema changes")}</label>
@@ -939,6 +961,9 @@
         border-radius: 6px;
         border: 1px solid var(--baseAlt2Color, #e4e6eb);
         font-size: 13px;
+    }
+    .aw-project-search {
+        margin-bottom: 6px;
     }
     .aw-scope {
         font-size: 12px;

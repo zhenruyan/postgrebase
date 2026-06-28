@@ -7,43 +7,26 @@
     import ApiClient from "@/utils/ApiClient";
     import CommonHelper from "@/utils/CommonHelper";
 
-    $pageTitle = $t("AI Agents");
+    $pageTitle = $t("Embeddings");
 
-    const TOOL_NAMES = [
-        "data.query",
-        "data.get",
-        "dataset.preview",
-        "data.insert",
-        "data.bulk_insert",
-        "data.update",
-        "data.delete",
-        "schema.list_tables",
-        "schema.create_table",
-        "schema.add_field",
-        "schema.update_field",
-        "schema.drop_field",
-        "schema.create_index",
-        "schema.set_relation",
-    ];
-    const PROVIDER_APIS = ["openai-chat", "openai-responses", "anthropic-messages", "google-gemini", "google-vertex"];
+    const EMBEDDING_APIS = ["openai-embeddings"];
 
     let original = {};
-    let agents = emptyConfig();
-    let embeddingConfig = {};
+    let embedding = emptyConfig();
     let isLoading = false;
     let isSaving = false;
 
-    $: hasChanges = JSON.stringify(original) !== JSON.stringify(agents);
+    $: hasChanges = JSON.stringify(original) !== JSON.stringify(embedding);
+    $: allEmbeddingModels = embedding.providers
+        .flatMap((p) => p.models.map((m) => m.providerModelId || m.name))
+        .filter(Boolean);
 
     loadSettings();
 
     function emptyConfig() {
         return {
             enabled: false,
-            defaultProvider: "",
             defaultModel: "",
-            allowSchemaChange: false,
-            allowedTools: [],
             providers: [],
         };
     }
@@ -52,7 +35,7 @@
         isLoading = true;
         try {
             const result = (await ApiClient.settings.getAll()) || {};
-            initSettings(result.agents);
+            initSettings(result.agents?.embedding);
         } catch (err) {
             ApiClient.error(err);
         }
@@ -61,27 +44,20 @@
 
     function initSettings(data) {
         const cfg = Object.assign(emptyConfig(), data || {});
-        embeddingConfig = cfg.embedding || {};
-        delete cfg.embedding;
-        cfg.allowedTools = cfg.allowedTools || [];
         cfg.providers = (cfg.providers || []).map((p) => ({
             id: p.id || "",
             vendor: p.vendor || "",
-            api: p.api || (p.vendor === "anthropic" ? "anthropic-messages" : "openai-chat"),
+            api: p.api || "openai-embeddings",
             baseUrl: p.baseUrl || "",
             apiKey: p.apiKey || "",
             enabled: !!p.enabled,
-            defaultModel: p.defaultModel || "",
             models: (p.models || []).map((m) => ({
                 name: m.name || "",
                 providerModelId: m.providerModelId || "",
                 enabled: !!m.enabled,
-                supportsVision: !!m.supportsVision,
-                supportsToolUse: !!m.supportsToolUse,
-                supportsDocument: !!m.supportsDocument,
             })),
         }));
-        agents = cfg;
+        embedding = cfg;
         original = JSON.parse(JSON.stringify(cfg));
     }
 
@@ -90,12 +66,11 @@
         isSaving = true;
         try {
             const current = (await ApiClient.settings.getAll()) || {};
-            const payload = CommonHelper.filterRedactedProps({
-                agents: { ...agents, embedding: current.agents?.embedding || embeddingConfig },
-            });
+            const agents = Object.assign({}, current.agents || {}, { embedding });
+            const payload = CommonHelper.filterRedactedProps({ agents });
             const result = await ApiClient.settings.update(payload);
-            initSettings(result.agents);
-            addSuccessToast($t("Successfully saved agent settings."));
+            initSettings(result.agents?.embedding);
+            addSuccessToast($t("Successfully saved embedding settings."));
         } catch (err) {
             ApiClient.error(err);
         }
@@ -103,53 +78,38 @@
     }
 
     function reset() {
-        agents = JSON.parse(JSON.stringify(original));
+        embedding = JSON.parse(JSON.stringify(original));
     }
 
     function addProvider() {
-        agents.providers = agents.providers.concat({
+        embedding.providers = embedding.providers.concat({
             id: "",
             vendor: "openai",
-            api: "openai-chat",
+            api: "openai-embeddings",
             baseUrl: "",
             apiKey: "",
             enabled: true,
-            defaultModel: "",
             models: [],
         });
     }
 
     function removeProvider(idx) {
-        agents.providers = agents.providers.filter((_, i) => i !== idx);
+        embedding.providers = embedding.providers.filter((_, i) => i !== idx);
     }
 
     function addModel(pIdx) {
-        agents.providers[pIdx].models = agents.providers[pIdx].models.concat({
+        embedding.providers[pIdx].models = embedding.providers[pIdx].models.concat({
             name: "",
             providerModelId: "",
             enabled: true,
-            supportsVision: false,
-            supportsToolUse: true,
-            supportsDocument: false,
         });
-        agents = agents;
+        embedding = embedding;
     }
 
     function removeModel(pIdx, mIdx) {
-        agents.providers[pIdx].models = agents.providers[pIdx].models.filter((_, i) => i !== mIdx);
-        agents = agents;
+        embedding.providers[pIdx].models = embedding.providers[pIdx].models.filter((_, i) => i !== mIdx);
+        embedding = embedding;
     }
-
-    function toggleTool(name) {
-        if (agents.allowedTools.includes(name)) {
-            agents.allowedTools = agents.allowedTools.filter((t) => t !== name);
-        } else {
-            agents.allowedTools = agents.allowedTools.concat(name);
-        }
-    }
-
-    $: providerIds = agents.providers.map((p) => p.id).filter(Boolean);
-    $: allModels = agents.providers.flatMap((p) => p.models.map((m) => m.providerModelId || m.name)).filter(Boolean);
 </script>
 
 <SettingsSidebar />
@@ -165,78 +125,43 @@
     <div class="wrapper">
         <form class="panel" autocomplete="off" on:submit|preventDefault={save}>
             <div class="content m-b-sm txt-xl">
-                <p>{$t("Configure LLM providers, models and global agent policy.")}</p>
+                <p>{$t("Configure embedding providers and the default vector model.")}</p>
             </div>
 
             {#if isLoading}
                 <div class="loader" />
             {:else}
-                <!-- global policy -->
-                <div class="ag-row">
-                    <label class="ag-check">
-                        <input type="checkbox" bind:checked={agents.enabled} />
-                        {$t("Enable agent runtime")}
-                    </label>
-                    <label class="ag-check">
-                        <input type="checkbox" bind:checked={agents.allowSchemaChange} />
-                        {$t("Allow schema changes")}
+                <div class="em-row">
+                    <label class="em-check">
+                        <input type="checkbox" bind:checked={embedding.enabled} />
+                        {$t("Enable embeddings")}
                     </label>
                 </div>
 
-                <div class="ag-row">
-                    <div class="ag-field">
-                        <label>{$t("Default provider")}</label>
-                        <select bind:value={agents.defaultProvider}>
-                            <option value="">-</option>
-                            {#each providerIds as id}
-                                <option value={id}>{id}</option>
-                            {/each}
-                        </select>
-                    </div>
-                    <div class="ag-field">
-                        <label>{$t("Default model")}</label>
-                        <select bind:value={agents.defaultModel}>
-                            <option value="">-</option>
-                            {#each allModels as m}
-                                <option value={m}>{m}</option>
-                            {/each}
-                        </select>
-                    </div>
+                <div class="em-field">
+                    <label>{$t("Default embedding model")}</label>
+                    <select bind:value={embedding.defaultModel}>
+                        <option value="">-</option>
+                        {#each allEmbeddingModels as model}
+                            <option value={model}>{model}</option>
+                        {/each}
+                    </select>
                 </div>
 
                 <hr />
 
-                <!-- allowed tools -->
-                <h3 class="section-title">{$t("Allowed tools")}</h3>
-                <p class="txt-hint m-b-sm">{$t("Leave all unchecked to allow every tool.")}</p>
-                <div class="ag-tools">
-                    {#each TOOL_NAMES as name}
-                        <label class="ag-tool-check">
-                            <input
-                                type="checkbox"
-                                checked={agents.allowedTools.includes(name)}
-                                on:change={() => toggleTool(name)}
-                            />
-                            <code>{name}</code>
-                        </label>
-                    {/each}
-                </div>
-
-                <hr />
-
-                <!-- providers -->
                 <div class="flex">
-                    <h3 class="section-title">{$t("Providers")}</h3>
+                    <h3 class="section-title">{$t("Embedding providers")}</h3>
                     <div class="flex-fill" />
                     <button type="button" class="btn btn-sm btn-transparent" on:click={addProvider}>
                         <i class="ri-add-line" /> <span class="txt">{$t("Add provider")}</span>
                     </button>
                 </div>
 
-                {#each agents.providers as provider, pIdx (pIdx)}
-                    <div class="ag-provider">
-                        <div class="ag-provider-head">
-                            <label class="ag-check">
+                {#each embedding.providers as provider, pIdx (pIdx)}
+                    <div class="em-provider">
+                        <div class="em-provider-head">
+                            <label class="em-check">
                                 <input type="checkbox" bind:checked={provider.enabled} />
                                 {$t("Enabled")}
                             </label>
@@ -244,40 +169,39 @@
                                 <i class="ri-delete-bin-line" />
                             </button>
                         </div>
-                        <div class="ag-row">
-                            <div class="ag-field">
+
+                        <div class="em-row">
+                            <div class="em-field">
                                 <label>{$t("ID")}</label>
-                                <input type="text" bind:value={provider.id} placeholder="openai-main" />
+                                <input type="text" bind:value={provider.id} placeholder="openai-embedding" />
                             </div>
-                            <div class="ag-field">
+                            <div class="em-field">
                                 <label>{$t("Vendor")}</label>
                                 <input type="text" bind:value={provider.vendor} placeholder="openai" />
                             </div>
                         </div>
-                        <div class="ag-row">
-                            <div class="ag-field">
+
+                        <div class="em-row">
+                            <div class="em-field">
                                 <label>{$t("API")}</label>
                                 <select bind:value={provider.api}>
-                                    {#each PROVIDER_APIS as api}
+                                    {#each EMBEDDING_APIS as api}
                                         <option value={api}>{api}</option>
                                     {/each}
                                 </select>
                             </div>
-                            <div class="ag-field" />
+                            <div class="em-field" />
                         </div>
-                        <div class="ag-row">
-                            <div class="ag-field">
+
+                        <div class="em-row">
+                            <div class="em-field">
                                 <label>{$t("Base URL")}</label>
                                 <input type="text" bind:value={provider.baseUrl} placeholder="https://api.openai.com/v1" />
                             </div>
-                            <div class="ag-field">
+                            <div class="em-field">
                                 <label>{$t("API key")}</label>
                                 <input type="password" bind:value={provider.apiKey} placeholder="sk-... or env:OPENAI_API_KEY" />
                             </div>
-                        </div>
-                        <div class="ag-field">
-                            <label>{$t("Provider default model")}</label>
-                            <input type="text" bind:value={provider.defaultModel} placeholder="gpt-4o" />
                         </div>
 
                         <div class="flex m-t-sm">
@@ -289,21 +213,19 @@
                         </div>
 
                         {#each provider.models as model, mIdx (mIdx)}
-                            <div class="ag-model">
-                                <div class="ag-row">
-                                    <div class="ag-field">
+                            <div class="em-model">
+                                <div class="em-row">
+                                    <div class="em-field">
                                         <label>{$t("Name")}</label>
-                                        <input type="text" bind:value={model.name} placeholder="gpt-4o" />
+                                        <input type="text" bind:value={model.name} placeholder="text-embedding-3-small" />
                                     </div>
-                                    <div class="ag-field">
+                                    <div class="em-field">
                                         <label>{$t("Provider model id")}</label>
-                                        <input type="text" bind:value={model.providerModelId} placeholder="gpt-4o" />
+                                        <input type="text" bind:value={model.providerModelId} placeholder="text-embedding-3-small" />
                                     </div>
                                 </div>
-                                <div class="ag-model-flags">
+                                <div class="em-model-flags">
                                     <label><input type="checkbox" bind:checked={model.enabled} /> {$t("Enabled")}</label>
-                                    <label><input type="checkbox" bind:checked={model.supportsVision} /> {$t("Vision")}</label>
-                                    <label><input type="checkbox" bind:checked={model.supportsToolUse} /> {$t("Tools")}</label>
                                     <button type="button" class="btn btn-xs btn-transparent btn-hint" on:click={() => removeModel(pIdx, mIdx)}>
                                         <i class="ri-delete-bin-line" />
                                     </button>
@@ -313,8 +235,8 @@
                     </div>
                 {/each}
 
-                {#if !agents.providers.length}
-                    <p class="txt-hint">{$t("No providers configured yet.")}</p>
+                {#if !embedding.providers.length}
+                    <p class="txt-hint">{$t("No embedding providers configured yet.")}</p>
                 {/if}
 
                 <div class="flex m-t-base">
@@ -334,62 +256,55 @@
 </PageWrapper>
 
 <style>
-    .ag-row {
+    .em-row {
         display: flex;
         gap: 12px;
         margin-bottom: 10px;
     }
-    .ag-field {
+    .em-field {
         flex: 1;
         display: flex;
         flex-direction: column;
         gap: 4px;
     }
-    .ag-field label {
+    .em-field label {
         font-size: 12px;
         opacity: 0.7;
     }
-    .ag-field input,
-    .ag-field select {
+    .em-field input,
+    .em-field select {
         padding: 6px 8px;
         border: 1px solid var(--baseAlt2Color, #e4e6eb);
         border-radius: 6px;
         font-size: 13px;
     }
-    .ag-check,
-    .ag-tool-check {
+    .em-check {
         display: inline-flex;
         align-items: center;
         gap: 6px;
         font-size: 13px;
     }
-    .ag-tools {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 6px;
-        margin-bottom: 8px;
-    }
-    .ag-provider {
+    .em-provider {
         border: 1px solid var(--baseAlt2Color, #e4e6eb);
         border-radius: 8px;
         padding: 12px;
         margin-bottom: 12px;
         background: var(--baseAlt1Color, #f8f9fa);
     }
-    .ag-provider-head {
+    .em-provider-head {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 8px;
     }
-    .ag-model {
+    .em-model {
         border: 1px dashed var(--baseAlt2Color, #d0d3d9);
         border-radius: 6px;
         padding: 8px;
         margin-bottom: 8px;
         background: var(--baseColor, #fff);
     }
-    .ag-model-flags {
+    .em-model-flags {
         display: flex;
         flex-wrap: wrap;
         gap: 12px;

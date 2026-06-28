@@ -111,5 +111,14 @@
             <i class="ri-robot-line" />
             <span class="txt">{$t("AI Agents")}</span>
         </a>
+        <a
+            href="/settings/embeddings"
+            class="sidebar-list-item"
+            use:active={{ path: "/settings/embeddings/?.*" }}
+            use:link
+        >
+            <i class="ri-braces-line" />
+            <span class="txt">{$t("Embeddings")}</span>
+        </a>
     </div>
 </aside>

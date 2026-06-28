@@ -36,7 +36,6 @@ type Model struct {
 	SupportsToolUse  bool   `json:"supportsToolUse"`
 	SupportsDocument bool   `json:"supportsDocument"`
 	Enabled          bool   `json:"enabled"`
-	Embedding        bool   `json:"embedding"`
 }
 
 // Registry exposes a static snapshot of agent runtime configuration.
@@ -67,7 +66,6 @@ func NewRegistry(cfg settings.AgentConfig) *Registry {
 				SupportsToolUse:  m.SupportsToolUse,
 				SupportsDocument: m.SupportsDocument,
 				Enabled:          m.Enabled,
-				Embedding:        m.Embedding,
 			})
 		}
 

@@ -547,7 +547,7 @@ func (s *Service) RunSessionStream(ctx context.Context, sessionID string, input 
 
 	// Generate a session name once, after the first user input (proposal §9.2).
 	if s.sessions.NeedsAutoName(sessionID) {
-		if name := generateSessionName(ctx, provider, model, input.Content); name != "" {
+		if name := generateSessionName(ctx, provider, model, sessionNameSeed(input.Content, result.Messages)); name != "" {
 			if sess, nErr := s.sessions.SetGeneratedName(sessionID, name); nErr == nil {
 				result.SessionName = sess.Name
 			}
@@ -563,6 +563,20 @@ func (s *Service) RunSessionStream(ctx context.Context, sessionID string, input 
 	}
 
 	return result, nil
+}
+
+func sessionNameSeed(current string, messages []SessionMessage) string {
+	if seed := strings.TrimSpace(current); seed != "" {
+		return seed
+	}
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role == "user" {
+			if seed := strings.TrimSpace(messages[i].Content); seed != "" {
+				return seed
+			}
+		}
+	}
+	return ""
 }
 
 func fallbackRunReply(pending []PendingApproval, traces []RunTrace) string {
@@ -646,9 +660,9 @@ func generateSessionName(ctx context.Context, provider settings.AgentProviderCon
 		return ""
 	}
 
-	const namingPrompt = "You generate a concise conversation title. " +
-		"Reply with ONLY a 3-6 word title summarizing the user's request. " +
-		"No quotes, no punctuation at the end, no prefixes."
+	const namingPrompt = "Generate a short session name for the user's request. " +
+		"Reply with only the name, 2-5 words or at most 12 Chinese characters. " +
+		"No quotes, no punctuation, no prefixes, no markdown."
 
 	agent, err := agentsdk.NewBuilder().
 		WithProviderByName(provider.Vendor, provider.BaseUrl, apiStyle(provider), resolveApiKey(provider.ApiKey)).

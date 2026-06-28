@@ -15,6 +15,7 @@ import PageImportCollections from "@/components/settings/PageImportCollections.s
 import PageBackups from "@/components/settings/PageBackups.svelte";
 import PageMCPTokens from "@/components/settings/PageMCPTokens.svelte";
 import PageAgentSettings from "@/components/settings/PageAgentSettings.svelte";
+import PageEmbeddingSettings from "@/components/settings/PageEmbeddingSettings.svelte";
 import PageMonitor from "@/components/monitor/PageMonitor.svelte";
 import PageProjects from "@/components/projects/PageProjects.svelte";
 import PageAgents from "@/components/agents/PageAgents.svelte";
@@ -118,6 +119,12 @@ const routes = {
 
     "/settings/agents": wrap({
         component: PageAgentSettings,
+        conditions: baseConditions.concat([(_) => ApiClient.authStore.isValid]),
+        userData: { showAppSidebar: true },
+    }),
+
+    "/settings/embeddings": wrap({
+        component: PageEmbeddingSettings,
         conditions: baseConditions.concat([(_) => ApiClient.authStore.isValid]),
         userData: { showAppSidebar: true },
     }),
