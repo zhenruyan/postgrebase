@@ -1,11 +1,13 @@
 package apis
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/labstack/echo/v5"
 	"github.com/zhenruyan/postgrebase/agents"
 	"github.com/zhenruyan/postgrebase/core"
+	"github.com/zhenruyan/postgrebase/models"
 )
 
 func bindAgentSessionApi(app core.App, rg *echo.Group) {
@@ -14,8 +16,11 @@ func bindAgentSessionApi(app core.App, rg *echo.Group) {
 	subGroup := rg.Group("/agents", ActivityLogger(app), RequireAdminAuth())
 	subGroup.GET("/sessions", api.list)
 	subGroup.GET("/sessions/:id", api.view)
+	subGroup.GET("/sessions/:id/audit", api.audit)
 	subGroup.POST("/sessions", api.create)
+	subGroup.PATCH("/sessions/:id", api.rename)
 	subGroup.POST("/sessions/:id/messages", api.message)
+	subGroup.POST("/sessions/:id/run", api.run)
 	subGroup.GET("/tools", api.tools)
 	subGroup.POST("/tools/:name", api.callTool)
 }
@@ -43,6 +48,26 @@ func (api *agentSessionApi) create(c echo.Context) error {
 		return NewBadRequestError("Project is required", nil)
 	}
 	session := api.svc.CreateSession(body.Project, body.Name, body.Provider, body.Model)
+	return c.JSON(http.StatusOK, session)
+}
+
+func (api *agentSessionApi) rename(c echo.Context) error {
+	var body struct {
+		Name string `json:"name"`
+	}
+	if err := c.Bind(&body); err != nil {
+		return NewBadRequestError("Invalid request body", err)
+	}
+
+	id := c.PathParam("id")
+	if id == "" {
+		return NewNotFoundError("Session ID is required", nil)
+	}
+
+	session, err := api.svc.RenameSession(id, body.Name)
+	if err != nil {
+		return NewBadRequestError("Failed to rename session", err)
+	}
 	return c.JSON(http.StatusOK, session)
 }
 
@@ -91,6 +116,60 @@ func (api *agentSessionApi) message(c echo.Context) error {
 		"session":  session,
 		"messages": messages,
 	})
+}
+
+func (api *agentSessionApi) run(c echo.Context) error {
+	var body struct {
+		Content       string                   `json:"content"`
+		Images        []agents.AgentImageInput `json:"images"`
+		AllowWrites   bool                     `json:"allowWrites"`
+		ApprovedTools []string                 `json:"approvedTools"`
+	}
+	if err := c.Bind(&body); err != nil {
+		return NewBadRequestError("Invalid request body", err)
+	}
+
+	id := c.PathParam("id")
+	if id == "" {
+		return NewNotFoundError("Session ID is required", nil)
+	}
+
+	opts := agents.RunOptions{
+		AllowWrites:   body.AllowWrites,
+		ApprovedTools: body.ApprovedTools,
+		Actor:         actorFromContext(c),
+	}
+	input := agents.RunInput{Content: body.Content, Images: body.Images}
+
+	result, err := api.svc.RunSession(c.Request().Context(), id, input, opts)
+	if err != nil {
+		log.Printf("agents: run session %s failed: %v", id, err)
+		return NewBadRequestError("Failed to run agent session: "+err.Error(), map[string]any{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+// actorFromContext extracts the authenticated admin id for audit purposes.
+func actorFromContext(c echo.Context) string {
+	if admin, _ := c.Get(ContextAdminKey).(*models.Admin); admin != nil {
+		return "admin:" + admin.Id
+	}
+	return ""
+}
+
+func (api *agentSessionApi) audit(c echo.Context) error {
+	id := c.PathParam("id")
+	if id == "" {
+		return NewNotFoundError("Session ID is required", nil)
+	}
+	records, err := api.svc.SessionAudit(id)
+	if err != nil {
+		return NewBadRequestError("Failed to load audit trail", err)
+	}
+	return c.JSON(http.StatusOK, records)
 }
 
 func (api *agentSessionApi) tools(c echo.Context) error {

@@ -2,11 +2,12 @@ package agents
 
 import (
 	"errors"
-	"strings"
 	"sort"
+	"strings"
 
 	"github.com/spf13/cast"
 	"github.com/zhenruyan/postgrebase/core"
+	"github.com/zhenruyan/postgrebase/daos"
 	"github.com/zhenruyan/postgrebase/forms"
 	"github.com/zhenruyan/postgrebase/models"
 	"github.com/zhenruyan/postgrebase/models/schema"
@@ -17,17 +18,90 @@ import (
 )
 
 // ToolSpec describes a registered embedded agent tool.
+//
+// Per proposal §8.1, a registry entry carries at least: name, description,
+// input schema, executor, required permissions and audit category. The
+// executor is stored separately in the registry; the remaining control
+// metadata (category/risk/audit/approval) lives here.
 type ToolSpec struct {
 	Name        string         `json:"name"`
 	Description string         `json:"description"`
 	InputSchema map[string]any `json:"inputSchema"`
+
+	// Category is either "read" or "write" (proposal §8.3).
+	Category string `json:"category"`
+	// Risk is one of "low", "medium", "high".
+	Risk string `json:"risk"`
+	// AuditCategory groups the tool for audit logging (e.g. "data", "schema").
+	AuditCategory string `json:"auditCategory"`
+	// RequiresApproval marks write operations that must be explicitly
+	// authorized before execution.
+	RequiresApproval bool `json:"requiresApproval"`
+}
+
+// toolMetadata holds the static control metadata applied to each tool spec.
+type toolMetadata struct {
+	Category         string
+	Risk             string
+	AuditCategory    string
+	RequiresApproval bool
+}
+
+// toolMetadataTable maps tool names to their control metadata (proposal §8.1/§8.3).
+// Read tools are allowed by default within the project boundary; write tools
+// require explicit authorization.
+var toolMetadataTable = map[string]toolMetadata{
+	"data.query":          {Category: "read", Risk: "low", AuditCategory: "data"},
+	"data.get":            {Category: "read", Risk: "low", AuditCategory: "data"},
+	"dataset.preview":     {Category: "read", Risk: "low", AuditCategory: "data"},
+	"data.insert":         {Category: "write", Risk: "medium", AuditCategory: "data", RequiresApproval: true},
+	"data.bulk_insert":    {Category: "write", Risk: "high", AuditCategory: "data", RequiresApproval: true},
+	"data.update":         {Category: "write", Risk: "medium", AuditCategory: "data", RequiresApproval: true},
+	"data.delete":         {Category: "write", Risk: "high", AuditCategory: "data", RequiresApproval: true},
+	"schema.create_table": {Category: "write", Risk: "high", AuditCategory: "schema", RequiresApproval: true},
+	"schema.add_field":    {Category: "write", Risk: "high", AuditCategory: "schema", RequiresApproval: true},
+	"schema.update_field": {Category: "write", Risk: "high", AuditCategory: "schema", RequiresApproval: true},
+	"schema.drop_field":   {Category: "write", Risk: "high", AuditCategory: "schema", RequiresApproval: true},
+	"schema.create_index": {Category: "write", Risk: "high", AuditCategory: "schema", RequiresApproval: true},
+	"schema.set_relation": {Category: "write", Risk: "high", AuditCategory: "schema", RequiresApproval: true},
+}
+
+// applyToolMetadata sets control metadata on a spec from the static table.
+// Unknown tools default to a conservative write/high classification so new
+// tools are never silently auto-approved.
+func applyToolMetadata(spec *ToolSpec) {
+	meta, ok := toolMetadataTable[spec.Name]
+	if !ok {
+		spec.Category = "write"
+		spec.Risk = "high"
+		spec.AuditCategory = "unknown"
+		spec.RequiresApproval = true
+		return
+	}
+	spec.Category = meta.Category
+	spec.Risk = meta.Risk
+	spec.AuditCategory = meta.AuditCategory
+	spec.RequiresApproval = meta.RequiresApproval
 }
 
 // ToolExecutionResult is the normalized result returned by a tool executor.
 type ToolExecutionResult struct {
-	Status  string `json:"status"`
-	Message string `json:"message,omitempty"`
-	Data    any    `json:"data,omitempty"`
+	Status  string     `json:"status"`
+	Message string     `json:"message,omitempty"`
+	Data    any        `json:"data,omitempty"`
+	Chart   *ChartHint `json:"chart,omitempty"`
+}
+
+// ChartHint is a recommended visualization for a query result (proposal §10.1).
+// The frontend uses it to render a chart alongside the raw table; the agent
+// itself does not render charts.
+type ChartHint struct {
+	// Type is one of: table, line, bar, pie, metric.
+	Type string `json:"type"`
+	// XField is the field to use for the category/time axis.
+	XField string `json:"xField,omitempty"`
+	// YFields are the numeric series fields.
+	YFields []string `json:"yFields,omitempty"`
 }
 
 // ToolExecutor executes a tool call.
@@ -108,7 +182,7 @@ func NewToolRegistry() *ToolRegistry {
 					"project":    map[string]any{"type": "string"},
 					"collection": map[string]any{"type": "string"},
 					"rows": map[string]any{
-						"type": "array",
+						"type":  "array",
 						"items": map[string]any{"type": "object"},
 					},
 				},
@@ -229,7 +303,7 @@ func NewToolRegistry() *ToolRegistry {
 					"collection":    map[string]any{"type": "string"},
 					"field":         map[string]any{"type": "object"},
 					"relation":      map[string]any{"type": "string"},
-					"cascadeDelete":  map[string]any{"type": "boolean"},
+					"cascadeDelete": map[string]any{"type": "boolean"},
 					"minSelect":     map[string]any{"type": "integer"},
 					"maxSelect":     map[string]any{"type": "integer"},
 					"displayFields": map[string]any{"type": "array"},
@@ -244,6 +318,7 @@ func NewToolRegistry() *ToolRegistry {
 		execs: map[string]ToolExecutor{},
 	}
 	for _, tool := range tools {
+		applyToolMetadata(&tool)
 		reg.tools[tool.Name] = tool
 	}
 
@@ -291,6 +366,15 @@ func (r *ToolRegistry) SetExecutor(name string, exec ToolExecutor) {
 		r.execs = map[string]ToolExecutor{}
 	}
 	r.execs[name] = exec
+}
+
+// executor returns the executor registered for a tool, if any.
+func (r *ToolRegistry) executor(name string) (ToolExecutor, bool) {
+	if r == nil {
+		return nil, false
+	}
+	exec, ok := r.execs[name]
+	return exec, ok
 }
 
 // Execute runs a registered tool.
@@ -353,8 +437,54 @@ func NewQueryExecutor(app core.App) ToolExecutor {
 			Status:  "ok",
 			Message: "query executed",
 			Data:    result,
+			Chart:   recommendChart(collection),
 		}, nil
 	}
+}
+
+// recommendChart inspects a collection schema and proposes a default
+// visualization for query results (proposal §10.1). It never guarantees a
+// chart is meaningful — it only provides a sensible default the UI can switch.
+func recommendChart(collection *models.Collection) *ChartHint {
+	if collection == nil {
+		return &ChartHint{Type: "table"}
+	}
+
+	var dateField, categoryField string
+	var numericFields []string
+
+	for _, f := range collection.Schema.Fields() {
+		switch f.Type {
+		case schema.FieldTypeNumber:
+			numericFields = append(numericFields, f.Name)
+		case schema.FieldTypeDate:
+			if dateField == "" {
+				dateField = f.Name
+			}
+		case schema.FieldTypeSelect, schema.FieldTypeText:
+			if categoryField == "" {
+				categoryField = f.Name
+			}
+		}
+	}
+
+	if len(numericFields) == 0 {
+		return &ChartHint{Type: "table"}
+	}
+
+	// time series => line chart
+	if dateField != "" {
+		return &ChartHint{Type: "line", XField: dateField, YFields: numericFields}
+	}
+	// categorical => bar chart
+	if categoryField != "" {
+		return &ChartHint{Type: "bar", XField: categoryField, YFields: numericFields}
+	}
+	// single numeric column => metric card
+	if len(numericFields) == 1 {
+		return &ChartHint{Type: "metric", YFields: numericFields}
+	}
+	return &ChartHint{Type: "table"}
 }
 
 // NewCreateTableExecutor creates a project-scoped collection creation executor.
@@ -1127,10 +1257,10 @@ func NewSetRelationExecutor(app core.App) ToolExecutor {
 		}
 
 		nextField := &schema.SchemaField{
-			System:   false,
-			Id:       fieldID,
-			Name:     fieldName,
-			Type:     schema.FieldTypeRelation,
+			System: false,
+			Id:     fieldID,
+			Name:   fieldName,
+			Type:   schema.FieldTypeRelation,
 			Options: &schema.RelationOptions{
 				CollectionId:  relCollection.Id,
 				CascadeDelete: cast.ToBool(args["cascadeDelete"]),

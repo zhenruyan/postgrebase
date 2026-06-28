@@ -2,6 +2,7 @@ package apis
 
 import (
 	"net/http"
+	"strings"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/labstack/echo/v5"
@@ -53,6 +54,11 @@ func (api *settingsApi) set(c echo.Context) error {
 	if err := c.Bind(form); err != nil {
 		return NewBadRequestError("An error occurred while loading the submitted data.", err)
 	}
+
+	// Preserve redacted agent provider API keys: the admin UI sends masked
+	// secrets that are stripped client-side, so an empty incoming key for an
+	// existing provider must keep the previously stored value.
+	restoreAgentProviderSecrets(api.app.Settings(), form.Settings)
 
 	event := new(core.SettingsUpdateEvent)
 	event.HttpContext = c
@@ -174,4 +180,32 @@ func (api *settingsApi) generateAppleClientSecret(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"secret": secret,
 	})
+}
+
+// restoreAgentProviderSecrets copies non-empty API keys from the old settings
+// into incoming providers (matched by id) whenever the incoming key is empty or
+// still carries the redaction mask (the admin UI may echo back the masked
+// value instead of stripping it, which would otherwise overwrite the real key).
+func restoreAgentProviderSecrets(old *settings.Settings, next *settings.Settings) {
+	if old == nil || next == nil {
+		return
+	}
+	existing := map[string]string{}
+	for _, p := range old.Agents.Providers {
+		if p.Id != "" && p.ApiKey != "" {
+			existing[p.Id] = p.ApiKey
+		}
+	}
+	for i := range next.Agents.Providers {
+		key := strings.TrimSpace(next.Agents.Providers[i].ApiKey)
+		if key == "" || key == settings.SecretMask {
+			if old, ok := existing[next.Agents.Providers[i].Id]; ok {
+				next.Agents.Providers[i].ApiKey = old
+			} else if key == settings.SecretMask {
+				// no previous value to restore: drop the mask so it is not
+				// persisted as a literal api key
+				next.Agents.Providers[i].ApiKey = ""
+			}
+		}
+	}
 }

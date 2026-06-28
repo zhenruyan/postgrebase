@@ -50,6 +50,9 @@ type BaseApp struct {
 	redisDsn         string
 	encryptionEnv    string
 	disableVector    bool
+	clusterPeers     []string
+	nodeAddr         string
+	nodeID           string
 	dataMaxOpenConns int
 	dataMaxIdleConns int
 	logsMaxOpenConns int
@@ -188,6 +191,9 @@ type BaseAppConfig struct {
 	DataDsn          string
 	RedisDsn         string
 	DisableVector    bool
+	ClusterPeers     []string
+	NodeAddr         string
+	NodeID           string
 }
 
 // NewBaseApp creates and returns a new BaseApp instance
@@ -202,6 +208,9 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 		isDebug:             config.IsDebug,
 		encryptionEnv:       config.EncryptionEnv,
 		disableVector:       config.DisableVector,
+		clusterPeers:        config.ClusterPeers,
+		nodeAddr:            config.NodeAddr,
+		nodeID:              config.NodeID,
 		dataMaxOpenConns:    config.DataMaxOpenConns,
 		dataMaxIdleConns:    config.DataMaxIdleConns,
 		logsMaxOpenConns:    config.LogsMaxOpenConns,
@@ -370,6 +379,12 @@ func (app *BaseApp) Bootstrap() error {
 
 	// we don't check for an error because the db migrations may have not been executed yet
 	app.RefreshSettings()
+
+	// propagate the resolved embedding model into the vector runtime now that
+	// settings have been loaded
+	if app.vectorManager != nil && app.settings != nil {
+		app.vectorManager.UpdateEmbeddingModel(app.settings.Agents.EmbeddingModel())
+	}
 
 	// cleanup the pb_data temp directory (if any)
 	os.RemoveAll(filepath.Join(app.DataDir(), LocalTempDirName))
@@ -1130,11 +1145,18 @@ func (app *BaseApp) initRedis() error {
 }
 
 func (app *BaseApp) initVector() error {
+	embeddingModel := ""
+	if app.settings != nil {
+		embeddingModel = app.settings.Agents.EmbeddingModel()
+	}
+
 	app.vectorManager = vector.NewManager(vector.Config{
 		DataDsn:        app.dataDsn,
 		RedisDsn:       app.redisDsn,
 		DataDir:        app.dataDir,
-		EmbeddingModel: app.settings.Agents.EmbeddingModel(),
+		NodeID:         app.nodeID,
+		Peers:          app.clusterPeers,
+		EmbeddingModel: embeddingModel,
 	})
 	app.vectorManager.SetEngine(vector.NewDBEngine(app.Dao(), "vector_runtime"))
 	app.vectorManager.SetTaskStore(vector.NewDBTaskStore(app.Dao()))
@@ -1142,6 +1164,24 @@ func (app *BaseApp) initVector() error {
 	if err := app.vectorManager.Load(); err != nil {
 		return err
 	}
+
+	// wire the cluster coordinator when running in multi-instance mode
+	selfAddr := app.nodeAddr
+	if len(app.clusterPeers) > 0 && selfAddr != "" {
+		coordinator := vector.NewCoordinator(app.vectorManager, vector.CoordinatorConfig{
+			SelfAddr:  selfAddr,
+			NodeID:    app.vectorManager.Status().NodeID,
+			Peers:     app.clusterPeers,
+			Transport: vector.NewHTTPTransport(nil, ""),
+		})
+		app.vectorManager.AttachCoordinator(coordinator)
+		coordinator.Start()
+		app.OnTerminate().Add(func(e *TerminateEvent) error {
+			coordinator.Stop()
+			return nil
+		})
+	}
+
 	app.vectorManager.Start()
 	app.OnTerminate().Add(func(e *TerminateEvent) error {
 		if app.vectorManager != nil {

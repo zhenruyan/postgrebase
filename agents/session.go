@@ -20,12 +20,23 @@ type Session struct {
 	Created     types.DateTime `json:"created"`
 	Updated     types.DateTime `json:"updated"`
 	LastMessage string         `json:"lastMessage"`
+	// NameLocked is true when the name was explicitly set by the user (on
+	// create or via rename) and must not be auto-generated (proposal §9.2).
+	NameLocked bool `json:"-"`
+}
+
+// SessionImage is an image attachment carried by a user message (proposal §6).
+type SessionImage struct {
+	MimeType string `json:"mimeType"`
+	// Data is the base64-encoded image payload.
+	Data string `json:"data"`
 }
 
 // SessionMessage represents an in-memory conversation item.
 type SessionMessage struct {
 	Role    string         `json:"role"`
 	Content string         `json:"content"`
+	Images  []SessionImage `json:"images,omitempty"`
 	Created types.DateTime `json:"created"`
 }
 
@@ -61,6 +72,9 @@ func (s *SessionStore) Create(project, name, provider, model string) *Session {
 	}
 	if session.Name == "" {
 		session.Name = "session-" + session.Id[len(session.Id)-6:]
+	} else {
+		// A user-provided name is locked and never auto-generated.
+		session.NameLocked = true
 	}
 
 	s.sessions[session.Id] = session
@@ -115,8 +129,13 @@ func (s *SessionStore) Messages(id string) ([]SessionMessage, error) {
 	return result, nil
 }
 
-// AddMessage appends a message to a session.
+// AddMessage appends a text message to a session.
 func (s *SessionStore) AddMessage(id, role, content string) (*Session, []SessionMessage, error) {
+	return s.AddMessageWithImages(id, role, content, nil)
+}
+
+// AddMessageWithImages appends a message that may carry image attachments.
+func (s *SessionStore) AddMessageWithImages(id, role, content string, images []SessionImage) (*Session, []SessionMessage, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -128,6 +147,7 @@ func (s *SessionStore) AddMessage(id, role, content string) (*Session, []Session
 	msg := SessionMessage{
 		Role:    role,
 		Content: strings.TrimSpace(content),
+		Images:  images,
 		Created: types.NowDateTime(),
 	}
 	s.messages[id] = append(s.messages[id], msg)
@@ -136,4 +156,73 @@ func (s *SessionStore) AddMessage(id, role, content string) (*Session, []Session
 	cp := *session
 	msgs := append([]SessionMessage(nil), s.messages[id]...)
 	return &cp, msgs, nil
+}
+
+// isPlaceholderName reports whether a session name is still the auto-generated
+// placeholder (i.e. has not been named by the user or LLM yet).
+func isPlaceholderName(name string) bool {
+	return strings.HasPrefix(name, "session-")
+}
+
+// NeedsAutoName reports whether the session should receive an LLM-generated
+// name: the name is not user-locked, is still a placeholder, and the session
+// already has at least one user message (proposal §9.2).
+func (s *SessionStore) NeedsAutoName(id string) bool {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	session, ok := s.sessions[id]
+	if !ok || session.NameLocked || !isPlaceholderName(session.Name) {
+		return false
+	}
+	for _, m := range s.messages[id] {
+		if m.Role == "user" {
+			return true
+		}
+	}
+	return false
+}
+
+// SetGeneratedName sets an LLM-generated name once. It is a no-op if the name
+// is already locked or no longer a placeholder, guaranteeing single generation.
+func (s *SessionStore) SetGeneratedName(id, name string) (*Session, error) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	session, ok := s.sessions[id]
+	if !ok {
+		return nil, errors.New("agent session not found")
+	}
+	if session.NameLocked || !isPlaceholderName(session.Name) {
+		cp := *session
+		return &cp, nil
+	}
+	name = strings.TrimSpace(name)
+	if name != "" {
+		session.Name = name
+		session.Updated = types.NowDateTime()
+	}
+	cp := *session
+	return &cp, nil
+}
+
+// Rename explicitly sets a user-provided name and locks it against future
+// auto-generation (proposal §9.2 "除非用户显式重命名").
+func (s *SessionStore) Rename(id, name string) (*Session, error) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	session, ok := s.sessions[id]
+	if !ok {
+		return nil, errors.New("agent session not found")
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+	session.Name = name
+	session.NameLocked = true
+	session.Updated = types.NowDateTime()
+	cp := *session
+	return &cp, nil
 }

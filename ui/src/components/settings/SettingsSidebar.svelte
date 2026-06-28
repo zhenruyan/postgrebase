@@ -100,5 +100,16 @@
             <i class="ri-key-2-line" />
             <span class="txt">{$t("MCP Tokens")}</span>
         </a>
+
+        <div class="sidebar-title">{$t("AI")}</div>
+        <a
+            href="/settings/agents"
+            class="sidebar-list-item"
+            use:active={{ path: "/settings/agents/?.*" }}
+            use:link
+        >
+            <i class="ri-robot-line" />
+            <span class="txt">{$t("AI Agents")}</span>
+        </a>
     </div>
 </aside>

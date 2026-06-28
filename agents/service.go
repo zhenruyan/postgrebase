@@ -2,15 +2,30 @@ package agents
 
 import (
 	"errors"
+	"os"
+	"strings"
 
+	// Registers the vibecoding agent builder + provider resolution hooks.
+	_ "github.com/startvibecoding/vibecoding/bootstrap"
 	"github.com/zhenruyan/postgrebase/core"
+	"github.com/zhenruyan/postgrebase/models"
 )
+
+// resolveApiKey resolves an api key value, supporting the "env:NAME" form to
+// read the key from the process environment.
+func resolveApiKey(value string) string {
+	value = strings.TrimSpace(value)
+	if strings.HasPrefix(value, "env:") {
+		return strings.TrimSpace(os.Getenv(strings.TrimPrefix(value, "env:")))
+	}
+	return value
+}
 
 // Service exposes embedded agent runtime views derived from app settings.
 type Service struct {
 	app      core.App
 	registry *Registry
-	sessions *SessionStore
+	sessions sessionBackend
 	tools    *ToolRegistry
 }
 
@@ -19,7 +34,7 @@ func NewService(app core.App) *Service {
 	svc := &Service{
 		app:      app,
 		registry: NewRegistry(app.Settings().Agents),
-		sessions: NewSessionStore(),
+		sessions: NewDBSessionStore(app),
 		tools:    NewToolRegistry(),
 	}
 
@@ -87,6 +102,22 @@ func (s *Service) GetSession(id string) (*Session, error) {
 		return nil, errors.New("agent sessions are not available")
 	}
 	return s.sessions.Get(id)
+}
+
+// RenameSession explicitly renames a session and locks the name (proposal §9.2).
+func (s *Service) RenameSession(id, name string) (*Session, error) {
+	if s == nil || s.sessions == nil {
+		return nil, errors.New("agent sessions are not available")
+	}
+	return s.sessions.Rename(id, name)
+}
+
+// SessionAudit returns the persisted audit trail for a session (proposal §8.2/§8.4).
+func (s *Service) SessionAudit(id string) ([]*models.AgentAuditRecord, error) {
+	if s == nil || s.app == nil {
+		return nil, errors.New("agent audit is not available")
+	}
+	return s.app.Dao().FindAgentAuditBySession(id)
 }
 
 // AppendMessage adds a message to a session.

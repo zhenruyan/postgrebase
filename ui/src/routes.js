@@ -14,7 +14,10 @@ import PageExportCollections from "@/components/settings/PageExportCollections.s
 import PageImportCollections from "@/components/settings/PageImportCollections.svelte";
 import PageBackups from "@/components/settings/PageBackups.svelte";
 import PageMCPTokens from "@/components/settings/PageMCPTokens.svelte";
+import PageAgentSettings from "@/components/settings/PageAgentSettings.svelte";
+import PageMonitor from "@/components/monitor/PageMonitor.svelte";
 import PageProjects from "@/components/projects/PageProjects.svelte";
+import PageAgents from "@/components/agents/PageAgents.svelte";
 
 const baseConditions = [
     async (details) => {
@@ -113,8 +116,26 @@ const routes = {
         userData: { showAppSidebar: true },
     }),
 
+    "/settings/agents": wrap({
+        component: PageAgentSettings,
+        conditions: baseConditions.concat([(_) => ApiClient.authStore.isValid]),
+        userData: { showAppSidebar: true },
+    }),
+
+    "/monitor": wrap({
+        component: PageMonitor,
+        conditions: baseConditions.concat([(_) => ApiClient.authStore.isValid]),
+        userData: { showAppSidebar: true },
+    }),
+
     "/projects": wrap({
         component: PageProjects,
+        conditions: baseConditions.concat([(_) => ApiClient.authStore.isValid]),
+        userData: { showAppSidebar: true },
+    }),
+
+    "/agents": wrap({
+        component: PageAgents,
         conditions: baseConditions.concat([(_) => ApiClient.authStore.isValid]),
         userData: { showAppSidebar: true },
     }),

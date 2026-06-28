@@ -9,6 +9,7 @@ import (
 	"log"
 	"sync"
 
+	"github.com/zhenruyan/postgrebase/agents"
 	"github.com/zhenruyan/postgrebase/core"
 )
 
@@ -118,11 +119,14 @@ type ResourceContent struct {
 
 // Server represents the MCP server
 type Server struct {
-	app       core.App
-	tools     map[string]ToolHandler
-	resources map[string]ResourceHandler
-	mu        sync.RWMutex
-	version   string
+	app            core.App
+	tools          map[string]ToolHandler
+	resources      map[string]ResourceHandler
+	mu             sync.RWMutex
+	version        string
+	agents         *agents.Service
+	agentToolDefs  []Tool
+	agentToolRoute map[string]string
 }
 
 // ToolHandler is a function that handles a tool call
@@ -134,14 +138,19 @@ type ResourceHandler func(uri string) (*ResourceReadResult, error)
 // NewServer creates a new MCP server instance
 func NewServer(app core.App, version string) *Server {
 	s := &Server{
-		app:       app,
-		tools:     make(map[string]ToolHandler),
-		resources: make(map[string]ResourceHandler),
-		version:   version,
+		app:            app,
+		tools:          make(map[string]ToolHandler),
+		resources:      make(map[string]ResourceHandler),
+		version:        version,
+		agents:         agents.NewService(app),
+		agentToolRoute: make(map[string]string),
 	}
 
 	// Register tools
 	s.registerTools()
+
+	// Register the shared, project-scoped agent tool layer (proposal §8.4)
+	s.registerAgentTools()
 
 	// Register resources
 	s.registerResources()
@@ -358,6 +367,8 @@ func (s *Server) handleToolsList(req *JSONRPCRequest) *JSONRPCResponse {
 			},
 		},
 	}
+
+	tools = append(tools, s.agentToolDefs...)
 
 	return s.successResponse(req.ID, map[string]interface{}{
 		"tools": tools,

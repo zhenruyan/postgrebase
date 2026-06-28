@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/zhenruyan/postgrebase/daos"
 )
@@ -33,7 +34,7 @@ func (e *DBEngine) Load() (Snapshot, bool, error) {
 
 	param, err := e.dao.FindParamByKey(e.key)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) || isMissingTableErr(err) {
 			return Snapshot{}, false, nil
 		}
 		return Snapshot{}, false, err
@@ -60,3 +61,23 @@ func (e *DBEngine) Save(snapshot Snapshot) error {
 }
 
 var _ Engine = (*DBEngine)(nil)
+
+// isMissingTableErr reports whether the error is caused by a not-yet-migrated
+// table. On first boot the vector runtime is initialized before the database
+// migrations run, so the backing tables may not exist yet.
+func isMissingTableErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(msg, "no such table"): // sqlite
+		return true
+	case strings.Contains(msg, "does not exist"): // postgres
+		return true
+	case strings.Contains(msg, "doesn't exist"): // mysql
+		return true
+	default:
+		return false
+	}
+}

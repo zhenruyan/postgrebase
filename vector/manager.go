@@ -137,14 +137,15 @@ func (m *Manager) Replayable() Operation {
 // steps. For now it provides topology detection, status reporting and
 // lifecycle hooks for the rest of the application.
 type Manager struct {
-	mu     sync.RWMutex
-	config Config
-	status Status
-	tasks  []EmbeddingTask
-	entries []*models.VectorEntry
-	engine Engine
-	store  TaskStore
-	entryStore EntryStore
+	mu          sync.RWMutex
+	config      Config
+	status      Status
+	tasks       []EmbeddingTask
+	entries     []*models.VectorEntry
+	engine      Engine
+	store       TaskStore
+	entryStore  EntryStore
+	coordinator *Coordinator
 }
 
 // NewManager creates a new vector manager.
@@ -171,11 +172,11 @@ func NewManager(config Config) *Manager {
 	}
 
 	return &Manager{
-		config: config,
-		status: status,
-		tasks:  make([]EmbeddingTask, 0),
+		config:  config,
+		status:  status,
+		tasks:   make([]EmbeddingTask, 0),
 		entries: make([]*models.VectorEntry, 0),
-		engine: NewFileEngine(config.DataDir),
+		engine:  NewFileEngine(config.DataDir),
 	}
 }
 
@@ -499,20 +500,35 @@ func (m *Manager) DeleteEntry(entry *models.VectorEntry) error {
 	return m.persistEntriesLocked()
 }
 
-// EnqueueEmbedding records a new embedding task and returns its id.
+// EnqueueEmbedding records a new embedding task and returns its id. When a
+// cluster coordinator is attached the enqueue is proposed through it so the
+// task queue stays consistent across instances.
 func (m *Manager) EnqueueEmbedding(task EmbeddingTask) string {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	if task.Id == "" {
 		task.Id = newNodeID()
 	}
 	if task.QueuedAt.IsZero() {
 		task.QueuedAt = time.Now().UTC()
 	}
+
+	m.mu.RLock()
+	coordinator := m.coordinator
 	if task.Model == "" {
 		task.Model = m.status.EmbeddingModel
 	}
+	m.mu.RUnlock()
+
+	if coordinator != nil && coordinator.HasPeers() {
+		if _, err := coordinator.Propose(Operation{
+			Type: OperationTypeEnqueueTask,
+			Task: &task,
+		}); err == nil {
+			return task.Id
+		}
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	m.tasks = append(m.tasks, task)
 	m.status.PendingEmbeddings = len(m.tasks)
@@ -587,6 +603,33 @@ func (m *Manager) persistEntriesLocked() error {
 		return nil
 	}
 	return m.entryStore.Replace(append([]*models.VectorEntry(nil), m.entries...))
+}
+
+// AttachCoordinator wires a cluster coordinator to the manager so write
+// operations can be replicated across instances.
+func (m *Manager) AttachCoordinator(coordinator *Coordinator) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.coordinator = coordinator
+}
+
+// Coordinator returns the attached cluster coordinator (may be nil).
+func (m *Manager) Coordinator() *Coordinator {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.coordinator
+}
+
+// IsLeader reports whether this node may execute coordinated write tasks. In
+// standalone mode it always returns true.
+func (m *Manager) IsLeader() bool {
+	m.mu.RLock()
+	coordinator := m.coordinator
+	m.mu.RUnlock()
+	if coordinator == nil {
+		return true
+	}
+	return coordinator.IsLeader()
 }
 
 // SetEngine replaces the current storage backend.

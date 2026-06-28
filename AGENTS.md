@@ -61,7 +61,17 @@ postgrebase/
 ├── migrations/         # Database migrations (driver-aware SQL)
 │   ├── 1640988000_init.go              # Core tables (admins, collections, params, externalAuths)
 │   ├── 1691747914_add_cache_columns.go # Cache columns migration
-│   └── 1704067200_mcp_tokens.go        # MCP tokens collection
+│   ├── 1704067200_mcp_tokens.go        # MCP tokens collection
+│   └── 1730000000_agent_runtime.go     # Agent sessions/messages/audit/project-config tables
+├── agents/             # Embedded agent platform (orchestration over controlled tools)
+│   ├── service.go      # Service facade (runtime, sessions, tools, run)
+│   ├── runtime.go      # RunSession: vibecoding agent loop, naming, audit
+│   ├── toolkit.go      # ToolRegistry + schema.*/data.* executors + ChartHint
+│   ├── sdk_tools.go    # agent.ExternalTool adapter (project scope + write authz)
+│   ├── authz.go        # RunOptions, write-approval policy, audit sink
+│   ├── project_config.go # per-project overrides (§9.1)
+│   ├── files.go        # record file ref → image content block (§6.2)
+│   └── store_db.go     # DB-backed session/message store
 ├── cmd/                # CLI commands
 │   ├── serve.go        # `serve` command
 │   ├── admin.go        # `admin create` command
@@ -179,6 +189,55 @@ The MCP server is hand-written (no external SDK) as a JSON-RPC 2.0 implementatio
 - **Token format:** `mcp_` + 48 random characters = 52 chars total. Full value shown only once at creation; list API masks to first 8 chars.
 - **Admin UI:** `ui/src/components/settings/PageMCPTokens.svelte` — accessible at `/settings/mcp-tokens`.
 
+## Embedded Agent Platform
+
+AI-native orchestration layer that drives conversations and executes controlled, project-scoped data/schema tools. Design doc: `docs/proposal/embedded-agent-platform-proposal.md`.
+
+### Agent SDK
+
+- Uses `github.com/startvibecoding/vibecoding/agent` as the outer agent runtime (provider abstraction, streaming, tool-call loop). It is wired via a local `replace` in `go.mod` and vendored.
+- The vibecoding repo was extended (per proposal §5.1.1) with public external-tool support: `agent.ExternalTool`, `Builder.WithExternalTools(...)`, `Builder.WithoutBuiltinTools()`, and a public `bootstrap` package that registers the internal builder/provider. PostgreBase blank-imports `github.com/startvibecoding/vibecoding/bootstrap` (in `agents/service.go`).
+- The agent runs with `WithoutBuiltinTools()` so it may ONLY use PostgreBase's controlled tools — never bash/file/SQL.
+
+### Structure (`agents/`)
+
+- `service.go` — `Service` facade (runtime view, sessions, tools, run). DB-backed session store by default.
+- `runtime.go` — `RunSession` drives the vibecoding agent (provider/model resolution, tool loop, audit persistence, §9.2 auto-naming). System prompt fixes the project boundary and forbids raw SQL.
+- `toolkit.go` — `ToolRegistry` + executors for `schema.*` / `data.*` / `dataset.preview`. Tool metadata (`category`/`risk`/`auditCategory`/`requiresApproval`, §8.1) lives in `toolMetadataTable`. Query results carry a `ChartHint` recommendation (§10.1).
+- `sdk_tools.go` — adapts executors to `agent.ExternalTool`; enforces project scope + write authorization (§8.3) and writes audit entries.
+- `authz.go` — `RunOptions{AllowWrites, ApprovedTools, Actor}`, `authorize()` (read allowed by default, writes need approval), `auditSink`.
+- `project_config.go` — per-project overrides (§9.1): `resolvePolicy()` overlays project config onto global settings. Tri-state strings `inherit|allow|deny` and `inherit|manual|auto`.
+- `files.go` — `resolveImageInputs` resolves record file references to image content blocks (§6.2), project-scoped + path-traversal guarded.
+- `store_db.go` — `dbSessionStore` (sessions/messages persistence); `session.go` keeps the in-memory `SessionStore` (tests).
+- `llm.go` does NOT exist — there is no hand-rolled LLM client; always go through the vibecoding SDK.
+
+### Persistence & config
+
+- Tables `_pb_agent_sessions_`, `_pb_agent_messages_`, `_pb_agent_audit_`, `_pb_agent_project_configs_` created by migration `1730000000_agent_runtime.go` (driver-aware). DAO in `daos/agent.go`, models in `models/agent.go`.
+- Global provider/model config lives in `settings.AgentConfig` (`models/settings/settings.go`); provider `apiKey` is redacted via `RedactClone()` and preserved on re-save by `restoreAgentProviderSecrets` in `apis/settings.go`. `apiKey` supports `env:VAR` form.
+
+### REST API (`apis/agents.go`, `apis/agents_sessions.go`)
+
+- `GET /api/agents`, `/api/agents/providers`, `/api/agents/models`.
+- `GET/PUT /api/agents/projects/:project/config`.
+- `GET/POST /api/agents/sessions`, `GET /api/agents/sessions/:id`, `PATCH /api/agents/sessions/:id` (rename), `POST /api/agents/sessions/:id/run` (body: `content`, `images`, `allowWrites`, `approvedTools`), `GET /api/agents/sessions/:id/audit`, `GET/POST /api/agents/tools[/:name]`. All require admin auth.
+
+### Single business kernel (§4.3 / §8.4)
+
+- Web API, the agent runtime, and MCP all call the SAME executors. MCP exposes them via `agent_*` tools (`mcp/tools.go:registerAgentTools`, dots → underscores). Change behavior in `agents/toolkit.go` executors only.
+
+### Admin UI
+
+- Workspace: `ui/src/components/agents/PageAgents.svelte` at `/agents` (sidebar entry in `App.svelte`). Chart preview: `AgentChartPreview.svelte` (uses `chart.js`, already a dependency — echarts is not installed).
+- Provider/model config: `ui/src/components/settings/PageAgentSettings.svelte` at `/settings/agents`.
+
+### Adding a New Agent Tool
+
+1. Add the `ToolSpec` (name, description, input schema) in `agents/toolkit.go:NewToolRegistry`.
+2. Add an entry to `toolMetadataTable` (category/risk/auditCategory/requiresApproval) — unknown tools default to write/high/requiresApproval.
+3. Implement the executor `New<Name>Executor(app)` and register it in `agents/service.go:RegisterExecutors`.
+4. It is automatically exposed to the agent runtime, the REST tool endpoint, and MCP (`agent_*`).
+
 ## Coding Conventions
 
 ### Adding a New Migration
@@ -229,6 +288,6 @@ The MCP server is hand-written (no external SDK) as a JSON-RPC 2.0 implementatio
 - **Linter:** `golangci-lint` (config in `golangci.yml`).
 - **CI/CD:** GitHub Actions in `.github/workflows/` (Build Check and GoReleaser).
 - **Versioning:** Version is set via `ldflags` in `.goreleaser.yaml`.
-- **Vendor directory:** `/vendor/` must not be deleted. All dependencies are vendored.
-- **Testing:** `go test ./tools/... ./models/... ./daos/...` — tests use `modernc.org/sqlite` (pure Go).
+- **Vendor directory:** `/vendor/` must not be deleted. All dependencies are vendored (including the `replace`-d `github.com/startvibecoding/vibecoding`).
+- **Testing:** `go test ./tools/... ./models/... ./daos/... ./agents/...` — tests use `modernc.org/sqlite` (pure Go). The `agents` tests bootstrap a real SQLite app + run migrations.
 - **Static analysis:** `go vet ./...` should pass with no warnings.

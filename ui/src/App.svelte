@@ -123,6 +123,20 @@
                 </a>
 
                 <a
+                    href="/agents"
+                    class="menu-item"
+                    aria-label="AI Agents"
+                    use:link
+                    use:active={{ path: "/agents/?.*", className: "current-route" }}
+                    use:tooltip={{ text: $t("AI Agents"), position: "right" }}
+                >
+                    <div>
+                        <div><i class="ri-robot-line" /></div>
+                        <p>{$t("AI Agents")}</p>
+                    </div>
+                </a>
+
+                <a
                     href="/settings"
                     class="menu-item"
                     aria-label="Settings"
@@ -133,6 +147,20 @@
                     <div>
                         <div><i class="ri-tools-line" /></div>
                         <p>{$t("Settings")}</p>
+                    </div>
+                </a>
+
+                <a
+                    href="/monitor"
+                    class="menu-item"
+                    aria-label="Monitor"
+                    use:link
+                    use:active={{ path: "/monitor/?.*", className: "current-route" }}
+                    use:tooltip={{ text: $t("Monitor"), position: "right" }}
+                >
+                    <div>
+                        <div><i class="ri-dashboard-3-line" /></div>
+                        <p>{$t("Monitor")}</p>
                     </div>
                 </a>
             </nav>

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cast"
 	"github.com/zhenruyan/postgrebase/models"
@@ -397,4 +398,49 @@ func (s *Server) toolSearchRecords(args map[string]interface{}) (*ToolCallResult
 			},
 		},
 	}, nil
+}
+
+// registerAgentTools exposes the shared, project-scoped agent tool layer
+// (schema.* / data.* / dataset.*) over MCP, reusing the exact same executors
+// as the embedded agent runtime and the REST API (proposal §4.3 single
+// business kernel, §8.4 reuse to MCP). Tool names are namespaced with an
+// "agent_" prefix and dots are replaced with underscores for MCP compatibility.
+func (s *Server) registerAgentTools() {
+	if s.agents == nil {
+		return
+	}
+	for _, spec := range s.agents.Tools() {
+		mcpName := "agent_" + strings.ReplaceAll(spec.Name, ".", "_")
+		s.agentToolRoute[mcpName] = spec.Name
+		s.tools[mcpName] = s.makeAgentToolHandler(spec.Name)
+
+		description := spec.Description
+		if spec.Category == "write" {
+			description += " [write]"
+		}
+		s.agentToolDefs = append(s.agentToolDefs, Tool{
+			Name:        mcpName,
+			Description: description + " (project-scoped; requires 'project')",
+			InputSchema: spec.InputSchema,
+		})
+	}
+}
+
+// makeAgentToolHandler routes an MCP tool call to the shared agent executor.
+func (s *Server) makeAgentToolHandler(dottedName string) ToolHandler {
+	return func(args map[string]interface{}) (*ToolCallResult, error) {
+		result, err := s.agents.ExecuteTool(dottedName, args)
+		if err != nil {
+			return nil, err
+		}
+		data, _ := json.MarshalIndent(result, "", "  ")
+		return &ToolCallResult{
+			Content: []Content{
+				{
+					Type: "text",
+					Text: string(data),
+				},
+			},
+		}, nil
+	}
 }

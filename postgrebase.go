@@ -37,6 +37,9 @@ type PostgreBase struct {
 	dataDataFlag      string
 	redisFlag         string
 	encryptionEnvFlag string
+	peersFlag         []string
+	nodeAddrFlag      string
+	nodeIDFlag        string
 	hideStartBanner   bool
 
 	// RootCmd is the main console command
@@ -52,6 +55,9 @@ type Config struct {
 	RedisDsn             string //redis://<user>:<pass>@localhost:6379/<db>
 	DefaultEncryptionEnv string
 	DisableVector        bool
+	ClusterPeers         []string
+	NodeAddr             string
+	NodeID               string
 
 	// hide the default console server info on app startup
 	HideStartBanner bool
@@ -136,6 +142,9 @@ func NewWithConfig(config Config) *PostgreBase {
 		EncryptionEnv:    pb.encryptionEnvFlag,
 		IsDebug:          pb.debugFlag,
 		DisableVector:    config.DisableVector,
+		ClusterPeers:     pb.peersFlag,
+		NodeAddr:         pb.nodeAddrFlag,
+		NodeID:           pb.nodeIDFlag,
 		DataMaxOpenConns: config.DataMaxOpenConns,
 		DataMaxIdleConns: config.DataMaxIdleConns,
 		LogsMaxOpenConns: config.LogsMaxOpenConns,
@@ -237,6 +246,27 @@ func (pb *PostgreBase) eagerParseFlags(config *Config) error {
 		"debug",
 		config.DefaultDebug,
 		"enable debug mode, aka. showing more detailed logs",
+	)
+
+	pb.RootCmd.PersistentFlags().StringSliceVar(
+		&pb.peersFlag,
+		"peers",
+		config.ClusterPeers,
+		"comma separated list of peer node addresses for the vector Raft cluster\n(eg. http://10.0.0.2:8090,http://10.0.0.3:8090). When set the node joins cluster mode.",
+	)
+
+	pb.RootCmd.PersistentFlags().StringVar(
+		&pb.nodeAddrFlag,
+		"node-addr",
+		config.NodeAddr,
+		"this node's advertised address used by cluster peers (eg. http://10.0.0.1:8090)",
+	)
+
+	pb.RootCmd.PersistentFlags().StringVar(
+		&pb.nodeIDFlag,
+		"node-id",
+		config.NodeID,
+		"stable node identifier for the cluster (default auto-generated)",
 	)
 
 	return pb.RootCmd.ParseFlags(os.Args[1:])

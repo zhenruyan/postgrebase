@@ -36,6 +36,9 @@ func (s *DBTaskStore) Load() ([]EmbeddingTask, error) {
 	if err := s.dao.ModelQuery(&models.VectorTask{}).
 		OrderBy("created ASC").
 		All(&tasks); err != nil {
+		if isMissingTableErr(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -99,6 +102,9 @@ func (s *DBEntryStore) Load() ([]*models.VectorEntry, error) {
 	if err := s.dao.ModelQuery(&models.VectorEntry{}).
 		OrderBy("created ASC").
 		All(&entries); err != nil {
+		if isMissingTableErr(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return entries, nil

@@ -227,6 +227,88 @@ func TestSettingsMerge(t *testing.T) {
 	}
 }
 
+func TestAgentProviderVendorIsFreeForm(t *testing.T) {
+	cfg := settings.AgentProviderConfig{
+		Id:      "gitee-main",
+		Vendor:  "gitee",
+		Api:     "openai-chat",
+		BaseUrl: "https://example.com/v1",
+		Enabled: true,
+		Models: []settings.AgentProviderModel{
+			{Name: "kimi2.5", ProviderModelId: "kimi2.5", Enabled: true},
+		},
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("vendor should be free-form now: %v", err)
+	}
+}
+
+func TestAgentProviderVendorValidation(t *testing.T) {
+	cases := []struct {
+		name   string
+		vendor string
+	}{
+		{name: "openai", vendor: "openai"},
+		{name: "anthropic", vendor: "anthropic"},
+		{name: "gemini", vendor: "google-gemini"},
+		{name: "vertex", vendor: "google-vertex"},
+		{name: "custom", vendor: "gitee"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := settings.AgentProviderConfig{
+				Id:      "p1",
+				Vendor:  tc.vendor,
+				Api:     "openai-chat",
+				BaseUrl: "https://example.com/v1",
+				Models: []settings.AgentProviderModel{
+					{Name: "m1", ProviderModelId: "m1", Enabled: true},
+				},
+			}
+			if err := cfg.Validate(); err != nil {
+				t.Fatalf("unexpected validation error: %v", err)
+			}
+		})
+	}
+}
+
+func TestAgentProviderApiValidation(t *testing.T) {
+	cases := []struct {
+		name    string
+		api     string
+		wantErr bool
+	}{
+		{name: "chat", api: "openai-chat", wantErr: false},
+		{name: "responses", api: "openai-responses", wantErr: false},
+		{name: "anthropic", api: "anthropic-messages", wantErr: false},
+		{name: "gemini", api: "google-gemini", wantErr: false},
+		{name: "vertex", api: "google-vertex", wantErr: false},
+		{name: "invalid", api: "openai-compatible", wantErr: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := settings.AgentProviderConfig{
+				Id:      "p1",
+				Vendor:  "openai",
+				Api:     tc.api,
+				BaseUrl: "https://example.com/v1",
+				Models: []settings.AgentProviderModel{
+					{Name: "m1", ProviderModelId: "m1", Enabled: true},
+				},
+			}
+			err := cfg.Validate()
+			if tc.wantErr && err == nil {
+				t.Fatal("expected validation error")
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("unexpected validation error: %v", err)
+			}
+		})
+	}
+}
+
 func TestSettingsClone(t *testing.T) {
 	s1 := settings.New()
 

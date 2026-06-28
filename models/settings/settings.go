@@ -555,11 +555,20 @@ func (c AgentConfig) EmbeddingModel() string {
 type AgentProviderConfig struct {
 	Id           string               `form:"id" json:"id"`
 	Vendor       string               `form:"vendor" json:"vendor"`
+	Api          string               `form:"api" json:"api"`
 	BaseUrl      string               `form:"baseUrl" json:"baseUrl"`
 	ApiKey       string               `form:"apiKey" json:"apiKey"`
 	Enabled      bool                 `form:"enabled" json:"enabled"`
 	DefaultModel string               `form:"defaultModel" json:"defaultModel"`
 	Models       []AgentProviderModel `form:"models" json:"models"`
+}
+
+var supportedAgentProviderApis = map[string]struct{}{
+	"openai-chat":        {},
+	"openai-responses":   {},
+	"anthropic-messages": {},
+	"google-gemini":      {},
+	"google-vertex":      {},
 }
 
 // Validate makes AgentProviderConfig validatable by implementing [validation.Validatable] interface.
@@ -570,6 +579,14 @@ func (c AgentProviderConfig) Validate() error {
 		validation.Field(&c.BaseUrl, is.URL),
 	); err != nil {
 		return err
+	}
+
+	if api := strings.ToLower(strings.TrimSpace(c.Api)); api != "" {
+		if _, ok := supportedAgentProviderApis[api]; !ok {
+			return validation.Errors{
+				"api": validation.NewError("validation_error", "unsupported agent provider api"),
+			}
+		}
 	}
 
 	for i := range c.Models {
