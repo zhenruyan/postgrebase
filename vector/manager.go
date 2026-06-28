@@ -167,7 +167,7 @@ func NewManager(config Config) *Manager {
 		StartedAt:      time.Now().UTC(),
 	}
 
-	if len(config.Peers) > 1 {
+	if len(config.Peers) > 0 {
 		status.Mode = ModeCluster
 	}
 

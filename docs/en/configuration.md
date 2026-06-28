@@ -6,7 +6,7 @@ PostgreBase is configured via CLI flags passed to the `serve` command.
 
 | Flag | Description | Example |
 |------|-------------|---------|
-| `--dataDsn` | Database connection string | `postgres://user:pass@host:5432/db?sslmode=disable` |
+| `--dataDsn` | Database connection string | `sqlite://pb_data/data.db` |
 | `--redisDsn` | (Optional) Redis connection string. Falls back to in-memory cache if omitted | `redis://localhost:6379/0` |
 | `--dir` | Data directory for file uploads, backups, etc. | `./pb_data` |
 | `--encryptionEnv` | Environment variable name for settings encryption key | `PB_ENCRYPTION` |

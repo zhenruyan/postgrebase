@@ -19,6 +19,7 @@ import (
 	"github.com/zhenruyan/postgrebase/dbx"
 	"github.com/zhenruyan/postgrebase/models"
 	"github.com/zhenruyan/postgrebase/models/settings"
+	"github.com/zhenruyan/postgrebase/replication"
 	"github.com/zhenruyan/postgrebase/tools/filesystem"
 	"github.com/zhenruyan/postgrebase/tools/hook"
 	"github.com/zhenruyan/postgrebase/tools/mailer"
@@ -512,6 +513,16 @@ func (app *BaseApp) RedisCache() *redis.Client {
 // VectorManager returns the embedded vector runtime manager.
 func (app *BaseApp) VectorManager() *vector.Manager {
 	return app.vectorManager
+}
+
+// IsSQLiteCluster reports whether the app runs SQLite as the primary database
+// with cluster peers configured.
+func (app *BaseApp) IsSQLiteCluster() bool {
+	if app.dao == nil || app.dao.DB() == nil {
+		return false
+	}
+	driver := app.dao.DB().DriverName()
+	return (driver == "sqlite" || driver == "sqlite3") && len(app.clusterPeers) > 0 && app.nodeAddr != ""
 }
 
 // NewMailClient creates and returns a new SMTP or Sendmail client
@@ -1173,6 +1184,9 @@ func (app *BaseApp) initVector() error {
 			NodeID:    app.vectorManager.Status().NodeID,
 			Peers:     app.clusterPeers,
 			Transport: vector.NewHTTPTransport(nil, ""),
+			Apply: func(op vector.ReplicatedOperation) error {
+				return replication.Apply(app.Dao(), op)
+			},
 		})
 		app.vectorManager.AttachCoordinator(coordinator)
 		coordinator.Start()

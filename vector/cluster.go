@@ -2,6 +2,8 @@ package vector
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -54,9 +56,11 @@ type ClusterView struct {
 // it can be backed by HTTP in production and an in-memory bus in tests.
 type Transport interface {
 	SendHeartbeat(ctx context.Context, peer string, hb Heartbeat) (HeartbeatReply, error)
-	Replicate(ctx context.Context, peer string, op Operation) error
-	Forward(ctx context.Context, peer string, op Operation) error
+	Replicate(ctx context.Context, peer string, op ReplicatedOperation) error
+	Forward(ctx context.Context, peer string, op ReplicatedOperation) error
 }
+
+var ErrLeaderUnavailable = errors.New("cluster leader is unavailable")
 
 // Coordinator implements a lightweight Raft-inspired coordination layer. It is
 // intentionally small: leadership is derived deterministically from the set of
@@ -68,6 +72,7 @@ type Coordinator struct {
 	mu        sync.RWMutex
 	manager   *Manager
 	transport Transport
+	apply     ApplyFunc
 
 	selfAddr string
 	nodeID   string
@@ -93,6 +98,7 @@ type CoordinatorConfig struct {
 	Interval  time.Duration
 	Timeout   time.Duration
 	Transport Transport
+	Apply     ApplyFunc
 }
 
 // NewCoordinator creates a coordinator for the given manager.
@@ -114,6 +120,7 @@ func NewCoordinator(manager *Manager, config CoordinatorConfig) *Coordinator {
 	c := &Coordinator{
 		manager:   manager,
 		transport: config.Transport,
+		apply:     config.Apply,
 		selfAddr:  config.SelfAddr,
 		nodeID:    nodeID,
 		peers:     dedupePeers(config.SelfAddr, config.Peers),
@@ -283,6 +290,23 @@ func (c *Coordinator) ReceiveHeartbeat(hb Heartbeat) HeartbeatReply {
 // forwarded to the leader; if forwarding fails it is applied locally as a
 // best-effort fallback so single writes never get lost.
 func (c *Coordinator) Propose(op Operation) (Snapshot, error) {
+	wrapped, err := WrapVectorOperation(op)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	if _, err := c.ProposeReplicated(wrapped); err != nil {
+		return Snapshot{}, err
+	}
+	if c.manager == nil {
+		return Snapshot{}, nil
+	}
+	return c.manager.Snapshot(), nil
+}
+
+// ProposeReplicated applies a common replicated operation through the cluster.
+// Strict operations are never applied locally on a follower if leader forwarding
+// fails; this is required for SQLite primary database consistency.
+func (c *Coordinator) ProposeReplicated(op ReplicatedOperation) (Snapshot, error) {
 	if c == nil || c.manager == nil {
 		return Snapshot{}, nil
 	}
@@ -296,16 +320,35 @@ func (c *Coordinator) Propose(op Operation) (Snapshot, error) {
 	timeout := c.timeout
 	c.mu.RUnlock()
 
+	hasPeers := c.HasPeers()
+	if op.Strict && hasPeers && transport == nil {
+		return Snapshot{}, ErrLeaderUnavailable
+	}
+
 	// standalone or leader: apply locally
-	if !c.HasPeers() || isLeader || leader == "" || transport == nil {
-		snapshot, err := c.manager.ApplyOperation(op)
+	if !hasPeers || isLeader {
+		snapshot, err := c.applyOperation(op)
 		if err != nil {
 			return Snapshot{}, err
 		}
-		if c.HasPeers() && transport != nil {
-			c.replicate(peers, op)
+		if hasPeers && transport != nil {
+			if op.Strict {
+				if err := c.replicateSync(peers, op); err != nil {
+					return Snapshot{}, err
+				}
+			} else {
+				c.replicateAsync(peers, op)
+			}
 		}
 		return snapshot, nil
+	}
+
+	if op.Strict && (leader == "" || transport == nil) {
+		return Snapshot{}, ErrLeaderUnavailable
+	}
+
+	if leader == "" || transport == nil {
+		return c.applyOperation(op)
 	}
 
 	// follower: forward to leader
@@ -318,19 +361,23 @@ func (c *Coordinator) Propose(op Operation) (Snapshot, error) {
 		}
 	}
 
+	if op.Strict {
+		return Snapshot{}, ErrLeaderUnavailable
+	}
+
 	// fallback: apply locally
-	return c.manager.ApplyOperation(op)
+	return c.applyOperation(op)
 }
 
 // ApplyReplicated applies an operation received from the leader.
-func (c *Coordinator) ApplyReplicated(op Operation) (Snapshot, error) {
+func (c *Coordinator) ApplyReplicated(op ReplicatedOperation) (Snapshot, error) {
 	if c == nil || c.manager == nil {
 		return Snapshot{}, nil
 	}
-	return c.manager.ApplyOperation(op)
+	return c.applyOperation(op)
 }
 
-func (c *Coordinator) replicate(peers []string, op Operation) {
+func (c *Coordinator) replicateAsync(peers []string, op ReplicatedOperation) {
 	c.mu.RLock()
 	transport := c.transport
 	timeout := c.timeout
@@ -351,6 +398,49 @@ func (c *Coordinator) replicate(peers []string, op Operation) {
 			_ = transport.Replicate(ctx, peer, op)
 		}(peer)
 	}
+}
+
+func (c *Coordinator) replicateSync(peers []string, op ReplicatedOperation) error {
+	c.mu.RLock()
+	transport := c.transport
+	timeout := c.timeout
+	self := c.selfAddr
+	c.mu.RUnlock()
+
+	if transport == nil {
+		return ErrLeaderUnavailable
+	}
+
+	for _, peer := range peers {
+		if peer == self {
+			continue
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		err := transport.Replicate(ctx, peer, op)
+		cancel()
+		if err != nil {
+			return fmt.Errorf("replicate to %s: %w", peer, err)
+		}
+	}
+	return nil
+}
+
+func (c *Coordinator) applyOperation(op ReplicatedOperation) (Snapshot, error) {
+	if op.Kind == "" || op.Kind == ReplicatedOperationKindVector {
+		vectorOp, err := UnwrapVectorOperation(op)
+		if err != nil {
+			return Snapshot{}, err
+		}
+		return c.manager.ApplyOperation(vectorOp)
+	}
+
+	if c.apply == nil {
+		return c.manager.Snapshot(), nil
+	}
+	if err := c.apply(op); err != nil {
+		return Snapshot{}, err
+	}
+	return c.manager.Snapshot(), nil
 }
 
 // View returns the current cluster view for monitoring.

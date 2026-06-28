@@ -13,12 +13,14 @@ type memoryBus struct {
 	mu    sync.RWMutex
 	nodes map[string]*Coordinator
 	down  map[string]bool
+	delay map[string]time.Duration
 }
 
 func newMemoryBus() *memoryBus {
 	return &memoryBus{
 		nodes: make(map[string]*Coordinator),
 		down:  make(map[string]bool),
+		delay: make(map[string]time.Duration),
 	}
 }
 
@@ -32,6 +34,12 @@ func (b *memoryBus) setDown(addr string, down bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.down[addr] = down
+}
+
+func (b *memoryBus) setDelay(addr string, delay time.Duration) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.delay[addr] = delay
 }
 
 func (b *memoryBus) transportFor(self string) Transport {
@@ -49,9 +57,15 @@ func (t *memoryTransport) peer(addr string) (*Coordinator, error) {
 	if t.bus.down[addr] {
 		return nil, errors.New("peer down")
 	}
+	delay := t.bus.delay[addr]
 	c, ok := t.bus.nodes[addr]
 	if !ok {
 		return nil, errors.New("peer not found")
+	}
+	if delay > 0 {
+		t.bus.mu.RUnlock()
+		time.Sleep(delay)
+		t.bus.mu.RLock()
 	}
 	return c, nil
 }
@@ -64,7 +78,7 @@ func (t *memoryTransport) SendHeartbeat(ctx context.Context, peer string, hb Hea
 	return c.ReceiveHeartbeat(hb), nil
 }
 
-func (t *memoryTransport) Replicate(ctx context.Context, peer string, op Operation) error {
+func (t *memoryTransport) Replicate(ctx context.Context, peer string, op ReplicatedOperation) error {
 	c, err := t.peer(peer)
 	if err != nil {
 		return err
@@ -73,12 +87,12 @@ func (t *memoryTransport) Replicate(ctx context.Context, peer string, op Operati
 	return err
 }
 
-func (t *memoryTransport) Forward(ctx context.Context, peer string, op Operation) error {
+func (t *memoryTransport) Forward(ctx context.Context, peer string, op ReplicatedOperation) error {
 	c, err := t.peer(peer)
 	if err != nil {
 		return err
 	}
-	_, err = c.Propose(op)
+	_, err = c.ProposeReplicated(op)
 	return err
 }
 
@@ -253,6 +267,167 @@ func TestCoordinatorFailoverReelectsLeader(t *testing.T) {
 	waitFor(t, func() bool {
 		return coords["http://node-b"].IsLeader()
 	})
+}
+
+func TestCoordinatorStrictOperationDoesNotFallbackOnFollower(t *testing.T) {
+	bus := newMemoryBus()
+
+	applied := 0
+	mgrA := newTestManager(t)
+	mgrB := newTestManager(t)
+
+	ca := NewCoordinator(mgrA, CoordinatorConfig{
+		SelfAddr:  "http://node-a",
+		Peers:     []string{"http://node-b"},
+		Interval:  20 * time.Millisecond,
+		Timeout:   200 * time.Millisecond,
+		Transport: bus.transportFor("http://node-a"),
+		Apply: func(op ReplicatedOperation) error {
+			applied++
+			return nil
+		},
+	})
+	cb := NewCoordinator(mgrB, CoordinatorConfig{
+		SelfAddr:  "http://node-b",
+		Peers:     []string{"http://node-a"},
+		Interval:  20 * time.Millisecond,
+		Timeout:   200 * time.Millisecond,
+		Transport: bus.transportFor("http://node-b"),
+		Apply: func(op ReplicatedOperation) error {
+			applied++
+			return nil
+		},
+	})
+	bus.register("http://node-a", ca)
+	bus.register("http://node-b", cb)
+
+	ca.Start()
+	cb.Start()
+	defer ca.Stop()
+	defer cb.Stop()
+
+	waitFor(t, func() bool { return ca.IsLeader() && !cb.IsLeader() })
+	bus.setDown("http://node-a", true)
+
+	_, err := cb.ProposeReplicated(ReplicatedOperation{
+		Kind:   ReplicatedOperationKindSQLite,
+		Type:   "schema.collection_upsert",
+		Strict: true,
+	})
+	if !errors.Is(err, ErrLeaderUnavailable) {
+		t.Fatalf("expected ErrLeaderUnavailable, got %v", err)
+	}
+	if applied != 0 {
+		t.Fatalf("expected strict operation not to fallback apply, got %d applies", applied)
+	}
+}
+
+func TestCoordinatorStrictOperationRequiresLeaderTransport(t *testing.T) {
+	applied := 0
+	mgr := newTestManager(t)
+	c := NewCoordinator(mgr, CoordinatorConfig{
+		SelfAddr: "http://node-b",
+		Peers:    []string{"http://node-a"},
+		Apply: func(op ReplicatedOperation) error {
+			applied++
+			return nil
+		},
+	})
+
+	_, err := c.ProposeReplicated(ReplicatedOperation{
+		Kind:   ReplicatedOperationKindSQLite,
+		Type:   "schema.collection_upsert",
+		Strict: true,
+	})
+	if !errors.Is(err, ErrLeaderUnavailable) {
+		t.Fatalf("expected ErrLeaderUnavailable, got %v", err)
+	}
+	if applied != 0 {
+		t.Fatalf("expected strict operation not to apply without leader transport, got %d applies", applied)
+	}
+}
+
+func TestCoordinatorStrictOperationWaitsForReplication(t *testing.T) {
+	bus := newMemoryBus()
+
+	mgrA := newTestManager(t)
+	mgrB := newTestManager(t)
+
+	applyStarted := make(chan struct{})
+	releaseApply := make(chan struct{})
+	applyDone := make(chan struct{})
+
+	ca := NewCoordinator(mgrA, CoordinatorConfig{
+		SelfAddr:  "http://node-a",
+		Peers:     []string{"http://node-b"},
+		Interval:  20 * time.Millisecond,
+		Timeout:   time.Second,
+		Transport: bus.transportFor("http://node-a"),
+		Apply: func(op ReplicatedOperation) error {
+			return nil
+		},
+	})
+	cb := NewCoordinator(mgrB, CoordinatorConfig{
+		SelfAddr:  "http://node-b",
+		Peers:     []string{"http://node-a"},
+		Interval:  20 * time.Millisecond,
+		Timeout:   time.Second,
+		Transport: bus.transportFor("http://node-b"),
+		Apply: func(op ReplicatedOperation) error {
+			close(applyStarted)
+			<-releaseApply
+			close(applyDone)
+			return nil
+		},
+	})
+	bus.register("http://node-a", ca)
+	bus.register("http://node-b", cb)
+
+	ca.Start()
+	cb.Start()
+	defer ca.Stop()
+	defer cb.Stop()
+
+	waitFor(t, func() bool { return ca.IsLeader() && !cb.IsLeader() })
+
+	proposeDone := make(chan error, 1)
+	go func() {
+		_, err := ca.ProposeReplicated(ReplicatedOperation{
+			Kind:   ReplicatedOperationKindSQLite,
+			Type:   "record.create",
+			Strict: true,
+		})
+		proposeDone <- err
+	}()
+
+	select {
+	case <-applyStarted:
+	case <-time.After(time.Second):
+		t.Fatal("expected follower apply to start")
+	}
+
+	select {
+	case err := <-proposeDone:
+		t.Fatalf("strict propose returned before follower apply completed: %v", err)
+	default:
+	}
+
+	close(releaseApply)
+
+	select {
+	case <-applyDone:
+	case <-time.After(time.Second):
+		t.Fatal("expected follower apply to complete")
+	}
+
+	select {
+	case err := <-proposeDone:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expected strict propose to return after follower apply")
+	}
 }
 
 func waitFor(t *testing.T, cond func() bool) {

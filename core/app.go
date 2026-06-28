@@ -76,6 +76,10 @@ type App interface {
 	// VectorManager returns the embedded vector runtime manager.
 	VectorManager() *vector.Manager
 
+	// IsSQLiteCluster reports whether the app runs with SQLite as primary
+	// database and cluster peers are configured.
+	IsSQLiteCluster() bool
+
 	// Publish publishes a message to all application instances.
 	Publish(channel string, data any) error
 

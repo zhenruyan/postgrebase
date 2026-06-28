@@ -38,12 +38,12 @@ func (t *HTTPTransport) SendHeartbeat(ctx context.Context, peer string, hb Heart
 }
 
 // Replicate pushes an operation to the peer follower.
-func (t *HTTPTransport) Replicate(ctx context.Context, peer string, op Operation) error {
+func (t *HTTPTransport) Replicate(ctx context.Context, peer string, op ReplicatedOperation) error {
 	return t.post(ctx, peer, "/api/vector/cluster/replicate", op, nil)
 }
 
 // Forward proxies an operation to the cluster leader.
-func (t *HTTPTransport) Forward(ctx context.Context, peer string, op Operation) error {
+func (t *HTTPTransport) Forward(ctx context.Context, peer string, op ReplicatedOperation) error {
 	return t.post(ctx, peer, "/api/vector/cluster/forward", op, nil)
 }
 

@@ -7,7 +7,9 @@ import (
 	"github.com/zhenruyan/postgrebase/core"
 	"github.com/zhenruyan/postgrebase/forms"
 	"github.com/zhenruyan/postgrebase/models"
+	"github.com/zhenruyan/postgrebase/replication"
 	"github.com/zhenruyan/postgrebase/tools/search"
+	"github.com/zhenruyan/postgrebase/vector"
 )
 
 // bindCollectionApi registers the collection api endpoints and the corresponding handlers.
@@ -95,7 +97,7 @@ func (api *collectionApi) create(c echo.Context) error {
 			event.Collection = m
 
 			return api.app.OnCollectionBeforeCreateRequest().Trigger(event, func(e *core.CollectionCreateEvent) error {
-				if err := next(e.Collection); err != nil {
+				if err := api.saveCollection(e.Collection, true, next); err != nil {
 					return NewBadRequestError("Failed to create the collection.", err)
 				}
 
@@ -134,7 +136,7 @@ func (api *collectionApi) update(c echo.Context) error {
 			event.Collection = m
 
 			return api.app.OnCollectionBeforeUpdateRequest().Trigger(event, func(e *core.CollectionUpdateEvent) error {
-				if err := next(e.Collection); err != nil {
+				if err := api.saveCollection(e.Collection, false, next); err != nil {
 					return NewBadRequestError("Failed to update the collection.", err)
 				}
 
@@ -161,7 +163,7 @@ func (api *collectionApi) delete(c echo.Context) error {
 	event.Collection = collection
 
 	return api.app.OnCollectionBeforeDeleteRequest().Trigger(event, func(e *core.CollectionDeleteEvent) error {
-		if err := api.app.Dao().DeleteCollection(e.Collection); err != nil {
+		if err := api.deleteCollection(e.Collection); err != nil {
 			return NewBadRequestError("Failed to delete collection due to existing dependency.", err)
 		}
 
@@ -193,7 +195,7 @@ func (api *collectionApi) bulkImport(c echo.Context) error {
 			event.Collections = imports
 
 			return api.app.OnCollectionsBeforeImportRequest().Trigger(event, func(e *core.CollectionsImportEvent) error {
-				if err := next(e.Collections); err != nil {
+				if err := api.importCollections(e.Collections, form.DeleteMissing, next); err != nil {
 					return NewBadRequestError("Failed to import the submitted collections.", err)
 				}
 
@@ -207,4 +209,49 @@ func (api *collectionApi) bulkImport(c echo.Context) error {
 			})
 		}
 	})
+}
+
+func (api *collectionApi) saveCollection(collection *models.Collection, isNew bool, next forms.InterceptorNextFunc[*models.Collection]) error {
+	if !api.app.IsSQLiteCluster() {
+		return next(collection)
+	}
+
+	op, err := replication.NewCollectionUpsertOperation(collection, isNew)
+	if err != nil {
+		return err
+	}
+	return api.proposeSQLiteOperation(op)
+}
+
+func (api *collectionApi) deleteCollection(collection *models.Collection) error {
+	if !api.app.IsSQLiteCluster() {
+		return api.app.Dao().DeleteCollection(collection)
+	}
+
+	op, err := replication.NewCollectionDeleteOperation(collection)
+	if err != nil {
+		return err
+	}
+	return api.proposeSQLiteOperation(op)
+}
+
+func (api *collectionApi) importCollections(collections []*models.Collection, deleteMissing bool, next forms.InterceptorNextFunc[[]*models.Collection]) error {
+	if !api.app.IsSQLiteCluster() {
+		return next(collections)
+	}
+
+	op, err := replication.NewCollectionsImportOperation(collections, deleteMissing)
+	if err != nil {
+		return err
+	}
+	return api.proposeSQLiteOperation(op)
+}
+
+func (api *collectionApi) proposeSQLiteOperation(op vector.ReplicatedOperation) error {
+	manager := api.app.VectorManager()
+	if manager == nil || manager.Coordinator() == nil {
+		return NewApiError(http.StatusServiceUnavailable, "SQLite cluster coordinator is not enabled.", nil)
+	}
+	_, err := manager.Coordinator().ProposeReplicated(op)
+	return err
 }

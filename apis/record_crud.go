@@ -14,8 +14,10 @@ import (
 	"github.com/zhenruyan/postgrebase/dbx"
 	"github.com/zhenruyan/postgrebase/forms"
 	"github.com/zhenruyan/postgrebase/models"
+	"github.com/zhenruyan/postgrebase/replication"
 	"github.com/zhenruyan/postgrebase/resolvers"
 	"github.com/zhenruyan/postgrebase/tools/search"
+	"github.com/zhenruyan/postgrebase/vector"
 )
 
 const expandQueryParam = "expand"
@@ -300,6 +302,9 @@ func (api *recordApi) create(c echo.Context) error {
 	record := models.NewRecord(collection)
 	form := forms.NewRecordUpsert(api.app, record)
 	form.SetFullManageAccess(hasFullManageAccess)
+	if api.app.IsSQLiteCluster() {
+		form.SetSaveFunc(api.saveRecord)
+	}
 
 	// load request
 	if err := form.LoadRequest(c.Request(), ""); err != nil {
@@ -391,6 +396,9 @@ func (api *recordApi) update(c echo.Context) error {
 
 	form := forms.NewRecordUpsert(api.app, record)
 	form.SetFullManageAccess(requestInfo.Admin != nil || hasAuthManageAccess(api.app.Dao(), record, requestInfo))
+	if api.app.IsSQLiteCluster() {
+		form.SetSaveFunc(api.saveRecord)
+	}
 
 	// load request
 	if err := form.LoadRequest(c.Request(), ""); err != nil {
@@ -476,7 +484,7 @@ func (api *recordApi) delete(c echo.Context) error {
 
 	return api.app.OnRecordBeforeDeleteRequest().Trigger(event, func(e *core.RecordDeleteEvent) error {
 		// delete the record
-		if err := api.app.Dao().DeleteRecord(e.Record); err != nil {
+		if err := api.deleteRecord(e.Record); err != nil {
 			return NewBadRequestError("Failed to delete record. Make sure that the record is not part of a required relation reference.", err)
 		}
 
@@ -488,6 +496,43 @@ func (api *recordApi) delete(c echo.Context) error {
 			return e.HttpContext.NoContent(http.StatusNoContent)
 		})
 	})
+}
+
+func (api *recordApi) saveRecord(dao *daos.Dao, record *models.Record) error {
+	if !api.app.IsSQLiteCluster() {
+		return dao.SaveRecord(record)
+	}
+
+	op, err := replication.NewRecordUpsertOperation(record, record.IsNew())
+	if err != nil {
+		return err
+	}
+	if err := api.proposeSQLiteOperation(op); err != nil {
+		return err
+	}
+	record.MarkAsNotNew()
+	return nil
+}
+
+func (api *recordApi) deleteRecord(record *models.Record) error {
+	if !api.app.IsSQLiteCluster() {
+		return api.app.Dao().DeleteRecord(record)
+	}
+
+	op, err := replication.NewRecordDeleteOperation(record)
+	if err != nil {
+		return err
+	}
+	return api.proposeSQLiteOperation(op)
+}
+
+func (api *recordApi) proposeSQLiteOperation(op vector.ReplicatedOperation) error {
+	manager := api.app.VectorManager()
+	if manager == nil || manager.Coordinator() == nil {
+		return NewApiError(http.StatusServiceUnavailable, "SQLite cluster coordinator is not enabled.", nil)
+	}
+	_, err := manager.Coordinator().ProposeReplicated(op)
+	return err
 }
 
 func (api *recordApi) checkForForbiddenQueryFields(c echo.Context) error {

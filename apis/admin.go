@@ -8,9 +8,11 @@ import (
 	"github.com/zhenruyan/postgrebase/core"
 	"github.com/zhenruyan/postgrebase/forms"
 	"github.com/zhenruyan/postgrebase/models"
+	"github.com/zhenruyan/postgrebase/replication"
 	"github.com/zhenruyan/postgrebase/tokens"
 	"github.com/zhenruyan/postgrebase/tools/routine"
 	"github.com/zhenruyan/postgrebase/tools/search"
+	"github.com/zhenruyan/postgrebase/vector"
 )
 
 // bindAdminApi registers the admin api endpoints and the corresponding handlers.
@@ -260,7 +262,7 @@ func (api *adminApi) create(c echo.Context) error {
 			event.Admin = m
 
 			return api.app.OnAdminBeforeCreateRequest().Trigger(event, func(e *core.AdminCreateEvent) error {
-				if err := next(e.Admin); err != nil {
+				if err := api.saveAdmin(e.Admin, true, next); err != nil {
 					return NewBadRequestError("Failed to create admin.", err)
 				}
 
@@ -306,7 +308,7 @@ func (api *adminApi) update(c echo.Context) error {
 			event.Admin = m
 
 			return api.app.OnAdminBeforeUpdateRequest().Trigger(event, func(e *core.AdminUpdateEvent) error {
-				if err := next(e.Admin); err != nil {
+				if err := api.saveAdmin(e.Admin, false, next); err != nil {
 					return NewBadRequestError("Failed to update admin.", err)
 				}
 
@@ -340,7 +342,7 @@ func (api *adminApi) delete(c echo.Context) error {
 	event.Admin = admin
 
 	return api.app.OnAdminBeforeDeleteRequest().Trigger(event, func(e *core.AdminDeleteEvent) error {
-		if err := api.app.Dao().DeleteAdmin(e.Admin); err != nil {
+		if err := api.deleteAdmin(e.Admin); err != nil {
 			return NewBadRequestError("Failed to delete admin.", err)
 		}
 
@@ -352,4 +354,37 @@ func (api *adminApi) delete(c echo.Context) error {
 			return e.HttpContext.NoContent(http.StatusNoContent)
 		})
 	})
+}
+
+func (api *adminApi) saveAdmin(admin *models.Admin, isNew bool, next forms.InterceptorNextFunc[*models.Admin]) error {
+	if !api.app.IsSQLiteCluster() {
+		return next(admin)
+	}
+
+	op, err := replication.NewAdminUpsertOperation(admin, isNew)
+	if err != nil {
+		return err
+	}
+	return api.proposeSQLiteOperation(op)
+}
+
+func (api *adminApi) deleteAdmin(admin *models.Admin) error {
+	if !api.app.IsSQLiteCluster() {
+		return api.app.Dao().DeleteAdmin(admin)
+	}
+
+	op, err := replication.NewAdminDeleteOperation(admin)
+	if err != nil {
+		return err
+	}
+	return api.proposeSQLiteOperation(op)
+}
+
+func (api *adminApi) proposeSQLiteOperation(op vector.ReplicatedOperation) error {
+	manager := api.app.VectorManager()
+	if manager == nil || manager.Coordinator() == nil {
+		return NewApiError(http.StatusServiceUnavailable, "SQLite cluster coordinator is not enabled.", nil)
+	}
+	_, err := manager.Coordinator().ProposeReplicated(op)
+	return err
 }

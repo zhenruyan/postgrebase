@@ -23,7 +23,7 @@
             .authWithPassword(email, password)
             .then(() => {
                 removeAllToasts();
-                replace("/");
+                replace("/collections");
             })
             .catch(() => {
                 addErrorToast("Invalid login credentials.");

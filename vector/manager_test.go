@@ -81,6 +81,17 @@ func TestApplyOperationEnqueue(t *testing.T) {
 	}
 }
 
+func TestNewManagerSinglePeerUsesClusterMode(t *testing.T) {
+	mgr := NewManager(Config{
+		DataDir: t.TempDir(),
+		Peers:   []string{"http://127.0.0.1:8091"},
+	})
+
+	if got := mgr.Status().Mode; got != ModeCluster {
+		t.Fatalf("expected cluster mode, got %q", got)
+	}
+}
+
 func TestLoadKeepsDefaultsWithoutSnapshot(t *testing.T) {
 	dir := t.TempDir()
 	mgr := NewManager(Config{DataDir: dir, EmbeddingModel: "embed-model"})

@@ -133,7 +133,7 @@ func (api *vectorApi) replicate(c echo.Context) error {
 		return err
 	}
 
-	op := vector.Operation{}
+	op := vector.ReplicatedOperation{}
 	if err := c.Bind(&op); err != nil {
 		return NewBadRequestError("Failed to read replication payload.", err)
 	}
@@ -151,12 +151,12 @@ func (api *vectorApi) forward(c echo.Context) error {
 		return err
 	}
 
-	op := vector.Operation{}
+	op := vector.ReplicatedOperation{}
 	if err := c.Bind(&op); err != nil {
 		return NewBadRequestError("Failed to read forwarded payload.", err)
 	}
 
-	if _, err := coordinator.Propose(op); err != nil {
+	if _, err := coordinator.ProposeReplicated(op); err != nil {
 		return NewApiError(http.StatusInternalServerError, "Failed to apply forwarded operation.", err)
 	}
 

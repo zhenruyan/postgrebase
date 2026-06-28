@@ -1,6 +1,7 @@
 package postgrebase
 
 import (
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -51,7 +52,7 @@ type Config struct {
 	// optional default values for the console flags
 	DefaultDebug         bool
 	DefaultDataDir       string // if not set, it will fallback to "./pb_data"
-	DefaultDataDsn       string // if not set, it will fallback to "postgresql://<username>:<password>@<host>:<port>/<database>?sslmode=verify-full"
+	DefaultDataDsn       string // if not set, it will fallback to "sqlite://pb_data/data.db"
 	RedisDsn             string //redis://<user>:<pass>@localhost:6379/<db>
 	DefaultEncryptionEnv string
 	DisableVector        bool
@@ -99,7 +100,7 @@ func NewWithConfig(config Config) *PostgreBase {
 		config.DefaultDataDir = filepath.Join(baseDir, "pb_data")
 	}
 	if config.DefaultDataDsn == "" {
-		config.DefaultDataDsn = "postgresql://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable"
+		config.DefaultDataDsn = "sqlite://pb_data/data.db"
 	}
 	if config.RedisDsn == "" {
 		config.RedisDsn = ""
@@ -269,7 +270,100 @@ func (pb *PostgreBase) eagerParseFlags(config *Config) error {
 		"stable node identifier for the cluster (default auto-generated)",
 	)
 
-	return pb.RootCmd.ParseFlags(os.Args[1:])
+	knownFlags := map[string]bool{
+		"dir":           true,
+		"dataDsn":       true,
+		"redisDsn":      true,
+		"encryptionEnv": true,
+		"debug":         true,
+		"peers":         true,
+		"node-addr":     true,
+		"node-id":       true,
+	}
+	boolFlags := map[string]bool{
+		"debug": true,
+	}
+
+	if err := pb.RootCmd.ParseFlags(filterEagerFlagArgs(os.Args[1:], knownFlags, boolFlags)); err != nil {
+		return err
+	}
+
+	if len(pb.peersFlag) > 0 && pb.nodeAddrFlag == "" {
+		pb.nodeAddrFlag = inferNodeAddrFromArgs(os.Args[1:])
+	}
+
+	return nil
+}
+
+func filterEagerFlagArgs(args []string, knownFlags map[string]bool, boolFlags map[string]bool) []string {
+	filtered := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			break
+		}
+		if !strings.HasPrefix(arg, "--") {
+			continue
+		}
+
+		raw := strings.TrimPrefix(arg, "--")
+		name := raw
+		if eq := strings.Index(raw, "="); eq >= 0 {
+			name = raw[:eq]
+		}
+		if !knownFlags[name] {
+			continue
+		}
+
+		filtered = append(filtered, arg)
+		if strings.Contains(raw, "=") || boolFlags[name] {
+			continue
+		}
+		if i+1 < len(args) {
+			filtered = append(filtered, args[i+1])
+			i++
+		}
+	}
+	return filtered
+}
+
+func inferNodeAddrFromArgs(args []string) string {
+	httpAddr := "127.0.0.1:8090"
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			break
+		}
+		if arg == "--http" && i+1 < len(args) {
+			httpAddr = args[i+1]
+			i++
+			continue
+		}
+		if strings.HasPrefix(arg, "--http=") {
+			httpAddr = strings.TrimPrefix(arg, "--http=")
+		}
+	}
+	return nodeAddrFromHTTPAddr(httpAddr)
+}
+
+func nodeAddrFromHTTPAddr(httpAddr string) string {
+	httpAddr = strings.TrimSpace(httpAddr)
+	if httpAddr == "" {
+		httpAddr = "127.0.0.1:8090"
+	}
+	if strings.HasPrefix(httpAddr, "http://") || strings.HasPrefix(httpAddr, "https://") {
+		return strings.TrimRight(httpAddr, "/")
+	}
+
+	host, port, err := net.SplitHostPort(httpAddr)
+	if err != nil {
+		return "http://" + httpAddr
+	}
+	host = strings.Trim(host, "[]")
+	if host == "" || host == "0.0.0.0" || host == "::" || host == "::1" || host == "*" {
+		host = "127.0.0.1"
+	}
+	return "http://" + net.JoinHostPort(host, port)
 }
 
 // skipBootstrap eagerly checks if the app should skip the bootstrap process:

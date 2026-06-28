@@ -6,7 +6,7 @@ PostgreBase 通过 `serve` 命令的 CLI 参数进行配置。
 
 | 参数 | 说明 | 示例 |
 |------|------|------|
-| `--dataDsn` | 数据库连接字符串 | `postgres://user:pass@host:5432/db?sslmode=disable` |
+| `--dataDsn` | 数据库连接字符串 | `sqlite://pb_data/data.db` |
 | `--redisDsn` | （可选）Redis 连接字符串，未指定时使用内存缓存 | `redis://localhost:6379/0` |
 | `--dir` | 数据目录（文件上传、备份等） | `./pb_data` |
 | `--encryptionEnv` | 用于加密设置的系统环境变量名 | `PB_ENCRYPTION` |

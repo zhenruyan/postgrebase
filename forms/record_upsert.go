@@ -11,9 +11,10 @@ import (
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
-	"github.com/zhenruyan/postgrebase/dbx"
+	"github.com/spf13/cast"
 	"github.com/zhenruyan/postgrebase/core"
 	"github.com/zhenruyan/postgrebase/daos"
+	"github.com/zhenruyan/postgrebase/dbx"
 	"github.com/zhenruyan/postgrebase/forms/validators"
 	"github.com/zhenruyan/postgrebase/models"
 	"github.com/zhenruyan/postgrebase/models/schema"
@@ -21,7 +22,6 @@ import (
 	"github.com/zhenruyan/postgrebase/tools/list"
 	"github.com/zhenruyan/postgrebase/tools/rest"
 	"github.com/zhenruyan/postgrebase/tools/security"
-	"github.com/spf13/cast"
 )
 
 // username value regex pattern
@@ -33,6 +33,7 @@ type RecordUpsert struct {
 	dao          *daos.Dao
 	manageAccess bool
 	record       *models.Record
+	saveFunc     func(*daos.Dao, *models.Record) error
 
 	filesToUpload map[string][]*filesystem.File
 	filesToDelete []string // names list
@@ -89,6 +90,11 @@ func (form *RecordUpsert) SetFullManageAccess(fullManageAccess bool) {
 // SetDao replaces the default form Dao instance with the provided one.
 func (form *RecordUpsert) SetDao(dao *daos.Dao) {
 	form.dao = dao
+}
+
+// SetSaveFunc replaces the default record persistence callback used by Submit.
+func (form *RecordUpsert) SetSaveFunc(saveFunc func(*daos.Dao, *models.Record) error) {
+	form.saveFunc = saveFunc
 }
 
 func (form *RecordUpsert) loadFormDefaults() {
@@ -786,8 +792,17 @@ func (form *RecordUpsert) Submit(interceptors ...InterceptorFunc[*models.Record]
 		// ---
 
 		// persist the record model
-		if err := dao.SaveRecord(form.record); err != nil {
-			return form.prepareError(err)
+		if form.saveFunc == nil {
+			if err := dao.SaveRecord(form.record); err != nil {
+				return form.prepareError(err)
+			}
+		} else {
+			if err := form.processFilesToUpload(); err != nil {
+				return form.prepareError(err)
+			}
+			if err := form.saveFunc(dao, form.record); err != nil {
+				return form.prepareError(err)
+			}
 		}
 
 		// delete old files (if any)
