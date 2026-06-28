@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v5"
-	"github.com/zhenruyan/postgrebase/dbx"
 	"github.com/zhenruyan/postgrebase/core"
 	"github.com/zhenruyan/postgrebase/daos"
+	"github.com/zhenruyan/postgrebase/dbx"
 	"github.com/zhenruyan/postgrebase/forms"
 	"github.com/zhenruyan/postgrebase/models"
 	"github.com/zhenruyan/postgrebase/resolvers"
@@ -41,6 +41,49 @@ func (api *recordApi) getCacheKey(collection *models.Collection, suffix string) 
 	return "pb_cache:" + collection.Id + ":" + suffix
 }
 
+type recordCacheEntry struct {
+	ExpiresAt time.Time `json:"expiresAt"`
+	Value     any       `json:"value"`
+}
+
+func (api *recordApi) cacheGetJSON(c echo.Context, key string, dest any) bool {
+	if api.app.RedisCache() != nil {
+		val, err := api.app.RedisCache().Get(c.Request().Context(), key).Result()
+		return err == nil && json.Unmarshal([]byte(val), dest) == nil
+	}
+
+	raw := api.app.Cache().Get(key)
+	if raw == nil {
+		return false
+	}
+	entry, ok := raw.(recordCacheEntry)
+	if ok {
+		if !entry.ExpiresAt.IsZero() && time.Now().After(entry.ExpiresAt) {
+			api.app.Cache().Remove(key)
+			return false
+		}
+		raw = entry.Value
+	}
+	encoded, err := json.Marshal(raw)
+	if err != nil {
+		return false
+	}
+	return json.Unmarshal(encoded, dest) == nil
+}
+
+func (api *recordApi) cacheSet(c echo.Context, key string, value any, ttl time.Duration) {
+	if api.app.RedisCache() != nil {
+		encoded, _ := json.Marshal(value)
+		api.app.RedisCache().Set(c.Request().Context(), key, encoded, ttl)
+		return
+	}
+	entry := recordCacheEntry{Value: value}
+	if ttl > 0 {
+		entry.ExpiresAt = time.Now().Add(ttl)
+	}
+	api.app.Cache().Set(key, entry)
+}
+
 type recordApi struct {
 	app core.App
 }
@@ -53,20 +96,16 @@ func (api *recordApi) list(c echo.Context) error {
 
 	records := []*models.Record{}
 
-	// --- Redis Cache Read ---
+	// --- Cache Read ---
 	var cacheKey string
-	canCache := api.app.RedisCache() != nil &&
-		((collection.ListCacheEnabled && c.QueryParams().Encode() == "") ||
-			(collection.SearchCacheEnabled && c.QueryParams().Encode() != ""))
+	canCache := (collection.ListCacheEnabled && c.QueryParams().Encode() == "") ||
+		(collection.SearchCacheEnabled && c.QueryParams().Encode() != "")
 
 	if canCache {
 		cacheKey = api.getCacheKey(collection, "list:"+c.QueryParams().Encode())
-		val, err := api.app.RedisCache().Get(c.Request().Context(), cacheKey).Result()
-		if err == nil {
-			var cachedResult search.Result
-			if err := json.Unmarshal([]byte(val), &cachedResult); err == nil {
-				return c.JSON(http.StatusOK, cachedResult)
-			}
+		var cachedResult search.Result
+		if api.cacheGetJSON(c, cacheKey, &cachedResult) {
+			return c.JSON(http.StatusOK, cachedResult)
 		}
 	}
 
@@ -117,11 +156,10 @@ func (api *recordApi) list(c echo.Context) error {
 			log.Println(err)
 		}
 
-		// --- Redis Cache Write ---
+		// --- Cache Write ---
 		if canCache && e.Result != nil {
-			encoded, _ := json.Marshal(e.Result)
 			duration := time.Duration(collection.CacheDuration) * time.Second
-			api.app.RedisCache().Set(e.HttpContext.Request().Context(), cacheKey, encoded, duration)
+			api.cacheSet(e.HttpContext, cacheKey, e.Result, duration)
 		}
 
 		return e.HttpContext.JSON(http.StatusOK, e.Result)
@@ -139,17 +177,14 @@ func (api *recordApi) view(c echo.Context) error {
 		return NewNotFoundError("", nil)
 	}
 
-	// --- Redis Cache Read ---
+	// --- Cache Read ---
 	var cacheKey string
-	canCache := api.app.RedisCache() != nil && collection.CacheEnabled
+	canCache := collection.CacheEnabled
 	if canCache {
 		cacheKey = api.getCacheKey(collection, "view:"+recordId)
-		val, err := api.app.RedisCache().Get(c.Request().Context(), cacheKey).Result()
-		if err == nil {
-			var cachedRecord models.Record
-			if err := json.Unmarshal([]byte(val), &cachedRecord); err == nil {
-				return c.JSON(http.StatusOK, cachedRecord)
-			}
+		var cachedRecord models.Record
+		if api.cacheGetJSON(c, cacheKey, &cachedRecord) {
+			return c.JSON(http.StatusOK, cachedRecord)
 		}
 	}
 
@@ -192,11 +227,10 @@ func (api *recordApi) view(c echo.Context) error {
 			log.Println(err)
 		}
 
-		// --- Redis Cache Write ---
+		// --- Cache Write ---
 		if canCache && e.Record != nil {
-			encoded, _ := json.Marshal(e.Record)
 			duration := time.Duration(collection.CacheDuration) * time.Second
-			api.app.RedisCache().Set(e.HttpContext.Request().Context(), cacheKey, encoded, duration)
+			api.cacheSet(e.HttpContext, cacheKey, e.Record, duration)
 		}
 
 		return e.HttpContext.JSON(http.StatusOK, e.Record)

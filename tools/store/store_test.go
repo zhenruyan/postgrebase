@@ -230,3 +230,24 @@ func TestSetIfLessThanLimit(t *testing.T) {
 		}
 	}
 }
+
+func TestPrefixHelpers(t *testing.T) {
+	s := store.New(map[string]int{
+		"pb_cache:c1:list": 1,
+		"pb_cache:c1:view": 2,
+		"pb_cache:c2:list": 3,
+		"other":            4,
+	})
+
+	if got := s.LengthByPrefix("pb_cache:c1:"); got != 2 {
+		t.Fatalf("expected 2 c1 cache entries, got %d", got)
+	}
+
+	s.RemoveByPrefix("pb_cache:c1:")
+	if s.Has("pb_cache:c1:list") || s.Has("pb_cache:c1:view") {
+		t.Fatal("expected c1 cache entries to be removed")
+	}
+	if !s.Has("pb_cache:c2:list") || !s.Has("other") {
+		t.Fatal("expected other prefixes to remain")
+	}
+}

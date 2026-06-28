@@ -21,6 +21,7 @@ type Metrics struct {
 	PendingEmbeddings int       `json:"pendingEmbeddings"`
 	VectorEntries     int       `json:"vectorEntries"`
 	CacheItems        int       `json:"cacheItems"`
+	CacheBackend      string    `json:"cacheBackend"`
 	EmbeddingModel    string    `json:"embeddingModel"`
 	EmbeddingReady    bool      `json:"embeddingReady"`
 	RedisEnabled      bool      `json:"redisEnabled"`
@@ -58,6 +59,7 @@ func (m *Manager) Metrics() Metrics {
 		PendingEmbeddings: status.PendingEmbeddings,
 		VectorEntries:     entries,
 		CacheItems:        status.CacheItems,
+		CacheBackend:      "",
 		EmbeddingModel:    status.EmbeddingModel,
 		EmbeddingReady:    status.EmbeddingReady,
 		RedisEnabled:      status.RedisEnabled,

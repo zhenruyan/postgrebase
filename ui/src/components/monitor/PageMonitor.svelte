@@ -16,6 +16,9 @@
 
     $: isCluster = cluster?.view?.mode === "cluster";
     $: members = cluster?.view?.members || [];
+    $: cacheBackendLabel = metrics?.cacheBackend === "redis" || (!metrics?.cacheBackend && metrics?.redisEnabled)
+        ? "Redis"
+        : $t("Memory Cache");
 
     async function load(showSpinner = true) {
         if (showSpinner) {
@@ -158,7 +161,11 @@
             <div class="metric-card">
                 <div class="metric-label">{$t("Cache Items")}</div>
                 <div class="metric-value">{metrics.cacheItems}</div>
-                <div class="metric-sub">{metrics.redisEnabled ? "Redis" : $t("Memory Cache")}</div>
+                <div class="metric-sub">
+                    <span class="label label-sm {cacheBackendLabel === 'Redis' ? 'label-warning' : 'label-success'}">
+                        {cacheBackendLabel}
+                    </span>
+                </div>
             </div>
 
             <div class="metric-card">

@@ -1,6 +1,7 @@
 package apis
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/labstack/echo/v5"
@@ -44,9 +45,33 @@ func (api *vectorApi) metrics(c echo.Context) error {
 	if manager == nil {
 		return c.JSON(http.StatusOK, map[string]any{"enabled": false})
 	}
+	metrics := manager.Metrics()
+	metrics.CacheItems = api.cacheItems(c.Request().Context())
+	metrics.CacheBackend = api.cacheBackend()
+	metrics.RedisEnabled = metrics.CacheBackend == "redis"
 	return c.JSON(http.StatusOK, map[string]any{
-		"metrics": manager.Metrics(),
+		"metrics": metrics,
 	})
+}
+
+func (api *vectorApi) cacheBackend() string {
+	if api.app.RedisCache() != nil {
+		return "redis"
+	}
+	return "memory"
+}
+
+func (api *vectorApi) cacheItems(ctx context.Context) int {
+	if api.app.RedisCache() == nil {
+		return api.app.Cache().LengthByPrefix("pb_cache:")
+	}
+
+	iter := api.app.RedisCache().Scan(ctx, 0, "pb_cache:*", 0).Iterator()
+	count := 0
+	for iter.Next(ctx) {
+		count++
+	}
+	return count
 }
 
 func (api *vectorApi) cluster(c echo.Context) error {

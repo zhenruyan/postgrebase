@@ -1,6 +1,9 @@
 package store
 
-import "sync"
+import (
+	"strings"
+	"sync"
+)
 
 // Store defines a concurrent safe in memory key-value data store.
 type Store[T any] struct {
@@ -40,6 +43,20 @@ func (s *Store[T]) Length() int {
 	return len(s.data)
 }
 
+// LengthByPrefix returns the number of entries with keys matching prefix.
+func (s *Store[T]) LengthByPrefix(prefix string) int {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	total := 0
+	for key := range s.data {
+		if strings.HasPrefix(key, prefix) {
+			total++
+		}
+	}
+	return total
+}
+
 // RemoveAll removes all the existing store entries.
 func (s *Store[T]) RemoveAll() {
 	s.mux.Lock()
@@ -56,6 +73,18 @@ func (s *Store[T]) Remove(key string) {
 	defer s.mux.Unlock()
 
 	delete(s.data, key)
+}
+
+// RemoveByPrefix removes all entries with keys matching prefix.
+func (s *Store[T]) RemoveByPrefix(prefix string) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	for key := range s.data {
+		if strings.HasPrefix(key, prefix) {
+			delete(s.data, key)
+		}
+	}
 }
 
 // Has checks if element with the specified key exist or not.

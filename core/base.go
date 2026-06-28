@@ -1319,23 +1319,19 @@ func (app *BaseApp) registerDefaultHooks() {
 	}
 
 	app.OnModelAfterCreate().Add(func(e *ModelEvent) error {
-		return app.clearRedisCache(e.Model)
+		return app.clearRecordCache(e.Model)
 	})
 
 	app.OnModelAfterUpdate().Add(func(e *ModelEvent) error {
-		return app.clearRedisCache(e.Model)
+		return app.clearRecordCache(e.Model)
 	})
 
 	app.OnModelAfterDelete().Add(func(e *ModelEvent) error {
-		return app.clearRedisCache(e.Model)
+		return app.clearRecordCache(e.Model)
 	})
 }
 
-func (app *BaseApp) clearRedisCache(m models.Model) error {
-	if app.redisCache == nil {
-		return nil
-	}
-
+func (app *BaseApp) clearRecordCache(m models.Model) error {
 	// Only clear cache for Records
 	record, ok := m.(*models.Record)
 	if !ok {
@@ -1351,15 +1347,17 @@ func (app *BaseApp) clearRedisCache(m models.Model) error {
 		return nil
 	}
 
-	ctx := context.Background()
-	pattern := fmt.Sprintf("pb_cache:%s:*", collection.Id)
+	prefix := fmt.Sprintf("pb_cache:%s:", collection.Id)
+	app.cache.RemoveByPrefix(prefix)
 
-	// In a real scenario, we would use SCAN to find keys.
-	// For simplicity and standard PB behavior of "clearing collection cache":
-	iter := app.redisCache.Scan(ctx, 0, pattern, 0).Iterator()
+	if app.redisCache == nil {
+		return nil
+	}
+
+	ctx := context.Background()
+	iter := app.redisCache.Scan(ctx, 0, prefix+"*", 0).Iterator()
 	for iter.Next(ctx) {
 		app.redisCache.Del(ctx, iter.Val())
 	}
-
 	return iter.Err()
 }
