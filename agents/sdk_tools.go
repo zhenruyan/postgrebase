@@ -53,8 +53,7 @@ func (t *sdkTool) Execute(_ context.Context, params map[string]any) (agentsdk.Ex
 	if allowed, reason := t.opts.authorize(t.spec); !allowed {
 		t.audit.record(t.spec, "deny", trimReason(reason), "pending", "", params)
 		return agentsdk.ExternalToolResult{
-			Text:    `{"status":"pending_approval","message":` + quote(reason) + `}`,
-			IsError: true,
+			Text: `{"status":"pending_approval","message":` + quote(reason) + `}`,
 		}, nil
 	}
 
@@ -64,7 +63,12 @@ func (t *sdkTool) Execute(_ context.Context, params map[string]any) (agentsdk.Ex
 		return agentsdk.ExternalToolResult{Text: err.Error(), IsError: true}, nil
 	}
 
-	t.audit.record(t.spec, "allow", "", result.Status, "", params)
+	errMsg := ""
+	isError := result.Status == "error"
+	if isError {
+		errMsg = result.Message
+	}
+	t.audit.record(t.spec, "allow", "", result.Status, errMsg, params)
 
 	encoded, mErr := json.Marshal(result)
 	if mErr != nil {
@@ -102,7 +106,7 @@ func (s *Service) externalTools(project string, policy projectPolicy, opts RunOp
 		if len(policy.allowedTools) > 0 && !list.ExistInSlice(spec.Name, policy.allowedTools) {
 			continue
 		}
-		if strings.HasPrefix(spec.Name, "schema.") && !policy.allowSchemaChange {
+		if spec.Category == "write" && strings.HasPrefix(spec.Name, "schema.") && !policy.allowSchemaChange {
 			continue
 		}
 		exec, ok := s.tools.executor(spec.Name)

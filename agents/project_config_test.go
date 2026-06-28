@@ -160,7 +160,7 @@ func TestResolveProviderPrefersProviderModelsOverGlobalDefault(t *testing.T) {
 	}
 }
 
-func TestResolveProviderIgnoresStaleUnknownSessionModel(t *testing.T) {
+func TestResolveProviderKeepsUnknownSessionModel(t *testing.T) {
 	app := newTestApp(t)
 	svc := NewService(app)
 
@@ -184,8 +184,8 @@ func TestResolveProviderIgnoresStaleUnknownSessionModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if model != "kimi2.5" {
-		t.Fatalf("expected stale model to be ignored, got %q", model)
+	if model != "gpt-4o" {
+		t.Fatalf("expected unknown session model to be preserved, got %q", model)
 	}
 }
 
@@ -224,5 +224,97 @@ func TestResolveProviderInfersProviderFromModel(t *testing.T) {
 	}
 	if provider.Id != "gitee-main" || model != "kimi2.5" {
 		t.Fatalf("unexpected inferred provider/model: %+v %s", provider, model)
+	}
+}
+
+func TestEffectiveRunSelectionProjectDefaultsOverrideStaleSessionDefaults(t *testing.T) {
+	app := newTestApp(t)
+	svc := NewService(app)
+
+	app.Settings().Agents.Enabled = true
+	app.Settings().Agents.DefaultProvider = "openai-main"
+	app.Settings().Agents.DefaultModel = "gpt-4o"
+	app.Settings().Agents.Providers = []settings.AgentProviderConfig{
+		{
+			Id:      "openai-main",
+			Vendor:  "openai",
+			Api:     "openai-chat",
+			Enabled: true,
+			Models: []settings.AgentProviderModel{
+				{Name: "gpt-4o", ProviderModelId: "gpt-4o", Enabled: true},
+			},
+		},
+		{
+			Id:           "gitee-main",
+			Vendor:       "gitee",
+			Api:          "openai-chat",
+			Enabled:      true,
+			DefaultModel: "kimi2.5",
+			Models: []settings.AgentProviderModel{
+				{Name: "kimi2.5", ProviderModelId: "kimi2.5", Enabled: true},
+			},
+		},
+	}
+
+	policy := projectPolicy{
+		defaultProvider: "gitee-main",
+		defaultModel:    "kimi2.5",
+		projectProvider: true,
+		projectModel:    true,
+	}
+	provider, model := svc.effectiveRunSelection(&Session{
+		Provider: "openai-main",
+		Model:    "gpt-4o",
+	}, policy)
+
+	if provider != "gitee-main" || model != "kimi2.5" {
+		t.Fatalf("expected project defaults to replace stale session defaults, got provider=%q model=%q", provider, model)
+	}
+}
+
+func TestEffectiveRunSelectionKeepsExplicitProviderOverride(t *testing.T) {
+	app := newTestApp(t)
+	svc := NewService(app)
+
+	app.Settings().Agents.Enabled = true
+	app.Settings().Agents.DefaultProvider = "gitee-main"
+	app.Settings().Agents.DefaultModel = "kimi2.5"
+	app.Settings().Agents.Providers = []settings.AgentProviderConfig{
+		{
+			Id:           "gitee-main",
+			Vendor:       "gitee",
+			Api:          "openai-chat",
+			Enabled:      true,
+			DefaultModel: "kimi2.5",
+		},
+		{
+			Id:           "openai-main",
+			Vendor:       "openai",
+			Api:          "openai-chat",
+			Enabled:      true,
+			DefaultModel: "gpt-4o",
+		},
+	}
+
+	policy := projectPolicy{
+		defaultProvider: "gitee-main",
+		defaultModel:    "kimi2.5",
+		projectProvider: true,
+		projectModel:    true,
+	}
+	provider, model := svc.effectiveRunSelection(&Session{
+		Provider: "openai-main",
+	}, policy)
+
+	if provider != "openai-main" || model != "" {
+		t.Fatalf("expected explicit provider override to remain provider-only, got provider=%q model=%q", provider, model)
+	}
+
+	resolvedProvider, resolvedModel, err := svc.resolveProvider(provider, model)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolvedProvider.Id != "openai-main" || resolvedModel != "gpt-4o" {
+		t.Fatalf("expected explicit provider default model, got provider=%q model=%q", resolvedProvider.Id, resolvedModel)
 	}
 }

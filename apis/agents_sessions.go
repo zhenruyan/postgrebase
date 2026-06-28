@@ -1,6 +1,8 @@
 package apis
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -134,6 +136,16 @@ func (api *agentSessionApi) run(c echo.Context) error {
 		return NewNotFoundError("Session ID is required", nil)
 	}
 
+	flusher, ok := c.Response().Writer.(http.Flusher)
+	if !ok {
+		return NewBadRequestError("Streaming is not supported by this server", nil)
+	}
+
+	c.Response().Header().Set("Content-Type", "text/event-stream; charset=UTF-8")
+	c.Response().Header().Set("Cache-Control", "no-store")
+	c.Response().Header().Set("Connection", "keep-alive")
+	c.Response().Header().Set("X-Accel-Buffering", "no")
+
 	opts := agents.RunOptions{
 		AllowWrites:   body.AllowWrites,
 		ApprovedTools: body.ApprovedTools,
@@ -141,15 +153,44 @@ func (api *agentSessionApi) run(c echo.Context) error {
 	}
 	input := agents.RunInput{Content: body.Content, Images: body.Images}
 
-	result, err := api.svc.RunSession(c.Request().Context(), id, input, opts)
+	var writeErr error
+	var sentError bool
+	_, err := api.svc.RunSessionStream(c.Request().Context(), id, input, opts, func(ev agents.RunStreamEvent) bool {
+		if ev.Type == agents.RunStreamEventError {
+			sentError = true
+		}
+		writeErr = writeAgentRunEvent(c, flusher, ev)
+		return writeErr == nil
+	})
 	if err != nil {
+		if writeErr != nil || c.Request().Context().Err() != nil {
+			return nil
+		}
 		log.Printf("agents: run session %s failed: %v", id, err)
-		return NewBadRequestError("Failed to run agent session: "+err.Error(), map[string]any{
-			"error": err.Error(),
-		})
+		if !sentError {
+			_ = writeAgentRunEvent(c, flusher, agents.RunStreamEvent{
+				Type:  agents.RunStreamEventError,
+				Error: "Failed to run agent session: " + err.Error(),
+			})
+		}
 	}
 
-	return c.JSON(http.StatusOK, result)
+	return nil
+}
+
+func writeAgentRunEvent(c echo.Context, flusher http.Flusher, ev agents.RunStreamEvent) error {
+	data, err := json.Marshal(ev)
+	if err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(c.Response(), "event: %s\n", ev.Type); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(c.Response(), "data: %s\n\n", data); err != nil {
+		return err
+	}
+	flusher.Flush()
+	return nil
 }
 
 // actorFromContext extracts the authenticated admin id for audit purposes.

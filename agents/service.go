@@ -151,10 +151,13 @@ func (s *Service) RegisterExecutors() {
 	}
 
 	s.tools.SetExecutor("data.query", NewQueryExecutor(s.app))
+	s.tools.SetExecutor("data.get", NewGetRecordExecutor(s.app))
 	s.tools.SetExecutor("data.insert", NewInsertRecordExecutor(s.app))
+	s.tools.SetExecutor("data.bulk_insert", NewBulkInsertRecordExecutor(s.app))
 	s.tools.SetExecutor("data.update", NewUpdateRecordExecutor(s.app))
 	s.tools.SetExecutor("data.delete", NewDeleteRecordExecutor(s.app))
 	s.tools.SetExecutor("dataset.preview", NewDatasetPreviewExecutor(s.app))
+	s.tools.SetExecutor("schema.list_tables", NewListTablesExecutor(s.app))
 	s.tools.SetExecutor("schema.create_table", NewCreateTableExecutor(s.app))
 	s.tools.SetExecutor("schema.create_index", NewCreateIndexExecutor(s.app))
 	s.tools.SetExecutor("schema.add_field", NewAddFieldExecutor(s.app))

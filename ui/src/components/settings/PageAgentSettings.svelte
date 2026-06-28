@@ -17,6 +17,7 @@
         "data.bulk_insert",
         "data.update",
         "data.delete",
+        "schema.list_tables",
         "schema.create_table",
         "schema.add_field",
         "schema.update_field",

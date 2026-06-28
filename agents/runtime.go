@@ -2,6 +2,7 @@ package agents
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -88,6 +89,9 @@ func (s *Service) resolveProvider(sessionProvider, sessionModel string) (setting
 	}
 
 	model := strings.TrimSpace(sessionModel)
+	if id := resolveModelId(provider, model); id != "" {
+		return provider, id, nil
+	}
 	if model == "" {
 		model = provider.DefaultModel
 	}
@@ -99,11 +103,6 @@ func (s *Service) resolveProvider(sessionProvider, sessionModel string) (setting
 	}
 	if id := resolveModelId(provider, model); id != "" {
 		model = id
-	} else if len(provider.Models) > 0 {
-		model = provider.DefaultModel
-		if model == "" {
-			model = firstProviderModelId(provider)
-		}
 	}
 	if model == "" {
 		return settings.AgentProviderConfig{}, "", errors.New("no model configured for agent run")
@@ -173,6 +172,65 @@ func resolveModelId(provider settings.AgentProviderConfig, model string) string 
 	return ""
 }
 
+func configuredProviderModelExists(provider settings.AgentProviderConfig, model string) bool {
+	model = strings.TrimSpace(model)
+	if model == "" {
+		return false
+	}
+	if strings.TrimSpace(provider.DefaultModel) == model {
+		return true
+	}
+	return resolveModelId(provider, model) != ""
+}
+
+func configuredProviderById(providers []settings.AgentProviderConfig, id string) (settings.AgentProviderConfig, bool) {
+	id = strings.TrimSpace(id)
+	for _, provider := range providers {
+		if provider.Id == id {
+			return provider, true
+		}
+	}
+	return settings.AgentProviderConfig{}, false
+}
+
+func sessionProviderUsesDefault(rawProvider, providerId, policyProvider string) bool {
+	rawProvider = strings.TrimSpace(rawProvider)
+	providerId = strings.TrimSpace(providerId)
+	policyProvider = strings.TrimSpace(policyProvider)
+	return rawProvider == "" || (policyProvider != "" && providerId == policyProvider)
+}
+
+func (s *Service) effectiveRunSelection(session *Session, policy projectPolicy) (string, string) {
+	cfg := s.app.Settings().Agents
+	rawProvider := strings.TrimSpace(session.Provider)
+	providerId := rawProvider
+	policyProvider := strings.TrimSpace(policy.defaultProvider)
+	if providerId == "" {
+		providerId = policyProvider
+	} else if policy.projectProvider && policyProvider != "" && providerId == strings.TrimSpace(cfg.DefaultProvider) && providerId != policyProvider {
+		providerId = policyProvider
+	}
+
+	model := strings.TrimSpace(session.Model)
+	policyModel := strings.TrimSpace(policy.defaultModel)
+	if policyModel != "" {
+		provider, hasProvider := configuredProviderById(cfg.Providers, firstNonEmpty(providerId, policyProvider))
+		usesDefaultProvider := sessionProviderUsesDefault(rawProvider, providerId, policyProvider)
+		switch {
+		case model == "":
+			if usesDefaultProvider {
+				model = policyModel
+			}
+		case model == strings.TrimSpace(cfg.DefaultModel) && model != policyModel:
+			model = policyModel
+		case usesDefaultProvider && policy.projectModel && hasProvider && !configuredProviderModelExists(provider, model):
+			model = policyModel
+		}
+	}
+
+	return providerId, model
+}
+
 // toolName converts a dotted tool name to a provider-safe function name.
 // The chat completions API requires names matching ^[a-zA-Z0-9_-]+$.
 func toolName(name string) string {
@@ -210,7 +268,9 @@ func systemPrompt(project string) string {
 	b.WriteString("- You may only operate within project_id=")
 	b.WriteString(project)
 	b.WriteString(". The project argument is injected automatically; never target another project.\n")
+	b.WriteString("- Before guessing table or collection names, call schema.list_tables and use a returned table name.\n")
 	b.WriteString("- Use schema tools to create or modify tables, and data tools to insert, query, update or delete records.\n")
+	b.WriteString("- If a tool returns status=pending_approval, stop calling write tools and ask the user to approve.\n")
 	b.WriteString("- When you have enough information, answer the user directly and concisely.\n")
 	return b.String()
 }
@@ -255,9 +315,60 @@ func historyToMessages(history []SessionMessage) []agentsdk.Message {
 	return messages
 }
 
-// RunSession stores the user message, drives the vibecoding agent runtime
-// (model + tool loop) and persists the resulting assistant and tool messages.
+// RunSession stores the user message, drives the vibecoding agent runtime and
+// returns the final accumulated result.
 func (s *Service) RunSession(ctx context.Context, sessionID string, input RunInput, opts RunOptions) (*RunResult, error) {
+	return s.RunSessionStream(ctx, sessionID, input, opts, nil)
+}
+
+func emitRunStreamEvent(ctx context.Context, emit RunStreamHandler, ev RunStreamEvent) error {
+	if emit == nil {
+		return nil
+	}
+	if emit(ev) {
+		return nil
+	}
+	if ctx != nil && ctx.Err() != nil {
+		return ctx.Err()
+	}
+	return errors.New("agent stream closed")
+}
+
+func eventToolName(ev agentsdk.Event) string {
+	if ev.ToolName != "" {
+		return ev.ToolName
+	}
+	if ev.ToolCall != nil {
+		return ev.ToolCall.Name
+	}
+	return ""
+}
+
+func eventToolCallID(ev agentsdk.Event) string {
+	if ev.ToolCallID != "" {
+		return ev.ToolCallID
+	}
+	if ev.ToolCall != nil {
+		return ev.ToolCall.ID
+	}
+	return ""
+}
+
+func encodedToolArgs(args map[string]any) string {
+	if len(args) == 0 {
+		return ""
+	}
+	raw, err := json.Marshal(args)
+	if err != nil {
+		return ""
+	}
+	return string(raw)
+}
+
+// RunSessionStream stores the user message, drives the vibecoding agent runtime
+// (model + tool loop), streams progress events and persists the final assistant
+// and tool messages.
+func (s *Service) RunSessionStream(ctx context.Context, sessionID string, input RunInput, opts RunOptions, emit RunStreamHandler) (*RunResult, error) {
 	if s == nil || s.sessions == nil || s.tools == nil {
 		return nil, errors.New("agent runtime is not available")
 	}
@@ -270,8 +381,7 @@ func (s *Service) RunSession(ctx context.Context, sessionID string, input RunInp
 	// Resolve the effective per-project policy (proposal §9.1) and overlay it on
 	// the session-level provider/model selection.
 	policy := s.resolvePolicy(session.Project)
-	sessionProvider := firstNonEmpty(session.Provider, policy.defaultProvider)
-	sessionModel := firstNonEmpty(session.Model, policy.defaultModel)
+	sessionProvider, sessionModel := s.effectiveRunSelection(session, policy)
 	if policy.autoApprove {
 		opts.AllowWrites = true
 	}
@@ -312,6 +422,20 @@ func (s *Service) RunSession(ctx context.Context, sessionID string, input RunInp
 		}
 	}
 
+	result := &RunResult{
+		SessionId: sessionID,
+		Provider:  provider.Id,
+		Model:     model,
+	}
+	if err := emitRunStreamEvent(ctx, emit, RunStreamEvent{
+		Type:      RunStreamEventStart,
+		SessionId: sessionID,
+		Provider:  provider.Id,
+		Model:     model,
+	}); err != nil {
+		return nil, err
+	}
+
 	history, err := s.sessions.Messages(sessionID)
 	if err != nil {
 		return nil, err
@@ -333,35 +457,83 @@ func (s *Service) RunSession(ctx context.Context, sessionID string, input RunInp
 		return nil, fmt.Errorf("build agent: %w", err)
 	}
 
-	result := &RunResult{
-		SessionId: sessionID,
-		Provider:  provider.Id,
-		Model:     model,
-	}
-
 	var reply strings.Builder
+	toolArgs := map[string]string{}
 	events := agent.RunWithMessages(ctx, historyToMessages(history))
 	for ev := range events {
 		switch ev.Type {
 		case agentsdk.EventTextDelta:
 			reply.WriteString(ev.TextDelta)
+			if err := emitRunStreamEvent(ctx, emit, RunStreamEvent{
+				Type: RunStreamEventTextDelta,
+				Text: ev.TextDelta,
+			}); err != nil {
+				return nil, err
+			}
+		case agentsdk.EventThinkDelta:
+			if err := emitRunStreamEvent(ctx, emit, RunStreamEvent{
+				Type:    RunStreamEventThinkDelta,
+				Thought: ev.ThinkDelta,
+			}); err != nil {
+				return nil, err
+			}
+		case agentsdk.EventToolCall:
+			tool := eventToolName(ev)
+			if id := eventToolCallID(ev); id != "" {
+				toolArgs[id] = encodedToolArgs(ev.ToolArgs)
+			}
+			if err := emitRunStreamEvent(ctx, emit, RunStreamEvent{
+				Type: RunStreamEventToolCall,
+				Tool: fromToolName(tool),
+				Args: ev.ToolArgs,
+			}); err != nil {
+				return nil, err
+			}
+		case agentsdk.EventToolExecutionStart:
+			if id := eventToolCallID(ev); id != "" {
+				toolArgs[id] = encodedToolArgs(ev.ToolArgs)
+			}
+		case agentsdk.EventStatus:
+			if strings.TrimSpace(ev.StatusMessage) == "" {
+				continue
+			}
+			if err := emitRunStreamEvent(ctx, emit, RunStreamEvent{
+				Type:   RunStreamEventStatus,
+				Status: ev.StatusMessage,
+			}); err != nil {
+				return nil, err
+			}
 		case agentsdk.EventToolResult:
-			trace := RunTrace{Tool: fromToolName(ev.ToolName), Result: ev.ToolResult}
+			trace := RunTrace{Tool: fromToolName(eventToolName(ev)), Args: toolArgs[eventToolCallID(ev)], Result: ev.ToolResult}
 			if ev.ToolError != nil {
 				trace.Error = ev.ToolError.Error()
 			}
 			result.Traces = append(result.Traces, trace)
 			_, _, _ = s.sessions.AddMessage(sessionID, "tool", trace.Tool+": "+ev.ToolResult)
+			if err := emitRunStreamEvent(ctx, emit, RunStreamEvent{
+				Type:             RunStreamEventToolResult,
+				Trace:            &trace,
+				PendingApprovals: audit.pendings,
+			}); err != nil {
+				return nil, err
+			}
 		case agentsdk.EventError:
 			if ev.Error != nil {
+				_ = emitRunStreamEvent(ctx, emit, RunStreamEvent{
+					Type:  RunStreamEventError,
+					Error: ev.Error.Error(),
+				})
 				return nil, ev.Error
 			}
 		}
 	}
 
-	result.Reply = strings.TrimSpace(reply.String())
 	result.PendingApprovals = audit.pendings
 	result.Audit = audit.entries
+	result.Reply = strings.TrimSpace(reply.String())
+	if result.Reply == "" {
+		result.Reply = fallbackRunReply(result.PendingApprovals, result.Traces)
+	}
 	s.persistAudit(sessionID, session.Project, audit.entries)
 	if result.Reply != "" {
 		if _, _, err := s.sessions.AddMessage(sessionID, "assistant", result.Reply); err != nil {
@@ -382,7 +554,86 @@ func (s *Service) RunSession(ctx context.Context, sessionID string, input RunInp
 		}
 	}
 
+	if err := emitRunStreamEvent(ctx, emit, RunStreamEvent{
+		Type:             RunStreamEventFinal,
+		Result:           result,
+		PendingApprovals: result.PendingApprovals,
+	}); err != nil {
+		return result, err
+	}
+
 	return result, nil
+}
+
+func fallbackRunReply(pending []PendingApproval, traces []RunTrace) string {
+	if len(pending) > 0 {
+		return "Write approval required before continuing: " + strings.Join(pendingToolNames(pending), ", ")
+	}
+
+	for i := len(traces) - 1; i >= 0; i-- {
+		trace := traces[i]
+		if msg := strings.TrimSpace(trace.Error); msg != "" {
+			return "Tool call failed: " + msg
+		}
+
+		status, msg := traceResultStatus(trace.Result)
+		switch status {
+		case "pending_approval":
+			if msg == "" {
+				msg = trace.Tool
+			}
+			return "Write approval required before continuing: " + msg
+		case "error":
+			if msg == "" {
+				msg = "tool returned status=error"
+			}
+			return "Tool call failed: " + msg
+		}
+	}
+
+	if len(traces) > 0 {
+		return "The requested tools ran, but the model did not produce a final reply. Please try again or add more detail."
+	}
+	return ""
+}
+
+func pendingToolNames(pending []PendingApproval) []string {
+	names := make([]string, 0, len(pending))
+	seen := map[string]struct{}{}
+	for _, approval := range pending {
+		name := strings.TrimSpace(approval.Tool)
+		if name == "" {
+			continue
+		}
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+	if len(names) == 0 {
+		return []string{"write tool"}
+	}
+	return names
+}
+
+func traceResultStatus(raw string) (string, string) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", ""
+	}
+	if raw == "error" || raw == "pending_approval" {
+		return raw, ""
+	}
+
+	var payload struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		return "", ""
+	}
+	return strings.TrimSpace(payload.Status), strings.TrimSpace(payload.Message)
 }
 
 // generateSessionName asks the model for a short title summarizing the first

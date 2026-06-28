@@ -64,6 +64,28 @@ func TestCreateTableExecutor(t *testing.T) {
 		t.Fatal("expected posts table to exist")
 	}
 
+	listed, err := svc.ExecuteTool("schema.list_tables", map[string]any{
+		"project": "project-1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tables, _ := listed.Data.(map[string]any)["tables"].([]tableView)
+	if len(tables) != 1 || tables[0].Name != "posts" {
+		t.Fatalf("unexpected table list: %#v", listed.Data)
+	}
+
+	missing, err := svc.ExecuteTool("data.query", map[string]any{
+		"project":    "project-1",
+		"collection": "missing_posts",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if missing == nil || missing.Status != "error" {
+		t.Fatalf("expected structured missing collection result, got %#v", missing)
+	}
+
 	added, err := svc.ExecuteTool("schema.add_field", map[string]any{
 		"project":    "project-1",
 		"collection": "posts",
@@ -202,7 +224,9 @@ func TestCreateTableExecutor(t *testing.T) {
 		"project":    "project-1",
 		"collection": "posts",
 		"data": map[string]any{
-			"title": "hello",
+			"id":      "model-generated-bad-id",
+			"project": "other-project",
+			"title":   "hello",
 		},
 	})
 	if err != nil {
@@ -261,6 +285,38 @@ func TestCreateTableExecutor(t *testing.T) {
 
 	if _, err := app.Dao().FindRecordById("posts", record.Id); err == nil {
 		t.Fatal("expected record to be deleted")
+	}
+
+	_, err = svc.ExecuteTool("schema.create_table", map[string]any{
+		"project":     "project-1",
+		"name":        "jobs",
+		"displayName": "Jobs",
+		"fields": []any{
+			map[string]any{"name": "project", "type": "text"},
+			map[string]any{"name": "title", "type": "text"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobInserted, err := svc.ExecuteTool("data.insert", map[string]any{
+		"project":    "project-1",
+		"collection": "jobs",
+		"data": map[string]any{
+			"id":      "model-generated-bad-id",
+			"project": "Apollo",
+			"title":   "Engineer",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobRecord, err := app.Dao().FindRecordById("jobs", jobInserted.Data.(*models.Record).Id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if jobRecord.GetString("project") != "Apollo" {
+		t.Fatalf("expected business project field to be preserved, got %q", jobRecord.GetString("project"))
 	}
 }
 

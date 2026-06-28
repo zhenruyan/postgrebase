@@ -1,13 +1,16 @@
 package agents
 
 import (
+	"database/sql"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/spf13/cast"
 	"github.com/zhenruyan/postgrebase/core"
 	"github.com/zhenruyan/postgrebase/daos"
+	"github.com/zhenruyan/postgrebase/dbx"
 	"github.com/zhenruyan/postgrebase/forms"
 	"github.com/zhenruyan/postgrebase/models"
 	"github.com/zhenruyan/postgrebase/models/schema"
@@ -54,6 +57,7 @@ var toolMetadataTable = map[string]toolMetadata{
 	"data.query":          {Category: "read", Risk: "low", AuditCategory: "data"},
 	"data.get":            {Category: "read", Risk: "low", AuditCategory: "data"},
 	"dataset.preview":     {Category: "read", Risk: "low", AuditCategory: "data"},
+	"schema.list_tables":  {Category: "read", Risk: "low", AuditCategory: "schema"},
 	"data.insert":         {Category: "write", Risk: "medium", AuditCategory: "data", RequiresApproval: true},
 	"data.bulk_insert":    {Category: "write", Risk: "high", AuditCategory: "data", RequiresApproval: true},
 	"data.update":         {Category: "write", Risk: "medium", AuditCategory: "data", RequiresApproval: true},
@@ -116,6 +120,17 @@ type ToolRegistry struct {
 // NewToolRegistry creates a registry with the platform's initial tool set.
 func NewToolRegistry() *ToolRegistry {
 	tools := []ToolSpec{
+		{
+			Name:        "schema.list_tables",
+			Description: "List tables available in the current project, including schema fields and record counts.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"project": map[string]any{"type": "string"},
+				},
+				"required": []string{"project"},
+			},
+		},
 		{
 			Name:        "schema.create_table",
 			Description: "Create a table definition from structured fields.",
@@ -389,6 +404,161 @@ func (r *ToolRegistry) Execute(name string, args map[string]any) (*ToolExecution
 	return exec(args)
 }
 
+type tableFieldView struct {
+	Id       string `json:"id"`
+	Name     string `json:"name"`
+	Type     string `json:"type"`
+	Required bool   `json:"required,omitempty"`
+}
+
+type tableView struct {
+	Id          string           `json:"id"`
+	Name        string           `json:"name"`
+	DisplayName string           `json:"displayName,omitempty"`
+	Type        string           `json:"type"`
+	Fields      []tableFieldView `json:"fields"`
+	RecordCount int              `json:"recordCount"`
+}
+
+var agentSystemDataKeys = map[string]struct{}{
+	"id":             {},
+	"created":        {},
+	"updated":        {},
+	"collectionId":   {},
+	"collectionName": {},
+	"expand":         {},
+}
+
+func sanitizeRecordData(data map[string]any) map[string]any {
+	clean := make(map[string]any, len(data))
+	for key, value := range data {
+		if _, ok := agentSystemDataKeys[key]; ok {
+			continue
+		}
+		clean[key] = value
+	}
+	return clean
+}
+
+func projectCollections(app core.App, project string) ([]*models.Collection, error) {
+	collections := []*models.Collection{}
+	err := app.Dao().CollectionQuery().
+		AndWhere(dbx.HashExp{"project": project}).
+		OrderBy("name ASC").
+		All(&collections)
+	if err != nil {
+		return nil, err
+	}
+	return collections, nil
+}
+
+func tableViews(app core.App, collections []*models.Collection) []tableView {
+	result := make([]tableView, 0, len(collections))
+	for _, collection := range collections {
+		view := tableView{
+			Id:   collection.Id,
+			Name: collection.Name,
+			Type: collection.Type,
+		}
+		if collection.DisplayName != nil {
+			view.DisplayName = *collection.DisplayName
+		}
+		for _, field := range collection.Schema.Fields() {
+			view.Fields = append(view.Fields, tableFieldView{
+				Id:       field.Id,
+				Name:     field.Name,
+				Type:     field.Type,
+				Required: field.Required,
+			})
+		}
+		var count int
+		if err := app.Dao().RecordQuery(collection).Select("count(*)").Row(&count); err == nil {
+			view.RecordCount = count
+		}
+		result = append(result, view)
+	}
+	return result
+}
+
+func findProjectCollection(app core.App, project, nameOrId string) (*models.Collection, *ToolExecutionResult, error) {
+	collection, err := app.Dao().FindCollectionByNameOrId(nameOrId)
+	if errors.Is(err, sql.ErrNoRows) {
+		collections, listErr := projectCollections(app, project)
+		if listErr != nil {
+			return nil, nil, listErr
+		}
+		return nil, &ToolExecutionResult{
+			Status:  "error",
+			Message: fmt.Sprintf("collection %q was not found in this project; call schema.list_tables and use one of the returned table names", nameOrId),
+			Data: map[string]any{
+				"tables": tableViews(app, collections),
+			},
+		}, nil
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	if collection.Project == nil || *collection.Project != project {
+		collections, listErr := projectCollections(app, project)
+		if listErr != nil {
+			return nil, nil, listErr
+		}
+		return nil, &ToolExecutionResult{
+			Status:  "error",
+			Message: fmt.Sprintf("collection %q belongs to another project or is unassigned; use a table from the current project", nameOrId),
+			Data: map[string]any{
+				"tables": tableViews(app, collections),
+			},
+		}, nil
+	}
+	return collection, nil, nil
+}
+
+func findProjectRecord(app core.App, project, collectionName, recordID string) (*models.Record, *ToolExecutionResult, error) {
+	collection, toolResult, err := findProjectCollection(app, project, collectionName)
+	if err != nil {
+		return nil, nil, err
+	}
+	if toolResult != nil {
+		return nil, toolResult, nil
+	}
+
+	record, err := app.Dao().FindRecordById(collection.Id, recordID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, &ToolExecutionResult{
+			Status:  "error",
+			Message: fmt.Sprintf("record %q was not found in table %q", recordID, collection.Name),
+		}, nil
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	return record, nil, nil
+}
+
+// NewListTablesExecutor returns the project table catalog available to the agent.
+func NewListTablesExecutor(app core.App) ToolExecutor {
+	return func(args map[string]any) (*ToolExecutionResult, error) {
+		project := cast.ToString(args["project"])
+		if project == "" {
+			return nil, errors.New("project is required")
+		}
+
+		collections, err := projectCollections(app, project)
+		if err != nil {
+			return nil, err
+		}
+
+		return &ToolExecutionResult{
+			Status:  "ok",
+			Message: "project tables listed",
+			Data: map[string]any{
+				"tables": tableViews(app, collections),
+			},
+		}, nil
+	}
+}
+
 // NewQueryExecutor creates a project-scoped query tool executor.
 func NewQueryExecutor(app core.App) ToolExecutor {
 	return func(args map[string]any) (*ToolExecutionResult, error) {
@@ -401,12 +571,12 @@ func NewQueryExecutor(app core.App) ToolExecutor {
 			return nil, errors.New("collection is required")
 		}
 
-		collection, err := app.Dao().FindCollectionByNameOrId(collectionName)
+		collection, toolResult, err := findProjectCollection(app, project, collectionName)
 		if err != nil {
 			return nil, err
 		}
-		if collection.Project == nil || *collection.Project != project {
-			return nil, errors.New("collection is outside of the current project scope")
+		if toolResult != nil {
+			return toolResult, nil
 		}
 
 		records := []*models.Record{}
@@ -500,7 +670,21 @@ func NewCreateTableExecutor(app core.App) ToolExecutor {
 		}
 
 		if !app.Dao().IsCollectionNameUnique(name) {
-			return nil, errors.New("collection name must be unique")
+			existing, err := app.Dao().FindCollectionByNameOrId(name)
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return nil, err
+			}
+			if existing != nil && existing.Project != nil && *existing.Project == project {
+				return &ToolExecutionResult{
+					Status:  "ok",
+					Message: "table already exists in this project; reuse it instead of creating it again",
+					Data:    existing,
+				}, nil
+			}
+			return &ToolExecutionResult{
+				Status:  "error",
+				Message: fmt.Sprintf("collection name %q is already used outside this project; choose a different table name", name),
+			}, nil
 		}
 
 		fields, _ := args["fields"].([]any)
@@ -580,12 +764,12 @@ func NewAddFieldExecutor(app core.App) ToolExecutor {
 			return nil, errors.New("field is required")
 		}
 
-		collection, err := app.Dao().FindCollectionByNameOrId(collectionName)
+		collection, toolResult, err := findProjectCollection(app, project, collectionName)
 		if err != nil {
 			return nil, err
 		}
-		if collection.Project == nil || *collection.Project != project {
-			return nil, errors.New("collection is outside of the current project scope")
+		if toolResult != nil {
+			return toolResult, nil
 		}
 		if collection.IsView() {
 			return nil, errors.New("view collections cannot be modified")
@@ -661,12 +845,12 @@ func NewDatasetPreviewExecutor(app core.App) ToolExecutor {
 			return nil, errors.New("collection is required")
 		}
 
-		collection, err := app.Dao().FindCollectionByNameOrId(collectionName)
+		collection, toolResult, err := findProjectCollection(app, project, collectionName)
 		if err != nil {
 			return nil, err
 		}
-		if collection.Project == nil || *collection.Project != project {
-			return nil, errors.New("collection is outside of the current project scope")
+		if toolResult != nil {
+			return toolResult, nil
 		}
 
 		records := []*models.Record{}
@@ -704,17 +888,17 @@ func NewInsertRecordExecutor(app core.App) ToolExecutor {
 			return nil, errors.New("data is required")
 		}
 
-		collection, err := app.Dao().FindCollectionByNameOrId(collectionName)
+		collection, toolResult, err := findProjectCollection(app, project, collectionName)
 		if err != nil {
 			return nil, err
 		}
-		if collection.Project == nil || *collection.Project != project {
-			return nil, errors.New("collection is outside of the current project scope")
+		if toolResult != nil {
+			return toolResult, nil
 		}
 
 		record := models.NewRecord(collection)
 		form := forms.NewRecordUpsert(app, record)
-		if err := form.LoadData(data); err != nil {
+		if err := form.LoadData(sanitizeRecordData(data)); err != nil {
 			return nil, err
 		}
 		if err := form.Submit(); err != nil {
@@ -745,12 +929,12 @@ func NewBulkInsertRecordExecutor(app core.App) ToolExecutor {
 			return nil, errors.New("rows is required")
 		}
 
-		collection, err := app.Dao().FindCollectionByNameOrId(collectionName)
+		_, toolResult, err := findProjectCollection(app, project, collectionName)
 		if err != nil {
 			return nil, err
 		}
-		if collection.Project == nil || *collection.Project != project {
-			return nil, errors.New("collection is outside of the current project scope")
+		if toolResult != nil {
+			return toolResult, nil
 		}
 
 		inserted := []*models.Record{}
@@ -768,7 +952,7 @@ func NewBulkInsertRecordExecutor(app core.App) ToolExecutor {
 				record := models.NewRecord(txCollection)
 				form := forms.NewRecordUpsert(app, record)
 				form.SetDao(txDao)
-				if err := form.LoadData(data); err != nil {
+				if err := form.LoadData(sanitizeRecordData(data)); err != nil {
 					return err
 				}
 				if err := form.Submit(); err != nil {
@@ -808,12 +992,12 @@ func NewGetRecordExecutor(app core.App) ToolExecutor {
 			return nil, errors.New("id is required")
 		}
 
-		record, err := app.Dao().FindRecordById(collectionName, recordID)
+		record, toolResult, err := findProjectRecord(app, project, collectionName, recordID)
 		if err != nil {
 			return nil, err
 		}
-		if record.Collection().Project == nil || *record.Collection().Project != project {
-			return nil, errors.New("record is outside of the current project scope")
+		if toolResult != nil {
+			return toolResult, nil
 		}
 
 		return &ToolExecutionResult{
@@ -844,16 +1028,16 @@ func NewUpdateRecordExecutor(app core.App) ToolExecutor {
 			return nil, errors.New("data is required")
 		}
 
-		record, err := app.Dao().FindRecordById(collectionName, recordID)
+		record, toolResult, err := findProjectRecord(app, project, collectionName, recordID)
 		if err != nil {
 			return nil, err
 		}
-		if record.Collection().Project == nil || *record.Collection().Project != project {
-			return nil, errors.New("record is outside of the current project scope")
+		if toolResult != nil {
+			return toolResult, nil
 		}
 
 		form := forms.NewRecordUpsert(app, record)
-		if err := form.LoadData(data); err != nil {
+		if err := form.LoadData(sanitizeRecordData(data)); err != nil {
 			return nil, err
 		}
 		if err := form.Submit(); err != nil {
@@ -884,12 +1068,12 @@ func NewDeleteRecordExecutor(app core.App) ToolExecutor {
 			return nil, errors.New("id is required")
 		}
 
-		record, err := app.Dao().FindRecordById(collectionName, recordID)
+		record, toolResult, err := findProjectRecord(app, project, collectionName, recordID)
 		if err != nil {
 			return nil, err
 		}
-		if record.Collection().Project == nil || *record.Collection().Project != project {
-			return nil, errors.New("record is outside of the current project scope")
+		if toolResult != nil {
+			return toolResult, nil
 		}
 
 		if err := app.Dao().Delete(record); err != nil {
@@ -922,12 +1106,12 @@ func NewUpdateFieldExecutor(app core.App) ToolExecutor {
 			return nil, errors.New("field is required")
 		}
 
-		collection, err := app.Dao().FindCollectionByNameOrId(collectionName)
+		collection, toolResult, err := findProjectCollection(app, project, collectionName)
 		if err != nil {
 			return nil, err
 		}
-		if collection.Project == nil || *collection.Project != project {
-			return nil, errors.New("collection is outside of the current project scope")
+		if toolResult != nil {
+			return toolResult, nil
 		}
 		if collection.IsView() {
 			return nil, errors.New("view collections cannot be modified")
@@ -1027,12 +1211,12 @@ func NewDropFieldExecutor(app core.App) ToolExecutor {
 			return nil, errors.New("field is required")
 		}
 
-		collection, err := app.Dao().FindCollectionByNameOrId(collectionName)
+		collection, toolResult, err := findProjectCollection(app, project, collectionName)
 		if err != nil {
 			return nil, err
 		}
-		if collection.Project == nil || *collection.Project != project {
-			return nil, errors.New("collection is outside of the current project scope")
+		if toolResult != nil {
+			return toolResult, nil
 		}
 		if collection.IsView() {
 			return nil, errors.New("view collections cannot be modified")
@@ -1104,12 +1288,12 @@ func NewCreateIndexExecutor(app core.App) ToolExecutor {
 			return nil, errors.New("index is required")
 		}
 
-		collection, err := app.Dao().FindCollectionByNameOrId(collectionName)
+		collection, toolResult, err := findProjectCollection(app, project, collectionName)
 		if err != nil {
 			return nil, err
 		}
-		if collection.Project == nil || *collection.Project != project {
-			return nil, errors.New("collection is outside of the current project scope")
+		if toolResult != nil {
+			return toolResult, nil
 		}
 		if collection.IsView() {
 			return nil, errors.New("view collections cannot be modified")
@@ -1194,26 +1378,24 @@ func NewSetRelationExecutor(app core.App) ToolExecutor {
 			return nil, errors.New("relation is required")
 		}
 
-		collection, err := app.Dao().FindCollectionByNameOrId(collectionName)
+		collection, toolResult, err := findProjectCollection(app, project, collectionName)
 		if err != nil {
 			return nil, err
 		}
-		if collection.Project == nil || *collection.Project != project {
-			return nil, errors.New("collection is outside of the current project scope")
+		if toolResult != nil {
+			return toolResult, nil
 		}
 		if collection.IsView() {
 			return nil, errors.New("view collections cannot be modified")
 		}
 
-		relCollection, err := app.Dao().FindCollectionByNameOrId(relationRef)
+		relCollection, relToolResult, err := findProjectCollection(app, project, relationRef)
 		if err != nil {
 			return nil, err
 		}
-		if relCollection == nil {
-			return nil, errors.New("relation collection not found")
-		}
-		if relCollection.Project == nil || *relCollection.Project != project {
-			return nil, errors.New("relation collection is outside of the current project scope")
+		if relToolResult != nil {
+			relToolResult.Message = "relation " + relToolResult.Message
+			return relToolResult, nil
 		}
 
 		fieldID := cast.ToString(fieldMap["id"])

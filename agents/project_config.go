@@ -22,6 +22,8 @@ type ProjectConfig struct {
 type projectPolicy struct {
 	defaultProvider   string
 	defaultModel      string
+	projectProvider   bool
+	projectModel      bool
 	allowedTools      []string
 	allowSchemaChange bool
 	autoApprove       bool
@@ -101,6 +103,8 @@ func (s *Service) resolvePolicy(project string) projectPolicy {
 	policy := projectPolicy{
 		defaultProvider:   firstNonEmpty(cfg.DefaultProvider, global.DefaultProvider),
 		defaultModel:      firstNonEmpty(cfg.DefaultModel, global.DefaultModel),
+		projectProvider:   strings.TrimSpace(cfg.DefaultProvider) != "",
+		projectModel:      strings.TrimSpace(cfg.DefaultModel) != "",
 		allowedTools:      global.AllowedTools,
 		allowSchemaChange: global.AllowSchemaChange,
 	}

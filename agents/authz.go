@@ -3,6 +3,7 @@ package agents
 import (
 	"encoding/json"
 	"log"
+	"reflect"
 	"strings"
 
 	"github.com/zhenruyan/postgrebase/tools/list"
@@ -99,17 +100,29 @@ func (a *auditSink) record(spec ToolSpec, decision, reason, status, errMsg strin
 	a.entries = append(a.entries, entry)
 
 	if decision == "deny" {
-		a.pendings = append(a.pendings, PendingApproval{
+		pending := PendingApproval{
 			Tool:   spec.Name,
 			Risk:   spec.Risk,
 			Args:   redactArgs(args),
 			Reason: reason,
-		})
+		}
+		if !a.hasPending(pending) {
+			a.pendings = append(a.pendings, pending)
+		}
 	}
 
 	if encoded, err := json.Marshal(entry); err == nil {
 		log.Printf("AGENT_AUDIT %s", string(encoded))
 	}
+}
+
+func (a *auditSink) hasPending(next PendingApproval) bool {
+	for _, existing := range a.pendings {
+		if existing.Tool == next.Tool && existing.Reason == next.Reason && reflect.DeepEqual(existing.Args, next.Args) {
+			return true
+		}
+	}
+	return false
 }
 
 // redactArgs strips the always-injected project key for cleaner audit output.

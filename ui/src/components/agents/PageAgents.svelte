@@ -5,6 +5,7 @@
     import { addSuccessToast } from "@/stores/toasts";
     import { t } from "@/i18n";
     import ApiClient from "@/utils/ApiClient";
+    import { link } from "svelte-spa-router";
 
     $pageTitle = $t("AI Agents");
 
@@ -18,12 +19,16 @@
     let sessions = [];
     let activeSession = null;
     let messages = [];
+    let projectTables = [];
+    let isLoadingProjectTables = false;
 
     // composer
     let draft = "";
     let attachedImages = []; // [{mimeType, data, name}]
+    let imageInput;
     let allowWrites = false;
     let isRunning = false;
+    let runStatus = "";
     let lastTraces = [];
     let pendingApprovals = [];
 
@@ -71,7 +76,28 @@
         selectedProject = id;
         activeSession = null;
         messages = [];
-        await Promise.all([loadSessions(), loadProjectConfig()]);
+        projectTables = [];
+        await Promise.all([loadSessions(), loadProjectConfig(), loadProjectTables()]);
+    }
+
+    async function loadProjectTables() {
+        if (!selectedProject) {
+            projectTables = [];
+            return;
+        }
+        isLoadingProjectTables = true;
+        try {
+            const result = await ApiClient.collections.getFullList(200, {
+                sort: "+name",
+                filter: `project="${selectedProject}"`,
+                $autoCancel: false,
+            });
+            projectTables = result || [];
+        } catch (err) {
+            if (!err?.isAbort) console.warn(err);
+        } finally {
+            isLoadingProjectTables = false;
+        }
     }
 
     async function loadProjectConfig() {
@@ -118,21 +144,12 @@
     async function createSession() {
         if (!selectedProject) return;
         try {
-            const providerId = newProvider || runtime.defaultProvider || "";
-            const provider = (runtime.providers || []).find((p) => p.id === providerId);
-            const modelId =
-                newModel ||
-                provider?.defaultModel ||
-                provider?.models?.find((m) => m.enabled && (m.providerModelId || m.name))?.providerModelId ||
-                provider?.models?.find((m) => m.enabled && (m.providerModelId || m.name))?.name ||
-                runtime.defaultModel ||
-                "";
             const session = await ApiClient.send("/api/agents/sessions", {
                 method: "POST",
                 body: {
                     project: selectedProject,
-                    provider: providerId,
-                    model: modelId,
+                    provider: newProvider || "",
+                    model: newModel || "",
                 },
             });
             await loadSessions();
@@ -177,37 +194,213 @@
         attachedImages = attachedImages.filter((_, i) => i !== idx);
     }
 
+    function openImagePicker() {
+        imageInput?.click();
+    }
+
     async function send(extraApprovedTools = []) {
         if (!activeSession || isRunning) return;
         if (!draft.trim() && !attachedImages.length && !extraApprovedTools.length) return;
 
         isRunning = true;
+        runStatus = "";
+        lastTraces = [];
+        pendingApprovals = [];
+        const sessionId = activeSession.id;
+        const content = draft;
+        const imageAttachments = attachedImages.map((img) => ({ ...img }));
+        const images = imageAttachments.map((img) => ({ mimeType: img.mimeType, data: img.data }));
+        const hasUserTurn = !!content.trim() || images.length > 0;
+        let streamedReply = "";
+        let started = false;
+        let finalized = false;
         const body = {
-            content: draft,
-            images: attachedImages.map((img) => ({ mimeType: img.mimeType, data: img.data })),
+            content,
+            images,
             allowWrites: allowWrites,
             approvedTools: extraApprovedTools,
         };
+        draft = "";
+        attachedImages = [];
+        addOptimisticRunMessages(content, images, hasUserTurn);
 
         try {
-            const result = await ApiClient.send(`/api/agents/sessions/${activeSession.id}/run`, {
-                method: "POST",
-                body,
+            await runAgentStream(sessionId, body, (event) => {
+                if (activeSession?.id !== sessionId) {
+                    return;
+                }
+                const type = event.type || "";
+                if (type === "start") {
+                    started = true;
+                    return;
+                }
+                if (type === "text_delta") {
+                    streamedReply += event.text || "";
+                    updateStreamingAssistant(streamedReply);
+                    return;
+                }
+                if (type === "think_delta") {
+                    return;
+                }
+                if (type === "tool_call") {
+                    runStatus = event.tool ? $t("Running") + ": " + event.tool : $t("Running tool");
+                    return;
+                }
+                if (type === "status") {
+                    runStatus = event.status || "";
+                    return;
+                }
+                if (type === "tool_result") {
+                    if (event.trace) {
+                        lastTraces = lastTraces.concat(event.trace);
+                    }
+                    pendingApprovals = event.pendingApprovals || pendingApprovals;
+                    runStatus = "";
+                    return;
+                }
+                if (type === "final") {
+                    finalized = true;
+                    const result = event.result || {};
+                    messages = result.messages || settleStreamingMessages(messages);
+                    lastTraces = result.traces || lastTraces;
+                    pendingApprovals = result.pendingApprovals || [];
+                    if (result.sessionName) {
+                        activeSession = { ...activeSession, name: result.sessionName };
+                        loadSessions();
+                    }
+                    if (hasSuccessfulSchemaChange(lastTraces)) {
+                        loadProjectTables();
+                    }
+                    return;
+                }
+                if (type === "error") {
+                    throw new Error(event.error || $t("Failed to run agent session"));
+                }
             });
-            messages = result.messages || messages;
-            lastTraces = result.traces || [];
-            pendingApprovals = result.pendingApprovals || [];
-            if (result.sessionName) {
-                activeSession = { ...activeSession, name: result.sessionName };
-                loadSessions();
+            if (!finalized) {
+                messages = settleStreamingMessages(messages);
             }
-            draft = "";
-            attachedImages = [];
         } catch (err) {
+            if (!started) {
+                messages = removeOptimisticRunMessages(messages, hasUserTurn);
+                draft = content;
+                attachedImages = imageAttachments;
+            } else {
+                messages = settleStreamingMessages(messages);
+            }
             ApiClient.error(err);
         } finally {
             isRunning = false;
+            runStatus = "";
         }
+    }
+
+    function addOptimisticRunMessages(content, images, includeUser) {
+        const next = [];
+        if (includeUser) {
+            next.push({
+                role: "user",
+                content,
+                images,
+            });
+        }
+        next.push({
+            role: "assistant",
+            content: "",
+            streaming: true,
+        });
+        messages = messages.concat(next);
+    }
+
+    function updateStreamingAssistant(content) {
+        messages = messages.map((msg, idx) => {
+            if (idx === messages.length - 1 && msg.role === "assistant" && msg.streaming) {
+                return { ...msg, content };
+            }
+            return msg;
+        });
+    }
+
+    function settleStreamingMessages(items) {
+        return (items || [])
+            .filter((msg) => !(msg.role === "assistant" && msg.streaming && !msg.content))
+            .map((msg) => (msg.streaming ? { ...msg, streaming: false } : msg));
+    }
+
+    function removeOptimisticRunMessages(items, hasUserTurn) {
+        const count = hasUserTurn ? 2 : 1;
+        return (items || []).slice(0, Math.max(0, items.length - count));
+    }
+
+    async function runAgentStream(sessionId, body, onEvent) {
+        const headers = {
+            "Accept": "text/event-stream",
+            "Content-Type": "application/json",
+        };
+        if (ApiClient.authStore?.token) {
+            headers.Authorization = ApiClient.authStore.token;
+        }
+
+        const response = await fetch(ApiClient.buildUrl(`/api/agents/sessions/${sessionId}/run`), {
+            method: "POST",
+            headers,
+            body: JSON.stringify(body),
+        });
+        if (!response.ok) {
+            throw await streamResponseError(response);
+        }
+        if (!response.body) {
+            throw new Error($t("Streaming response is not available"));
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            buffer = parseSseBuffer(buffer, onEvent);
+        }
+        buffer += decoder.decode();
+        parseSseBuffer(buffer + "\n\n", onEvent);
+    }
+
+    function parseSseBuffer(buffer, onEvent) {
+        const normalized = buffer.replace(/\r\n/g, "\n");
+        const parts = normalized.split("\n\n");
+        const rest = parts.pop() || "";
+        parts.forEach((block) => {
+            let name = "message";
+            const data = [];
+            block.split("\n").forEach((line) => {
+                if (line.startsWith("event:")) {
+                    name = line.slice(6).trim();
+                } else if (line.startsWith("data:")) {
+                    data.push(line.slice(5).replace(/^ /, ""));
+                }
+            });
+            if (!data.length) return;
+            const payload = JSON.parse(data.join("\n"));
+            onEvent({ type: payload.type || name, ...payload });
+        });
+        return rest;
+    }
+
+    async function streamResponseError(response) {
+        const raw = await response.text();
+        let message = raw || $t("Failed to run agent session");
+        let data = {};
+        try {
+            data = JSON.parse(raw);
+            message = data.message || message;
+        } catch (_) {
+            // keep raw text
+        }
+        const err = new Error(message);
+        err.status = response.status;
+        err.data = data;
+        return err;
     }
 
     // Approve the pending write tools and resume the run (no new user message).
@@ -240,6 +433,10 @@
         return "label-success";
     }
 
+    function hasSuccessfulSchemaChange(traces) {
+        return (traces || []).some((tr) => tr.tool?.startsWith("schema.") && !tr.error && tr.tool !== "schema.list_tables");
+    }
+
     // Parse the latest data.query trace into a chart/table preview (proposal §10.1).
     $: queryPreview = extractQueryPreview(lastTraces);
     function extractQueryPreview(traces) {
@@ -258,7 +455,9 @@
         return null;
     }
 
-    $: activeProvider = newProvider || runtime.defaultProvider || "";
+    $: projectDefaultProvider = projectConfig?.defaultProvider || runtime.defaultProvider || "";
+    $: projectDefaultModel = projectConfig?.defaultModel || runtime.defaultModel || "";
+    $: activeProvider = newProvider || projectDefaultProvider || "";
     $: providerModels = (runtime.providers || []).find((p) => p.id === activeProvider)?.models || [];
 </script>
 
@@ -323,7 +522,7 @@
                         </button>
                     </div>
                     <div class="aw-meta">
-                        {activeSession.provider || runtime.defaultProvider} · {activeSession.model || runtime.defaultModel}
+                        {activeSession.provider || projectDefaultProvider} · {activeSession.model || projectDefaultModel}
                     </div>
                 </header>
 
@@ -332,7 +531,7 @@
                         <div class="aw-msg aw-msg-{msg.role}">
                             <div class="aw-msg-role">{msg.role}</div>
                             <div class="aw-msg-content">
-                                {msg.content}
+                                {msg.content || (msg.streaming ? runStatus || "..." : "")}
                                 {#if msg.images?.length}
                                     <div class="aw-msg-images">
                                         {#each msg.images as img}
@@ -343,10 +542,6 @@
                             </div>
                         </div>
                     {/each}
-
-                    {#if isRunning}
-                        <div class="aw-msg aw-msg-assistant"><div class="aw-msg-content">…</div></div>
-                    {/if}
                 </div>
 
                 {#if queryPreview}
@@ -398,10 +593,10 @@
                         }}
                     />
                     <div class="aw-composer-actions">
-                        <label class="btn btn-sm btn-transparent" title={$t("Attach image")}>
+                        <button type="button" class="btn btn-xs btn-transparent" title={$t("Attach image")} on:click={openImagePicker}>
                             <i class="ri-image-add-line" />
-                            <input type="file" accept="image/*" multiple hidden on:change={onImageSelected} />
-                        </label>
+                        </button>
+                        <input bind:this={imageInput} type="file" accept="image/*" multiple style="display: none;" on:change={onImageSelected} />
                         <label class="aw-allow-writes">
                             <input type="checkbox" bind:checked={allowWrites} />
                             {$t("Allow writes")}
@@ -421,7 +616,7 @@
             <div class="aw-section">
                 <div class="aw-section-title">{$t("Provider")}</div>
                 <select bind:value={newProvider} class="aw-select">
-                    <option value="">{$t("Default")} ({runtime.defaultProvider || "-"})</option>
+                    <option value="">{$t("Default")} ({projectDefaultProvider || "-"})</option>
                     {#each runtime.providers || [] as p}
                         <option value={p.id}>{p.id} ({p.vendor})</option>
                     {/each}
@@ -431,7 +626,7 @@
             <div class="aw-section">
                 <div class="aw-section-title">{$t("Model")}</div>
                 <select bind:value={newModel} class="aw-select">
-                    <option value="">{$t("Default")} ({runtime.defaultModel || "-"})</option>
+                    <option value="">{$t("Default")} ({projectDefaultModel || "-"})</option>
                     {#each providerModels as m}
                         <option value={m.providerModelId || m.name}>
                             {m.name}{m.supportsVision ? " 👁" : ""}
@@ -445,6 +640,29 @@
                 <div class="aw-scope">project_id: <code>{selectedProject || "-"}</code></div>
                 <div class="aw-scope">
                     {$t("Schema changes")}: {runtime.allowSchemaChange ? $t("allowed") : $t("locked")}
+                </div>
+            </div>
+
+            <div class="aw-section">
+                <div class="aw-section-title">
+                    {$t("Project tables")}
+                    <button class="btn btn-xs btn-transparent" on:click={loadProjectTables} disabled={!selectedProject || isLoadingProjectTables}>
+                        <i class="ri-refresh-line" />
+                    </button>
+                </div>
+                <div class="aw-tables" class:fade={isLoadingProjectTables}>
+                    {#each projectTables as table (table.id)}
+                        <a class="aw-table" href={`/collections?collectionId=${table.id}`} use:link>
+                            <i class="ri-table-line" />
+                            <span class="txt">{table.displayName || table.name}</span>
+                            <span class="aw-table-meta">{table.schema?.length || 0}</span>
+                        </a>
+                    {/each}
+                    {#if !projectTables.length}
+                        <div class="aw-empty aw-empty-compact">
+                            {isLoadingProjectTables ? $t("Loading collections...") : $t("No tables found.")}
+                        </div>
+                    {/if}
                 </div>
             </div>
 
@@ -741,17 +959,42 @@
         margin-top: 4px;
     }
     .aw-tools,
+    .aw-tables,
     .aw-traces {
         display: flex;
         flex-direction: column;
         gap: 4px;
     }
     .aw-tool,
+    .aw-table,
     .aw-trace {
         display: flex;
         align-items: center;
         gap: 6px;
         font-size: 12px;
+    }
+    .aw-table {
+        color: inherit;
+        text-decoration: none;
+        padding: 4px 6px;
+        border-radius: 6px;
+    }
+    .aw-table:hover {
+        background: rgba(0, 0, 0, 0.05);
+    }
+    .aw-table .txt {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .aw-table-meta {
+        opacity: 0.55;
+        font-size: 11px;
+    }
+    .aw-empty-compact {
+        padding: 6px;
     }
     .label {
         font-size: 10px;

@@ -85,3 +85,25 @@ func TestSanitizeTitle(t *testing.T) {
 		}
 	}
 }
+
+func TestFallbackRunReply(t *testing.T) {
+	pending := []PendingApproval{{Tool: "data.insert"}, {Tool: "data.insert"}, {Tool: "schema.create_table"}}
+	if got := fallbackRunReply(pending, nil); got != "Write approval required before continuing: data.insert, schema.create_table" {
+		t.Fatalf("unexpected pending fallback: %q", got)
+	}
+
+	toolError := []RunTrace{{Tool: "data.query", Result: `{"status":"error","message":"missing table"}`}}
+	if got := fallbackRunReply(nil, toolError); got != "Tool call failed: missing table" {
+		t.Fatalf("unexpected tool error fallback: %q", got)
+	}
+
+	traceError := []RunTrace{{Tool: "data.query", Error: "network timeout"}}
+	if got := fallbackRunReply(nil, traceError); got != "Tool call failed: network timeout" {
+		t.Fatalf("unexpected trace error fallback: %q", got)
+	}
+
+	successOnly := []RunTrace{{Tool: "schema.list_tables", Result: `{"status":"ok"}`}}
+	if got := fallbackRunReply(nil, successOnly); got == "" {
+		t.Fatal("expected non-empty fallback for tool-only run")
+	}
+}

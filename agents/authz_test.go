@@ -1,6 +1,10 @@
 package agents
 
-import "testing"
+import (
+	"context"
+	"strings"
+	"testing"
+)
 
 func TestApplyToolMetadata(t *testing.T) {
 	cases := []struct {
@@ -84,5 +88,82 @@ func TestAuditSinkRecordsPendingOnDeny(t *testing.T) {
 	}
 	if sink.pendings[0].Tool != "data.delete" {
 		t.Errorf("pending tool = %q, want data.delete", sink.pendings[0].Tool)
+	}
+}
+
+func TestAuditSinkDeduplicatesPendingApprovals(t *testing.T) {
+	sink := &auditSink{session: "s1", project: "p1"}
+	spec := ToolSpec{Name: "data.insert", Category: "write", Risk: "medium", AuditCategory: "data", RequiresApproval: true}
+	args := map[string]any{"project": "p1", "collection": "posts"}
+
+	sink.record(spec, "deny", "needs approval", "pending", "", args)
+	sink.record(spec, "deny", "needs approval", "pending", "", args)
+
+	if len(sink.entries) != 2 {
+		t.Fatalf("expected both audit entries to be kept, got %d", len(sink.entries))
+	}
+	if len(sink.pendings) != 1 {
+		t.Fatalf("expected duplicate pending approvals to be collapsed, got %d", len(sink.pendings))
+	}
+}
+
+func TestSDKToolPendingApprovalReturnsStructuredOutput(t *testing.T) {
+	sink := &auditSink{session: "s1", project: "p1"}
+	tool := &sdkTool{
+		spec: ToolSpec{
+			Name:             "data.insert",
+			Category:         "write",
+			Risk:             "medium",
+			AuditCategory:    "data",
+			RequiresApproval: true,
+		},
+		project: "p1",
+		opts:    RunOptions{},
+		audit:   sink,
+	}
+
+	result, err := tool.Execute(context.Background(), map[string]any{"collection": "posts"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatal("business-level pending approval should remain a structured tool result, not a transport error")
+	}
+	if !strings.Contains(result.Text, `"status":"pending_approval"`) {
+		t.Fatalf("unexpected result text: %s", result.Text)
+	}
+	if len(sink.pendings) != 1 || sink.pendings[0].Tool != "data.insert" {
+		t.Fatalf("expected pending approval to be recorded, got %#v", sink.pendings)
+	}
+}
+
+func TestSDKToolBusinessErrorReturnsStructuredOutput(t *testing.T) {
+	sink := &auditSink{session: "s1", project: "p1"}
+	tool := &sdkTool{
+		spec: ToolSpec{
+			Name:          "data.query",
+			Category:      "read",
+			Risk:          "low",
+			AuditCategory: "data",
+		},
+		exec: func(args map[string]any) (*ToolExecutionResult, error) {
+			return &ToolExecutionResult{Status: "error", Message: "missing table"}, nil
+		},
+		project: "p1",
+		audit:   sink,
+	}
+
+	result, err := tool.Execute(context.Background(), map[string]any{"collection": "missing"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatal("business-level tool status=error should remain readable by the model")
+	}
+	if !strings.Contains(result.Text, `"status":"error"`) || !strings.Contains(result.Text, `"message":"missing table"`) {
+		t.Fatalf("unexpected result text: %s", result.Text)
+	}
+	if len(sink.entries) != 1 || sink.entries[0].Status != "error" || sink.entries[0].Error != "missing table" {
+		t.Fatalf("expected audit error to be kept, got %#v", sink.entries)
 	}
 }
