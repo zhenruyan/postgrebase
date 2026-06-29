@@ -71,6 +71,10 @@ func (validator *RecordDataValidator) Validate(data map[string]any) error {
 	}
 
 	for key, field := range keyedSchema {
+		if field.Type == schema.FieldTypeVector {
+			continue
+		}
+
 		// normalize value to emulate the same behavior
 		// when fetching or persisting the record model
 		value := field.PrepareValue(data[key])

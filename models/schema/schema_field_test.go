@@ -40,7 +40,7 @@ func TestAuthFieldNames(t *testing.T) {
 
 func TestFieldTypes(t *testing.T) {
 	result := schema.FieldTypes()
-	expected := 11
+	expected := 12
 
 	if len(result) != expected {
 		t.Fatalf("Expected %d types, got %d (%v)", expected, len(result), result)

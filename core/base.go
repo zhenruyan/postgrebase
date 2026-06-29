@@ -68,6 +68,7 @@ type BaseApp struct {
 	logsDao             *daos.Dao
 	subscriptionsBroker *subscriptions.Broker
 	vectorManager       *vector.Manager
+	vectorDb            *dbx.DB
 
 	// app event hooks
 	onBeforeBootstrap *hook.Hook[*BootstrapEvent]
@@ -513,6 +514,71 @@ func (app *BaseApp) RedisCache() *redis.Client {
 // VectorManager returns the embedded vector runtime manager.
 func (app *BaseApp) VectorManager() *vector.Manager {
 	return app.vectorManager
+}
+
+// VectorDB returns the dedicated local SQLite database for vector storage.
+func (app *BaseApp) VectorDB() *dbx.DB {
+	return app.vectorDb
+}
+
+// IsDesignatedLeader reports whether the current node has the lexicographically
+// smallest address and is therefore the designated leader on startup.
+func (app *BaseApp) IsDesignatedLeader() bool {
+	if !app.IsSQLiteCluster() {
+		return true // standalone is always designated leader
+	}
+	smallest := app.nodeAddr
+	for _, peer := range app.clusterPeers {
+		if peer != "" && peer < smallest {
+			smallest = peer
+		}
+	}
+	return smallest == app.nodeAddr
+}
+
+// ReloadDataDBWithReplacement closes current database connections, replaces/reloads
+// the database file with replacePath, and re-opens connections.
+func (app *BaseApp) ReloadDataDBWithReplacement(replacePath string) error {
+	if app.dao != nil {
+		if db, ok := app.dao.ConcurrentDB().(*dbx.DB); ok && db != nil {
+			_ = db.Close()
+		}
+		if db, ok := app.dao.NonconcurrentDB().(*dbx.DB); ok && db != nil {
+			_ = db.Close()
+		}
+	}
+
+	// Replace the old DB file with the replacement file!
+	if replacePath != "" {
+		dbPath := SQLitePath(app.dataDsn)
+		if dbPath != "" {
+			_ = os.Remove(dbPath)
+			if err := os.Rename(replacePath, dbPath); err != nil {
+				return err
+			}
+		}
+	}
+
+	if err := app.initDataDB(); err != nil {
+		return err
+	}
+
+	return app.RefreshSettings()
+}
+
+// CreateConsistentSnapshot creates a consistent copy of the primary database at targetPath.
+func (app *BaseApp) CreateConsistentSnapshot(targetPath string) error {
+	driver := app.DB().DriverName()
+	if driver != "sqlite" && driver != "sqlite3" {
+		return fmt.Errorf("snapshot is only supported for sqlite, got %s", driver)
+	}
+
+	// Delete old file if exists
+	_ = os.Remove(targetPath)
+
+	// Run VACUUM INTO to atomically copy the database consistently!
+	_, err := app.DB().NewQuery(fmt.Sprintf("VACUUM INTO %q", targetPath)).Execute()
+	return err
 }
 
 // IsSQLiteCluster reports whether the app runs SQLite as the primary database

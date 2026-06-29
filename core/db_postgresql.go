@@ -10,6 +10,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/zhenruyan/postgrebase/dbx"
 	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite/vec"
 )
 
 func connectDB(dsn string) (*dbx.DB, error) {
@@ -67,4 +68,20 @@ func ensureSQLitePath(dsn string) error {
 	}
 
 	return os.MkdirAll(dir, os.ModePerm)
+}
+
+// SQLitePath parses the physical file path of the SQLite database from its DSN.
+func SQLitePath(dsn string) string {
+	if strings.HasPrefix(dsn, "sqlite://") {
+		dsn = strings.TrimPrefix(dsn, "sqlite://")
+	} else if strings.HasPrefix(dsn, "sqlite3://") {
+		dsn = strings.TrimPrefix(dsn, "sqlite3://")
+	}
+	path := dsn
+	if strings.HasPrefix(path, "file:") {
+		if u, err := url.Parse(path); err == nil && u.Path != "" {
+			path = u.Path
+		}
+	}
+	return path
 }

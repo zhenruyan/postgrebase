@@ -382,7 +382,7 @@ func TestSettingsRedactClone(t *testing.T) {
 				ApiKey:  testSecret,
 				Enabled: true,
 				Models: []settings.AgentEmbeddingModel{
-					{Name: "text-embedding-3-small", ProviderModelId: "text-embedding-3-small", Enabled: true},
+					{Name: "text-embedding-3-small", ProviderModelId: "text-embedding-3-small", Dimensions: 1536, Enabled: true},
 				},
 			},
 		},
@@ -1133,6 +1133,7 @@ func TestAgentEmbeddingModel(t *testing.T) {
 						{
 							Name:            "embed",
 							ProviderModelId: "embed-model",
+							Dimensions:      1536,
 							Enabled:         true,
 						},
 					},
@@ -1176,7 +1177,7 @@ func TestAgentEmbeddingProviderApiValidation(t *testing.T) {
 				Api:     tc.api,
 				BaseUrl: "https://example.com/v1",
 				Models: []settings.AgentEmbeddingModel{
-					{Name: "embed", ProviderModelId: "embed", Enabled: true},
+					{Name: "embed", ProviderModelId: "embed", Dimensions: 1536, Enabled: true},
 				},
 			}
 			err := cfg.Validate()

@@ -15,9 +15,10 @@ var (
 )
 
 const (
-	CollectionTypeBase = "base"
-	CollectionTypeAuth = "auth"
-	CollectionTypeView = "view"
+	CollectionTypeBase   = "base"
+	CollectionTypeAuth   = "auth"
+	CollectionTypeView   = "view"
+	CollectionTypeVector = "vector"
 )
 
 type Collection struct {
@@ -72,6 +73,11 @@ func (m *Collection) IsView() bool {
 	return m.Type == CollectionTypeView
 }
 
+// IsVector checks if the current collection has "vector" type.
+func (m *Collection) IsVector() bool {
+	return m.Type == CollectionTypeVector
+}
+
 // MarshalJSON implements the [json.Marshaler] interface.
 func (m Collection) MarshalJSON() ([]byte, error) {
 	type alias Collection // prevent recursion
@@ -105,6 +111,14 @@ func (m *Collection) ViewOptions() CollectionViewOptions {
 	return result
 }
 
+// VectorOptions decodes the current collection options and returns them
+// as new [CollectionVectorOptions] instance.
+func (m *Collection) VectorOptions() CollectionVectorOptions {
+	result := CollectionVectorOptions{}
+	m.DecodeOptions(&result)
+	return result
+}
+
 // NormalizeOptions updates the current collection options with a
 // new normalized state based on the collection type.
 func (m *Collection) NormalizeOptions() error {
@@ -114,6 +128,8 @@ func (m *Collection) NormalizeOptions() error {
 		typedOptions = m.AuthOptions()
 	case CollectionTypeView:
 		typedOptions = m.ViewOptions()
+	case CollectionTypeVector:
+		typedOptions = m.VectorOptions()
 	default:
 		typedOptions = m.BaseOptions()
 	}
@@ -175,6 +191,22 @@ type CollectionBaseOptions struct {
 // Validate implements [validation.Validatable] interface.
 func (o CollectionBaseOptions) Validate() error {
 	return nil
+}
+
+// -------------------------------------------------------------------
+
+// CollectionVectorOptions defines the "vector" Collection.Options fields.
+type CollectionVectorOptions struct {
+	EmbeddingModel string `form:"embeddingModel" json:"embeddingModel"`
+	Dimensions     int    `form:"dimensions" json:"dimensions"`
+}
+
+// Validate implements [validation.Validatable] interface.
+func (o CollectionVectorOptions) Validate() error {
+	return validation.ValidateStruct(&o,
+		validation.Field(&o.EmbeddingModel, validation.Required),
+		validation.Field(&o.Dimensions, validation.Required, validation.Min(1)),
+	)
 }
 
 // -------------------------------------------------------------------

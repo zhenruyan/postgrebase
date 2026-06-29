@@ -84,6 +84,8 @@ func safeErrorsData(data any) map[string]any {
 		return resolveSafeErrorsData[error](v)
 	case map[string]any:
 		return resolveSafeErrorsData[any](v)
+	case error:
+		return map[string]any{"error": v.Error()}
 	default:
 		return map[string]any{} // not nil to ensure that is json serialized as object
 	}

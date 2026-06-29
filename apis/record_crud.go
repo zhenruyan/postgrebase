@@ -1,6 +1,11 @@
 package apis
 
 import (
+	"context"
+	"os"
+	"github.com/spf13/cast"
+	"github.com/zhenruyan/postgrebase/models/schema"
+	"github.com/zhenruyan/postgrebase/models/settings"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -34,9 +39,11 @@ func bindRecordCrudApi(app core.App, rg *echo.Group) {
 
 	subGroup.GET("/records", api.list, LoadCollectionContext(app))
 	subGroup.GET("/records/:id", api.view, LoadCollectionContext(app))
-	subGroup.POST("/records", api.create, LoadCollectionContext(app, models.CollectionTypeBase, models.CollectionTypeAuth))
-	subGroup.PATCH("/records/:id", api.update, LoadCollectionContext(app, models.CollectionTypeBase, models.CollectionTypeAuth))
-	subGroup.DELETE("/records/:id", api.delete, LoadCollectionContext(app, models.CollectionTypeBase, models.CollectionTypeAuth))
+	subGroup.POST("/records", api.create, LoadCollectionContext(app, models.CollectionTypeBase, models.CollectionTypeAuth, models.CollectionTypeVector))
+	subGroup.PATCH("/records/:id", api.update, LoadCollectionContext(app, models.CollectionTypeBase, models.CollectionTypeAuth, models.CollectionTypeVector))
+	subGroup.DELETE("/records/:id", api.delete, LoadCollectionContext(app, models.CollectionTypeBase, models.CollectionTypeAuth, models.CollectionTypeVector))
+	subGroup.POST("/vector-search", api.vectorSearch, LoadCollectionContext(app, models.CollectionTypeVector))
+	subGroup.GET("/vector-search", api.vectorSearch, LoadCollectionContext(app, models.CollectionTypeVector))
 }
 
 func (api *recordApi) getCacheKey(collection *models.Collection, suffix string) string {
@@ -551,4 +558,187 @@ func (api *recordApi) checkForForbiddenQueryFields(c echo.Context) error {
 	}
 
 	return nil
+}
+
+
+func (api *recordApi) findEmbeddingModelConfig(settings *settings.Settings, modelName string) (apiKey string, baseUrl string, providerModelId string, found bool) {
+	if settings == nil {
+		return "", "", "", false
+	}
+	for _, provider := range settings.Agents.Embedding.Providers {
+		for _, m := range provider.Models {
+			if m.Name == modelName {
+				key := provider.ApiKey
+				if strings.HasPrefix(key, "env:") {
+					key = os.Getenv(strings.TrimPrefix(key, "env:"))
+				}
+				return key, provider.BaseUrl, m.ProviderModelId, true
+			}
+		}
+	}
+	return "", "", "", false
+}
+
+func (api *recordApi) vectorSearch(c echo.Context) error {
+	collection, _ := c.Get(ContextCollectionKey).(*models.Collection)
+	if collection == nil {
+		return NewNotFoundError("", "Missing collection context.")
+	}
+
+	if collection.Type != models.CollectionTypeVector {
+		return NewBadRequestError("Only vector collections support vector search.", nil)
+	}
+
+	type searchRequest struct {
+		QueryVector []float32 `json:"vector"`
+		QueryText   string    `json:"query"`
+		Limit       int       `json:"limit"`
+		Distance    string    `json:"distance"`
+		Field       string    `json:"field"`
+	}
+
+	req := searchRequest{
+		Limit:    10,
+		Distance: "cosine",
+	}
+
+	if c.Request().Method == http.MethodPost {
+		if err := c.Bind(&req); err != nil {
+			return NewBadRequestError("Failed to parse request body.", err)
+		}
+	} else {
+		req.QueryText = c.QueryParam("query")
+		req.Distance = c.QueryParam("distance")
+		if req.Distance == "" {
+			req.Distance = "cosine"
+		}
+		if limitStr := c.QueryParam("limit"); limitStr != "" {
+			req.Limit = cast.ToInt(limitStr)
+		}
+		req.Field = c.QueryParam("field")
+		if vecStr := c.QueryParam("vector"); vecStr != "" {
+			_ = json.Unmarshal([]byte(vecStr), &req.QueryVector)
+		}
+	}
+
+	if req.Limit <= 0 {
+		req.Limit = 10
+	}
+	if req.Limit > 100 {
+		req.Limit = 100
+	}
+
+	var vectorField *schema.SchemaField
+	for _, f := range collection.Schema.Fields() {
+		if f.Type == "vector" {
+			if req.Field == "" || f.Name == req.Field {
+				vectorField = f
+				break
+			}
+		}
+	}
+
+	if vectorField == nil {
+		return NewBadRequestError("No vector field found in collection schema.", nil)
+	}
+
+	var targetVector []float32
+	if len(req.QueryVector) > 0 {
+		targetVector = req.QueryVector
+	} else if req.QueryText != "" {
+		modelName := api.app.Settings().Agents.EmbeddingModel()
+		if modelName == "" {
+			return NewBadRequestError("No embedding model is configured globally.", nil)
+		}
+		apiKey, baseUrl, providerModelID, found := api.findEmbeddingModelConfig(api.app.Settings(), modelName)
+		if !found || apiKey == "" {
+			return NewBadRequestError(fmt.Sprintf("Embedding model config not found or API key is blank for model %s.", modelName), nil)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		vectorValues, err := vector.GetEmbedding(ctx, apiKey, baseUrl, providerModelID, req.QueryText)
+		if err != nil {
+			return NewBadRequestError(fmt.Sprintf("Failed to generate embedding for query: %v", err), nil)
+		}
+		targetVector = vectorValues
+	} else {
+		return NewBadRequestError("Either 'vector' or 'query' must be provided.", nil)
+	}
+
+	vectorJsonBytes, err := json.Marshal(targetVector)
+	if err != nil {
+		return NewBadRequestError("Failed to serialize query vector.", err)
+	}
+	vectorJsonStr := string(vectorJsonBytes)
+
+	distanceFunc := "vec_distance_cosine"
+	if strings.ToLower(req.Distance) == "l2" {
+		distanceFunc = "vec_distance_L2"
+	}
+
+	var dbResults []struct {
+		SourceID string  `db:"source_id"`
+		Distance float64 `db:"distance"`
+	}
+
+	err = api.app.VectorDB().Select(
+		"source_id",
+		fmt.Sprintf("%s(vector, vec_f32({:query_vector})) as distance", distanceFunc),
+	).From("_pb_vector_entries_").
+		Where(dbx.HashExp{
+			"source_field": vectorField.Name,
+		}).
+		OrderBy("distance ASC").
+		Limit(int64(req.Limit)).
+		Bind(dbx.Params{
+			"query_vector": vectorJsonStr,
+		}).
+		All(&dbResults)
+
+	if err != nil {
+		return NewBadRequestError(fmt.Sprintf("Vector search failed on sqlite-vec: %v", err), nil)
+	}
+
+	if len(dbResults) == 0 {
+		return c.JSON(http.StatusOK, map[string]any{
+			"items":      []any{},
+			"totalItems": 0,
+		})
+	}
+
+	recordIds := make([]string, len(dbResults))
+	distanceMap := make(map[string]float64, len(dbResults))
+	for i, r := range dbResults {
+		recordIds[i] = r.SourceID
+		distanceMap[r.SourceID] = r.Distance
+	}
+
+	records, err := api.app.Dao().FindRecordsByIds(collection.Id, recordIds)
+	if err != nil {
+		return NewBadRequestError("Failed to fetch matching records.", err)
+	}
+
+	recordMap := make(map[string]*models.Record, len(records))
+	for _, rec := range records {
+		recordMap[rec.Id] = rec
+	}
+
+	sortedRecords := make([]*models.Record, 0, len(dbResults))
+	for _, r := range dbResults {
+		if rec, ok := recordMap[r.SourceID]; ok {
+			rec.Set("_distance", r.Distance)
+			sortedRecords = append(sortedRecords, rec)
+		}
+	}
+
+	if err := EnrichRecords(c, api.app.Dao(), sortedRecords); err != nil && api.app.IsDebug() {
+		log.Println(err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"items":      sortedRecords,
+		"totalItems": len(sortedRecords),
+	})
 }

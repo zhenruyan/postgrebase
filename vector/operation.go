@@ -24,6 +24,7 @@ type ReplicatedOperation struct {
 	Strict    bool                    `json:"strict,omitempty"`
 	Payload   json.RawMessage         `json:"payload,omitempty"`
 	RaftTerm  uint64                  `json:"raftTerm,omitempty"`
+	LogIndex  uint64                  `json:"logIndex,omitempty"`
 	CreatedAt time.Time               `json:"createdAt,omitempty"`
 }
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/zhenruyan/postgrebase/dbx"
 	"github.com/zhenruyan/postgrebase/daos"
 )
 
@@ -81,3 +82,62 @@ func isMissingTableErr(err error) bool {
 		return false
 	}
 }
+
+
+// -------------------------------------------------------------------
+
+// SQLiteEngine persists vector runtime state in the dedicated SQLite database.
+type SQLiteEngine struct {
+	db  *dbx.DB
+	key string
+}
+
+func NewSQLiteEngine(db *dbx.DB, key string) *SQLiteEngine {
+	if key == "" {
+		key = "vector_runtime"
+	}
+	return &SQLiteEngine{db: db, key: key}
+}
+
+func (e *SQLiteEngine) Load() (Snapshot, bool, error) {
+	if e == nil || e.db == nil {
+		return Snapshot{}, false, nil
+	}
+
+	var row struct {
+		Value string `db:"value"`
+	}
+	err := e.db.Select("value").
+		From("_pb_vector_params_").
+		Where(dbx.HashExp{"key": e.key}).
+		One(&row)
+	if err != nil {
+		return Snapshot{}, false, nil
+	}
+
+	var snapshot Snapshot
+	if err := json.Unmarshal([]byte(row.Value), &snapshot); err != nil {
+		return Snapshot{}, false, err
+	}
+
+	return snapshot, true, nil
+}
+
+func (e *SQLiteEngine) Save(snapshot Snapshot) error {
+	if e == nil || e.db == nil {
+		return nil
+	}
+
+	valBytes, err := json.Marshal(snapshot)
+	if err != nil {
+		return err
+	}
+
+	// Upsert param
+	_, err = e.db.NewQuery("INSERT INTO _pb_vector_params_ (key, value) VALUES ({:key}, {:value}) ON CONFLICT(key) DO UPDATE SET value = excluded.value").
+		Bind(dbx.Params{"key": e.key, "value": string(valBytes)}).
+		Execute()
+	return err
+}
+
+var _ Engine = (*SQLiteEngine)(nil)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cast"
 	"github.com/zhenruyan/postgrebase/models"
+	"github.com/zhenruyan/postgrebase/replication"
 	"github.com/zhenruyan/postgrebase/resolvers"
 	"github.com/zhenruyan/postgrebase/tools/search"
 )
@@ -222,7 +223,7 @@ func (s *Server) toolCreateRecord(args map[string]interface{}) (*ToolCallResult,
 	}
 
 	// Save the record
-	if err := s.app.Dao().SaveRecord(record); err != nil {
+	if err := s.saveRecord(record); err != nil {
 		return nil, fmt.Errorf("failed to create record: %w", err)
 	}
 
@@ -270,7 +271,7 @@ func (s *Server) toolUpdateRecord(args map[string]interface{}) (*ToolCallResult,
 	}
 
 	// Save the record
-	if err := s.app.Dao().SaveRecord(record); err != nil {
+	if err := s.saveRecord(record); err != nil {
 		return nil, fmt.Errorf("failed to update record: %w", err)
 	}
 
@@ -307,7 +308,7 @@ func (s *Server) toolDeleteRecord(args map[string]interface{}) (*ToolCallResult,
 		return nil, fmt.Errorf("record not found: %s", recordID)
 	}
 
-	if err := s.app.Dao().DeleteRecord(record); err != nil {
+	if err := s.deleteRecord(record); err != nil {
 		return nil, fmt.Errorf("failed to delete record: %w", err)
 	}
 
@@ -319,6 +320,43 @@ func (s *Server) toolDeleteRecord(args map[string]interface{}) (*ToolCallResult,
 			},
 		},
 	}, nil
+}
+
+func (s *Server) saveRecord(record *models.Record) error {
+	if !s.app.IsSQLiteCluster() {
+		return s.app.Dao().SaveRecord(record)
+	}
+
+	op, err := replication.NewRecordUpsertOperation(record, record.IsNew())
+	if err != nil {
+		return err
+	}
+	manager := s.app.VectorManager()
+	if manager == nil || manager.Coordinator() == nil {
+		return fmt.Errorf("SQLite cluster coordinator is not enabled")
+	}
+	_, err = manager.Coordinator().ProposeReplicated(op)
+	if err == nil {
+		record.MarkAsNotNew()
+	}
+	return err
+}
+
+func (s *Server) deleteRecord(record *models.Record) error {
+	if !s.app.IsSQLiteCluster() {
+		return s.app.Dao().DeleteRecord(record)
+	}
+
+	op, err := replication.NewRecordDeleteOperation(record)
+	if err != nil {
+		return err
+	}
+	manager := s.app.VectorManager()
+	if manager == nil || manager.Coordinator() == nil {
+		return fmt.Errorf("SQLite cluster coordinator is not enabled")
+	}
+	_, err = manager.Coordinator().ProposeReplicated(op)
+	return err
 }
 
 // toolSearchRecords searches records using filter expressions

@@ -1,6 +1,7 @@
 package vector
 
 import (
+	"github.com/zhenruyan/postgrebase/dbx"
 	"github.com/zhenruyan/postgrebase/daos"
 	"github.com/zhenruyan/postgrebase/models"
 	"github.com/zhenruyan/postgrebase/tools/types"
@@ -219,4 +220,200 @@ func embeddingEntryFromModel(entry *models.VectorEntry) *models.VectorEntry {
 		ContentHash:    entry.ContentHash,
 	}
 	return result
+}
+
+
+// -------------------------------------------------------------------
+
+// SQLiteTaskStore persists vector tasks in a dedicated SQLite database.
+type SQLiteTaskStore struct {
+	db *dbx.DB
+}
+
+// SQLiteEntryStore persists vector entries in a dedicated SQLite database.
+type SQLiteEntryStore struct {
+	db *dbx.DB
+}
+
+func NewSQLiteTaskStore(db *dbx.DB) *SQLiteTaskStore {
+	return &SQLiteTaskStore{db: db}
+}
+
+func NewSQLiteEntryStore(db *dbx.DB) *SQLiteEntryStore {
+	return &SQLiteEntryStore{db: db}
+}
+
+func (s *SQLiteTaskStore) Load() ([]EmbeddingTask, error) {
+	if s == nil || s.db == nil {
+		return nil, nil
+	}
+
+	tasks := []*models.VectorTask{}
+	if err := s.db.Select().
+		From("_pb_vector_tasks_").
+		OrderBy("created ASC").
+		All(&tasks); err != nil {
+		return nil, err
+	}
+
+	result := make([]EmbeddingTask, 0, len(tasks))
+	for _, task := range tasks {
+		if task == nil {
+			continue
+		}
+		result = append(result, embeddingTaskFromModel(task))
+	}
+
+	return result, nil
+}
+
+func (s *SQLiteTaskStore) Replace(tasks []EmbeddingTask) error {
+	if s == nil || s.db == nil {
+		return nil
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.NewQuery("DELETE FROM _pb_vector_tasks_").Execute(); err != nil {
+		return err
+	}
+
+	for _, task := range tasks {
+		model := vectorTaskToModel(task)
+		if model.GetId() == "" {
+			model.RefreshId()
+		}
+		if model.GetCreated().IsZero() {
+			model.RefreshCreated()
+		}
+		if model.GetUpdated().IsZero() {
+			model.RefreshUpdated()
+		}
+
+		if err := tx.Model(model).Insert(); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+func (s *SQLiteEntryStore) Load() ([]*models.VectorEntry, error) {
+	if s == nil || s.db == nil {
+		return nil, nil
+	}
+
+	var dbEntries []struct {
+		ID             string `db:"id"`
+		ProjectID      string `db:"project_id"`
+		SourceType     string `db:"source_type"`
+		SourceID       string `db:"source_id"`
+		SourceField    string `db:"source_field"`
+		EmbeddingModel string `db:"embedding_model"`
+		VectorJSON     string `db:"vector_json"`
+		ContentHash    string `db:"content_hash"`
+		Created        string `db:"created"`
+		Updated        string `db:"updated"`
+	}
+
+	err := s.db.Select(
+		"id",
+		"project_id",
+		"source_type",
+		"source_id",
+		"source_field",
+		"embedding_model",
+		"vec_to_json(vector) as vector_json",
+		"content_hash",
+		"created",
+		"updated",
+	).From("_pb_vector_entries_").
+		OrderBy("created ASC").
+		All(&dbEntries)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*models.VectorEntry, 0, len(dbEntries))
+	for _, de := range dbEntries {
+		entry := &models.VectorEntry{
+			ProjectID:      de.ProjectID,
+			SourceType:     de.SourceType,
+			SourceID:       de.SourceID,
+			SourceField:    de.SourceField,
+			EmbeddingModel: de.EmbeddingModel,
+			Vector:         types.JsonRaw([]byte(de.VectorJSON)),
+			ContentHash:    de.ContentHash,
+		}
+		entry.SetId(de.ID)
+		if created, err := types.ParseDateTime(de.Created); err == nil {
+			entry.Created = created
+		}
+		if updated, err := types.ParseDateTime(de.Updated); err == nil {
+			entry.Updated = updated
+		}
+		result = append(result, entry)
+	}
+	return result, nil
+}
+
+func (s *SQLiteEntryStore) Replace(entries []*models.VectorEntry) error {
+	if s == nil || s.db == nil {
+		return nil
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.NewQuery("DELETE FROM _pb_vector_entries_").Execute(); err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		if entry == nil {
+			continue
+		}
+		if entry.GetId() == "" {
+			entry.RefreshId()
+		}
+		if entry.GetCreated().IsZero() {
+			entry.RefreshCreated()
+		}
+		if entry.GetUpdated().IsZero() {
+			entry.RefreshUpdated()
+		}
+
+		// Insert using vec_f32()!
+		_, err := tx.NewQuery(`
+			INSERT INTO _pb_vector_entries_ (
+				id, project_id, source_type, source_id, source_field,
+				embedding_model, vector, content_hash, created, updated
+			) VALUES (
+				{:id}, {:projectId}, {:sourceType}, {:sourceId}, {:sourceField},
+				{:embeddingModel}, vec_f32({:vector}), {:contentHash}, {:created}, {:updated}
+			)`).Bind(dbx.Params{
+				"id":             entry.GetId(),
+				"projectId":      entry.ProjectID,
+				"sourceType":     entry.SourceType,
+				"sourceId":       entry.SourceID,
+				"sourceField":    entry.SourceField,
+				"embeddingModel": entry.EmbeddingModel,
+				"vector":         string(entry.Vector),
+				"contentHash":    entry.ContentHash,
+				"created":        entry.GetCreated().String(),
+				"updated":        entry.GetUpdated().String(),
+			}).Execute()
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }

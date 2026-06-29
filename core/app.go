@@ -76,9 +76,23 @@ type App interface {
 	// VectorManager returns the embedded vector runtime manager.
 	VectorManager() *vector.Manager
 
+	// VectorDB returns the dedicated local SQLite database for vector storage.
+	VectorDB() *dbx.DB
+
 	// IsSQLiteCluster reports whether the app runs with SQLite as primary
 	// database and cluster peers are configured.
 	IsSQLiteCluster() bool
+
+	// IsDesignatedLeader reports whether the current node has the lexicographically
+	// smallest address and is therefore the designated leader on startup.
+	IsDesignatedLeader() bool
+
+	// ReloadDataDBWithReplacement closes current database connections, replaces/reloads
+	// the database file with replacePath, and re-opens connections.
+	ReloadDataDBWithReplacement(replacePath string) error
+
+	// CreateConsistentSnapshot creates a consistent copy of the primary database at targetPath.
+	CreateConsistentSnapshot(targetPath string) error
 
 	// Publish publishes a message to all application instances.
 	Publish(channel string, data any) error

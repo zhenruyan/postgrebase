@@ -93,6 +93,7 @@ const (
 	FieldTypeJson     string = "json"
 	FieldTypeFile     string = "file"
 	FieldTypeRelation string = "relation"
+	FieldTypeVector   string = "vector"
 
 	// Deprecated: Will be removed in v0.9+
 	FieldTypeUser string = "user"
@@ -112,6 +113,7 @@ func FieldTypes() []string {
 		FieldTypeJson,
 		FieldTypeFile,
 		FieldTypeRelation,
+		FieldTypeVector,
 	}
 }
 
@@ -307,6 +309,8 @@ func (f *SchemaField) InitOptions() error {
 		options = &FileOptions{}
 	case FieldTypeRelation:
 		options = &RelationOptions{}
+	case FieldTypeVector:
+		options = &VectorOptions{}
 
 	// Deprecated: Will be removed in v0.9+
 	case FieldTypeUser:
@@ -407,7 +411,19 @@ func (f *SchemaField) PrepareValue(value any) any {
 		}
 
 		return ids
-	default:
+		case FieldTypeVector:
+			if value == nil {
+				return ""
+			}
+			if str, ok := value.(string); ok {
+				return str
+			}
+			bytes, err := json.Marshal(value)
+			if err != nil {
+				return ""
+			}
+			return string(bytes)
+		default:
 		return value // unmodified
 	}
 }
@@ -725,4 +741,17 @@ type UserOptions struct {
 // Deprecated: Will be removed in v0.9+
 func (o UserOptions) Validate() error {
 	return nil
+}
+
+
+// -------------------------------------------------------------------
+
+type VectorOptions struct {
+	SourceField string `form:"sourceField" json:"sourceField"`
+}
+
+func (o VectorOptions) Validate() error {
+	return validation.ValidateStruct(&o,
+		validation.Field(&o.SourceField, validation.Required),
+	)
 }

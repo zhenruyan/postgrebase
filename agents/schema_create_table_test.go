@@ -318,6 +318,40 @@ func TestCreateTableExecutor(t *testing.T) {
 	if jobRecord.GetString("project") != "Apollo" {
 		t.Fatalf("expected business project field to be preserved, got %q", jobRecord.GetString("project"))
 	}
+
+	// Verify vector table creation
+	vecTable, err := svc.ExecuteTool("schema.create_table", map[string]any{
+		"project":        "project-1",
+		"name":           "user_vectors",
+		"displayName":    "User Vectors",
+		"type":           "vector",
+		"embeddingModel": "test-embed",
+		"dimensions":     1536,
+		"fields": []any{
+			map[string]any{"name": "description", "type": "text", "required": true},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vecTable == nil || vecTable.Status != "ok" {
+		t.Fatalf("unexpected vector table result: %#v", vecTable)
+	}
+
+	vectorCollection, err := app.Dao().FindCollectionByNameOrId("user_vectors")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vectorCollection.Type != models.CollectionTypeVector {
+		t.Fatalf("expected type 'vector', got %q", vectorCollection.Type)
+	}
+	if !vectorCollection.IsVector() {
+		t.Fatal("expected IsVector() to return true")
+	}
+	vecOpts := vectorCollection.VectorOptions()
+	if vecOpts.EmbeddingModel != "test-embed" || vecOpts.Dimensions != 1536 {
+		t.Fatalf("unexpected vector options: %#v", vecOpts)
+	}
 }
 
 func runMigrationsForTest(app *core.BaseApp) error {

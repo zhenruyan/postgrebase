@@ -18,6 +18,9 @@
     import CollectionDocsPanel from "@/components/collections/CollectionDocsPanel.svelte";
     import RecordUpsertPanel from "@/components/records/RecordUpsertPanel.svelte";
     import RecordPreviewPanel from "@/components/records/RecordPreviewPanel.svelte";
+    import { addSuccessToast } from "@/stores/toasts";
+    import ApiClient from "@/utils/ApiClient";
+    import { t } from "@/i18n";
     import RecordsList from "@/components/records/RecordsList.svelte";
 
     const queryParams = new URLSearchParams($querystring);
@@ -95,6 +98,26 @@
         }
     }
 
+    
+    let isRebuilding = false;
+    async function rebuildVectors() {
+        if (isRebuilding) return;
+        if (!confirm($t("Are you sure you want to rebuild all vector data for this collection? This will clear existing vectors and enqueue new embedding tasks."))) {
+            return;
+        }
+
+        isRebuilding = true;
+        try {
+            const res = await ApiClient.send(`/api/vector/rebuild/${$activeCollection.id}`, { method: "POST" });
+            addSuccessToast($t("Successfully queued {count} vector rebuilding tasks.", { count: res.tasks || 0 }));
+            recordsList?.load();
+        } catch (err) {
+            ApiClient.error(err);
+        } finally {
+            isRebuilding = false;
+        }
+    }
+
     loadCollections(selectedCollectionId);
 </script>
 
@@ -161,6 +184,18 @@
                     <i class="ri-code-s-slash-line" />
                     <span class="txt">API Preview</span>
                 </button>
+
+                {#if $activeCollection.type === "vector"}
+                    <button
+                        type="button"
+                        class="btn btn-outline btn-expanded btn-secondary"
+                        on:click={rebuildVectors}
+                        disabled={isRebuilding}
+                    >
+                        <i class="ri-refresh-line" class:spin={isRebuilding} />
+                        <span class="txt">{$t("Rebuild Vectors")}</span>
+                    </button>
+                {/if}
 
                 {#if !$activeCollection.$isView}
                     <button type="button" class="btn btn-expanded" on:click={() => recordUpsertPanel?.show()}>

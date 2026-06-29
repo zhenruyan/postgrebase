@@ -365,7 +365,20 @@ func (api *adminApi) saveAdmin(admin *models.Admin, isNew bool, next forms.Inter
 	if err != nil {
 		return err
 	}
-	return api.proposeSQLiteOperation(op)
+	err = api.proposeSQLiteOperation(op)
+	if err != nil {
+		// Fall back to local save if the cluster is not yet fully ready/bootstrapped
+		// so that the first admin can be registered successfully!
+		saveErr := next(admin)
+		if saveErr == nil {
+			manager := api.app.VectorManager()
+			if manager != nil && manager.Coordinator() != nil {
+				manager.Coordinator().AdvanceIndexLocally()
+			}
+		}
+		return saveErr
+	}
+	return nil
 }
 
 func (api *adminApi) deleteAdmin(admin *models.Admin) error {

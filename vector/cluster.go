@@ -2,8 +2,12 @@ package vector
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -12,32 +16,35 @@ import (
 // Heartbeat is exchanged between cluster members to share liveness and the
 // current leadership view.
 type Heartbeat struct {
-	Term     uint64   `json:"term"`
-	LeaderID string   `json:"leaderId"`
-	NodeID   string   `json:"nodeId"`
-	Address  string   `json:"address"`
-	Members  []string `json:"members"`
-	SentAt   int64    `json:"sentAt"`
+	Term         uint64   `json:"term"`
+	LeaderID     string   `json:"leaderId"`
+	NodeID       string   `json:"nodeId"`
+	Address      string   `json:"address"`
+	Members      []string `json:"members"`
+	SentAt       int64    `json:"sentAt"`
+	LastLogIndex uint64   `json:"lastLogIndex,omitempty"`
 }
 
 // HeartbeatReply is returned by a member after processing a heartbeat.
 type HeartbeatReply struct {
-	Term     uint64 `json:"term"`
-	NodeID   string `json:"nodeId"`
-	Address  string `json:"address"`
-	LeaderID string `json:"leaderId"`
-	Accepted bool   `json:"accepted"`
+	Term         uint64 `json:"term"`
+	NodeID       string `json:"nodeId"`
+	Address      string `json:"address"`
+	LeaderID     string `json:"leaderId"`
+	Accepted     bool   `json:"accepted"`
+	LastLogIndex uint64 `json:"lastLogIndex,omitempty"`
 }
 
 // PeerState describes the last known state of a cluster member.
 type PeerState struct {
-	Address  string    `json:"address"`
-	NodeID   string    `json:"nodeId"`
-	Alive    bool      `json:"alive"`
-	IsLeader bool      `json:"isLeader"`
-	IsSelf   bool      `json:"isSelf"`
-	Term     uint64    `json:"term"`
-	LastSeen time.Time `json:"lastSeen,omitempty"`
+	Address      string    `json:"address"`
+	NodeID       string    `json:"nodeId"`
+	Alive        bool      `json:"alive"`
+	IsLeader     bool      `json:"isLeader"`
+	IsSelf       bool      `json:"isSelf"`
+	Term         uint64    `json:"term"`
+	LastLogIndex uint64    `json:"lastLogIndex"`
+	LastSeen     time.Time `json:"lastSeen,omitempty"`
 }
 
 // ClusterView is a point-in-time snapshot of the cluster membership used by the
@@ -52,12 +59,20 @@ type ClusterView struct {
 	Members  []PeerState `json:"members"`
 }
 
+// SnapshotApp defines the app methods required for snapshot and file replacements.
+type SnapshotApp interface {
+	CreateConsistentSnapshot(targetPath string) error
+	ReloadDataDBWithReplacement(replacePath string) error
+}
+
 // Transport abstracts the peer-to-peer communication used by the coordinator so
 // it can be backed by HTTP in production and an in-memory bus in tests.
 type Transport interface {
 	SendHeartbeat(ctx context.Context, peer string, hb Heartbeat) (HeartbeatReply, error)
 	Replicate(ctx context.Context, peer string, op ReplicatedOperation) error
 	Forward(ctx context.Context, peer string, op ReplicatedOperation) error
+	SendSnapshot(ctx context.Context, peer string, snapshotReader io.Reader, lastLogIndex uint64, appliedLogIndex uint64, term uint64) error
+	Join(ctx context.Context, leader string, selfAddr string) error
 }
 
 var ErrLeaderUnavailable = errors.New("cluster leader is unavailable")
@@ -73,6 +88,7 @@ type Coordinator struct {
 	manager   *Manager
 	transport Transport
 	apply     ApplyFunc
+	app       SnapshotApp
 
 	selfAddr string
 	nodeID   string
@@ -84,6 +100,11 @@ type Coordinator struct {
 
 	interval time.Duration
 	timeout  time.Duration
+
+	lastLogIndex    uint64
+	appliedLogIndex uint64
+	logs            []ReplicatedOperation
+	peerNextIndex   map[string]uint64
 
 	stop    chan struct{}
 	stopped chan struct{}
@@ -99,6 +120,7 @@ type CoordinatorConfig struct {
 	Timeout   time.Duration
 	Transport Transport
 	Apply     ApplyFunc
+	App       SnapshotApp
 }
 
 // NewCoordinator creates a coordinator for the given manager.
@@ -117,18 +139,34 @@ func NewCoordinator(manager *Manager, config CoordinatorConfig) *Coordinator {
 		nodeID = manager.Status().NodeID
 	}
 
+	term := uint64(0)
+	lastLogIndex := uint64(0)
+	appliedLogIndex := uint64(0)
+	if manager != nil {
+		status := manager.Status()
+		term = status.RaftTerm
+		lastLogIndex = status.LastLogIndex
+		appliedLogIndex = status.AppliedLogIndex
+	}
+
 	c := &Coordinator{
-		manager:   manager,
-		transport: config.Transport,
-		apply:     config.Apply,
-		selfAddr:  config.SelfAddr,
-		nodeID:    nodeID,
-		peers:     dedupePeers(config.SelfAddr, config.Peers),
-		states:    make(map[string]*PeerState),
-		interval:  interval,
-		timeout:   timeout,
-		stop:      make(chan struct{}),
-		stopped:   make(chan struct{}),
+		manager:         manager,
+		transport:       config.Transport,
+		apply:           config.Apply,
+		app:             config.App,
+		selfAddr:        config.SelfAddr,
+		nodeID:          nodeID,
+		peers:           dedupePeers(config.SelfAddr, config.Peers),
+		states:          make(map[string]*PeerState),
+		interval:        interval,
+		timeout:         timeout,
+		term:            term,
+		lastLogIndex:    lastLogIndex,
+		appliedLogIndex: appliedLogIndex,
+		logs:            make([]ReplicatedOperation, 0),
+		peerNextIndex:   make(map[string]uint64),
+		stop:            make(chan struct{}),
+		stopped:         make(chan struct{}),
 	}
 
 	// seed self state
@@ -143,6 +181,7 @@ func NewCoordinator(manager *Manager, config CoordinatorConfig) *Coordinator {
 		if _, ok := c.states[peer]; !ok {
 			c.states[peer] = &PeerState{Address: peer}
 		}
+		c.peerNextIndex[peer] = lastLogIndex + 1
 	}
 
 	c.recomputeLeaderLocked()
@@ -172,6 +211,7 @@ func (c *Coordinator) Start() {
 	}
 
 	go c.loop()
+	go c.replayLoop()
 }
 
 // Stop terminates the background loop.
@@ -207,6 +247,133 @@ func (c *Coordinator) loop() {
 	}
 }
 
+func (c *Coordinator) replayLoop() {
+	ticker := time.NewTicker(c.interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-c.stop:
+			return
+		case <-ticker.C:
+			c.retryFailedReplications()
+		}
+	}
+}
+
+func (c *Coordinator) retryFailedReplications() {
+	isLeader := c.IsLeader()
+	c.mu.Lock()
+	peers := append([]string(nil), c.peers...)
+	lastIdx := c.appliedLogIndex
+	self := c.selfAddr
+	transport := c.transport
+	timeout := c.timeout
+	c.mu.Unlock()
+
+	if !isLeader {
+		return
+	}
+
+	if transport == nil || len(peers) == 0 {
+		return
+	}
+
+	for _, peer := range peers {
+		if peer == self {
+			continue
+		}
+
+		c.mu.RLock()
+		nextIdx := c.peerNextIndex[peer]
+		if nextIdx == 0 {
+			nextIdx = 1
+		}
+
+		// Adjust next index based on the follower's reported progress in heartbeats
+		if state, ok := c.states[peer]; ok && state != nil && state.Alive {
+			if state.LastLogIndex+1 < nextIdx {
+				nextIdx = state.LastLogIndex + 1
+			}
+		}
+
+		var lowestLogIndex uint64 = 0
+		if len(c.logs) > 0 {
+			lowestLogIndex = c.logs[0].LogIndex
+		}
+
+		hasLogGap := (nextIdx < lowestLogIndex && lowestLogIndex > 0) || (len(c.logs) == 0 && lastIdx > 0 && nextIdx <= lastIdx)
+		termVal := c.term
+		c.mu.RUnlock()
+
+		if hasLogGap {
+			if c.app != nil {
+				go func(p string, lIdx uint64, appIdx uint64, tVal uint64) {
+					tempPath := filepath.Join(os.TempDir(), fmt.Sprintf("pb_snapshot_%d.db", time.Now().UnixNano()))
+					defer os.Remove(tempPath)
+
+					if err := c.app.CreateConsistentSnapshot(tempPath); err != nil {
+						return
+					}
+
+					file, err := os.Open(tempPath)
+					if err != nil {
+						return
+					}
+					defer file.Close()
+
+					ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+					err = transport.SendSnapshot(ctx, p, file, lIdx, appIdx, tVal)
+					cancel()
+					if err == nil {
+						c.mu.Lock()
+						c.peerNextIndex[p] = lIdx + 1
+						c.mu.Unlock()
+					}
+				}(peer, lastIdx, lastIdx, termVal)
+			} else {
+			}
+			continue
+		}
+
+		c.mu.RLock()
+		var opsToReplay []ReplicatedOperation
+		if nextIdx <= lastIdx {
+			for _, logOp := range c.logs {
+				if logOp.LogIndex >= nextIdx && logOp.LogIndex <= lastIdx {
+					opsToReplay = append(opsToReplay, logOp)
+				}
+			}
+		}
+		c.mu.RUnlock()
+
+		if len(opsToReplay) == 0 {
+			continue
+		}
+
+		go func(p string, ops []ReplicatedOperation, startIdx uint64) {
+			successCount := 0
+			for _, op := range ops {
+				ctx, cancel := context.WithTimeout(context.Background(), timeout)
+				err := transport.Replicate(ctx, p, op)
+				cancel()
+				if err != nil {
+					break
+				}
+				successCount++
+			}
+
+			if successCount > 0 {
+				c.mu.Lock()
+				if c.peerNextIndex[p] == startIdx {
+					c.peerNextIndex[p] = startIdx + uint64(successCount)
+				}
+				c.mu.Unlock()
+			}
+		}(peer, opsToReplay, nextIdx)
+	}
+}
+
 func (c *Coordinator) tick() {
 	c.mu.RLock()
 	peers := append([]string(nil), c.peers...)
@@ -236,6 +403,7 @@ func (c *Coordinator) tick() {
 			state.Alive = true
 			state.NodeID = reply.NodeID
 			state.Term = reply.Term
+			state.LastLogIndex = reply.LastLogIndex
 			state.LastSeen = time.Now().UTC()
 		}
 		c.mu.Unlock()
@@ -262,6 +430,7 @@ func (c *Coordinator) ReceiveHeartbeat(hb Heartbeat) HeartbeatReply {
 		state.Alive = true
 		state.NodeID = hb.NodeID
 		state.Term = hb.Term
+		state.LastLogIndex = hb.LastLogIndex
 		state.LastSeen = time.Now().UTC()
 
 		// learn about new members announced by the peer
@@ -277,11 +446,12 @@ func (c *Coordinator) ReceiveHeartbeat(hb Heartbeat) HeartbeatReply {
 	c.recomputeLeaderLocked()
 
 	return HeartbeatReply{
-		Term:     c.term,
-		NodeID:   c.nodeID,
-		Address:  c.selfAddr,
-		LeaderID: c.leaderID,
-		Accepted: true,
+		Term:         c.term,
+		NodeID:       c.nodeID,
+		Address:      c.selfAddr,
+		LeaderID:     c.leaderID,
+		Accepted:     true,
+		LastLogIndex: c.lastLogIndex,
 	}
 }
 
@@ -318,6 +488,7 @@ func (c *Coordinator) ProposeReplicated(op ReplicatedOperation) (Snapshot, error
 	peers := append([]string(nil), c.peers...)
 	transport := c.transport
 	timeout := c.timeout
+	term := c.term
 	c.mu.RUnlock()
 
 	hasPeers := c.HasPeers()
@@ -327,18 +498,54 @@ func (c *Coordinator) ProposeReplicated(op ReplicatedOperation) (Snapshot, error
 
 	// standalone or leader: apply locally
 	if !hasPeers || isLeader {
+		c.mu.Lock()
+		c.lastLogIndex++
+		op.LogIndex = c.lastLogIndex
+		op.RaftTerm = term
+		c.logs = append(c.logs, op)
+		c.mu.Unlock()
+
+		if hasPeers && transport != nil && op.Strict {
+			if err := c.replicateSyncQuorum(peers, op); err != nil {
+				c.mu.Lock()
+				if len(c.logs) > 0 && c.logs[len(c.logs)-1].LogIndex == op.LogIndex {
+					c.logs = c.logs[:len(c.logs)-1]
+				}
+				if c.lastLogIndex == op.LogIndex {
+					c.lastLogIndex--
+				}
+				c.mu.Unlock()
+				return Snapshot{}, err
+			}
+		}
+
 		snapshot, err := c.applyOperation(op)
 		if err != nil {
+			if hasPeers && transport != nil && op.Strict {
+				c.mu.Lock()
+				if len(c.logs) > 0 && c.logs[len(c.logs)-1].LogIndex == op.LogIndex {
+					c.logs = c.logs[:len(c.logs)-1]
+				}
+				if c.lastLogIndex == op.LogIndex {
+					c.lastLogIndex--
+				}
+				c.mu.Unlock()
+			}
 			return Snapshot{}, err
 		}
-		if hasPeers && transport != nil {
-			if op.Strict {
-				if err := c.replicateSync(peers, op); err != nil {
-					return Snapshot{}, err
-				}
-			} else {
-				c.replicateAsync(peers, op)
-			}
+
+		c.mu.Lock()
+		if op.LogIndex > c.appliedLogIndex {
+			c.appliedLogIndex = op.LogIndex
+		}
+		c.mu.Unlock()
+
+		if c.manager != nil {
+			_ = c.manager.Persist()
+		}
+
+		if hasPeers && transport != nil && !op.Strict {
+			c.replicateAsync(peers, op)
 		}
 		return snapshot, nil
 	}
@@ -374,7 +581,40 @@ func (c *Coordinator) ApplyReplicated(op ReplicatedOperation) (Snapshot, error) 
 	if c == nil || c.manager == nil {
 		return Snapshot{}, nil
 	}
-	return c.applyOperation(op)
+
+	c.mu.Lock()
+	if op.LogIndex > 0 {
+		if op.LogIndex <= c.appliedLogIndex {
+			c.mu.Unlock()
+			return c.manager.Snapshot(), nil
+		}
+		if op.Strict && op.LogIndex > c.appliedLogIndex+1 {
+			c.mu.Unlock()
+			return Snapshot{}, fmt.Errorf("log index gap detected: incoming %d, applied %d", op.LogIndex, c.appliedLogIndex)
+		}
+	}
+	c.mu.Unlock()
+
+	snap, err := c.applyOperation(op)
+	if err != nil {
+		return Snapshot{}, err
+	}
+
+	c.mu.Lock()
+	if op.LogIndex > c.appliedLogIndex {
+		c.appliedLogIndex = op.LogIndex
+	}
+	if op.LogIndex > c.lastLogIndex {
+		c.lastLogIndex = op.LogIndex
+	}
+	c.logs = append(c.logs, op)
+	c.mu.Unlock()
+
+	if c.manager != nil {
+		_ = c.manager.Persist()
+	}
+
+	return snap, nil
 }
 
 func (c *Coordinator) replicateAsync(peers []string, op ReplicatedOperation) {
@@ -392,10 +632,21 @@ func (c *Coordinator) replicateAsync(peers []string, op ReplicatedOperation) {
 		if peer == self {
 			continue
 		}
-		go func(peer string) {
+		go func(p string) {
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
-			defer cancel()
-			_ = transport.Replicate(ctx, peer, op)
+			err := transport.Replicate(ctx, p, op)
+			cancel()
+			c.mu.Lock()
+			if err == nil {
+				if c.peerNextIndex[p] <= op.LogIndex {
+					c.peerNextIndex[p] = op.LogIndex + 1
+				}
+			} else {
+				if c.peerNextIndex[p] == 0 || c.peerNextIndex[p] > op.LogIndex {
+					c.peerNextIndex[p] = op.LogIndex
+				}
+			}
+			c.mu.Unlock()
 		}(peer)
 	}
 }
@@ -425,7 +676,96 @@ func (c *Coordinator) replicateSync(peers []string, op ReplicatedOperation) erro
 	return nil
 }
 
+func (c *Coordinator) replicateSyncQuorum(peers []string, op ReplicatedOperation) error {
+	c.mu.RLock()
+	transport := c.transport
+	timeout := c.timeout
+	self := c.selfAddr
+	c.mu.RUnlock()
+
+	if transport == nil {
+		return ErrLeaderUnavailable
+	}
+
+	totalNodes := len(peers) + 1
+	quorum := (totalNodes / 2) + 1
+	neededPeers := quorum - 1
+
+	if neededPeers <= 0 {
+		return nil
+	}
+
+	type peerResult struct {
+		peer string
+		err  error
+	}
+
+	resultCh := make(chan peerResult, len(peers))
+	var wg sync.WaitGroup
+
+	for _, peer := range peers {
+		if peer == self {
+			continue
+		}
+		wg.Add(1)
+		go func(p string) {
+			defer wg.Done()
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			err := transport.Replicate(ctx, p, op)
+			cancel()
+			resultCh <- peerResult{peer: p, err: err}
+		}(peer)
+	}
+
+	go func() {
+		wg.Wait()
+		close(resultCh)
+	}()
+
+	successCount := 0
+	var firstErr error
+
+	for res := range resultCh {
+		if res.err == nil {
+			successCount++
+			c.mu.Lock()
+			if c.peerNextIndex[res.peer] <= op.LogIndex {
+				c.peerNextIndex[res.peer] = op.LogIndex + 1
+			}
+			c.mu.Unlock()
+		} else {
+			if firstErr == nil {
+				firstErr = res.err
+			}
+			c.mu.Lock()
+			if c.peerNextIndex[res.peer] == 0 || c.peerNextIndex[res.peer] > op.LogIndex {
+				c.peerNextIndex[res.peer] = op.LogIndex
+			}
+			c.mu.Unlock()
+		}
+	}
+
+	if successCount >= neededPeers {
+		return nil
+	}
+
+	if firstErr != nil {
+		return fmt.Errorf("quorum failed (got %d/%d successes), first error: %w", successCount, neededPeers, firstErr)
+	}
+	return fmt.Errorf("quorum failed (got %d/%d successes)", successCount, neededPeers)
+}
+
 func (c *Coordinator) applyOperation(op ReplicatedOperation) (Snapshot, error) {
+	if op.Type == "cluster.join" {
+		var payload struct {
+			Addr string `json:"addr"`
+		}
+		if err := json.Unmarshal(op.Payload, &payload); err == nil && payload.Addr != "" {
+			c.AddPeer(payload.Addr)
+		}
+		return c.manager.Snapshot(), nil
+	}
+
 	if op.Kind == "" || op.Kind == ReplicatedOperationKindVector {
 		vectorOp, err := UnwrapVectorOperation(op)
 		if err != nil {
@@ -485,6 +825,71 @@ func (c *Coordinator) IsLeader() bool {
 	return c.isLeaderLocked()
 }
 
+// Transport returns the coordinator's communication transport.
+func (c *Coordinator) Transport() Transport {
+	if c == nil {
+		return nil
+	}
+	return c.transport
+}
+
+// AddPeer dynamically adds a new peer address to the coordinator's list.
+func (c *Coordinator) AddPeer(peer string) {
+	if c == nil || peer == "" || peer == c.selfAddr {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for _, p := range c.peers {
+		if p == peer {
+			return
+		}
+	}
+
+	c.peers = append(c.peers, peer)
+	if c.peerNextIndex != nil {
+		c.peerNextIndex[peer] = c.lastLogIndex + 1
+	}
+}
+
+// AdvanceIndexLocally manually increments the cluster logs indices on local save.
+func (c *Coordinator) AdvanceIndexLocally() {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	c.lastLogIndex++
+	c.appliedLogIndex++
+	c.mu.Unlock()
+}
+
+// InstallSnapshot is invoked on a follower to replace its physical SQLite state machine.
+func (c *Coordinator) InstallSnapshot(replacePath string, lastLogIndex uint64, appliedLogIndex uint64, term uint64) error {
+	if c == nil || c.app == nil {
+		return errors.New("cannot install snapshot: app not configured")
+	}
+
+	// 1. Atomically replace database file using the app's database lifecycle hook
+	if err := c.app.ReloadDataDBWithReplacement(replacePath); err != nil {
+		return fmt.Errorf("failed to reload database with snapshot: %w", err)
+	}
+
+	// 2. Synchronize coordinator log sequence watermarks
+	c.mu.Lock()
+	c.appliedLogIndex = appliedLogIndex
+	c.lastLogIndex = lastLogIndex
+	c.term = term
+	c.logs = nil // Clear local logs as we are now fully aligned with snapshot
+	c.mu.Unlock()
+
+	if c.manager != nil {
+		_ = c.manager.Persist()
+	}
+
+	return nil
+}
+
 func (c *Coordinator) heartbeatLocked() Heartbeat {
 	members := make([]string, 0, len(c.states))
 	for addr := range c.states {
@@ -493,21 +898,35 @@ func (c *Coordinator) heartbeatLocked() Heartbeat {
 	sort.Strings(members)
 
 	return Heartbeat{
-		Term:     c.term,
-		LeaderID: c.leaderID,
-		NodeID:   c.nodeID,
-		Address:  c.selfAddr,
-		Members:  members,
-		SentAt:   time.Now().UTC().Unix(),
+		Term:         c.term,
+		LeaderID:     c.leaderID,
+		NodeID:       c.nodeID,
+		Address:      c.selfAddr,
+		Members:      members,
+		SentAt:       time.Now().UTC().Unix(),
+		LastLogIndex: c.lastLogIndex,
 	}
 }
 
 // recomputeLeaderLocked derives the leader from the set of alive members.
 func (c *Coordinator) recomputeLeaderLocked() {
+	maxIndex := c.lastLogIndex
+	for addr, state := range c.states {
+		if addr != c.selfAddr && state.Alive && state.LastLogIndex > maxIndex {
+			maxIndex = state.LastLogIndex
+		}
+	}
+
 	candidates := make([]string, 0, len(c.states))
 	for addr, state := range c.states {
-		if addr == c.selfAddr || state.Alive {
-			candidates = append(candidates, addr)
+		if addr == c.selfAddr {
+			if c.lastLogIndex >= maxIndex {
+				candidates = append(candidates, addr)
+			}
+		} else if state.Alive {
+			if state.LastLogIndex >= maxIndex {
+				candidates = append(candidates, addr)
+			}
 		}
 	}
 	sort.Strings(candidates)
@@ -515,6 +934,18 @@ func (c *Coordinator) recomputeLeaderLocked() {
 	newLeader := ""
 	if len(candidates) > 0 {
 		newLeader = candidates[0]
+	} else {
+		// Fallback to absolute lexicographically smallest among alive
+		aliveNodes := make([]string, 0)
+		for addr, state := range c.states {
+			if addr == c.selfAddr || state.Alive {
+				aliveNodes = append(aliveNodes, addr)
+			}
+		}
+		sort.Strings(aliveNodes)
+		if len(aliveNodes) > 0 {
+			newLeader = aliveNodes[0]
+		}
 	}
 
 	if newLeader != c.leaderID {
@@ -582,4 +1013,34 @@ func containsString(items []string, target string) bool {
 		}
 	}
 	return false
+}
+
+// AppliedLogIndex returns the coordinator's applied log index.
+func (c *Coordinator) AppliedLogIndex() uint64 {
+	if c == nil {
+		return 0
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.appliedLogIndex
+}
+
+// LastLogIndex returns the coordinator's last log index.
+func (c *Coordinator) LastLogIndex() uint64 {
+	if c == nil {
+		return 0
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.lastLogIndex
+}
+
+// RaftTerm returns the coordinator's term.
+func (c *Coordinator) RaftTerm() uint64 {
+	if c == nil {
+		return 0
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.term
 }

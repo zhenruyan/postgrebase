@@ -4,13 +4,16 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/zhenruyan/postgrebase/core"
+	"github.com/zhenruyan/postgrebase/dbx"
 	"github.com/zhenruyan/postgrebase/migrations"
 	"github.com/zhenruyan/postgrebase/models"
 	"github.com/zhenruyan/postgrebase/models/schema"
 	"github.com/zhenruyan/postgrebase/replication"
 	"github.com/zhenruyan/postgrebase/tools/migrate"
+	"github.com/zhenruyan/postgrebase/tools/security"
 	"github.com/zhenruyan/postgrebase/vector"
 )
 
@@ -203,6 +206,91 @@ func TestApplyUnknownOperationFails(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "unknown replicated operation type") {
 		t.Fatalf("expected unknown operation error, got %v", err)
+	}
+}
+
+func TestApplyParamUpsertReplicatesParam(t *testing.T) {
+	app := newTestApp(t)
+	defer app.ResetBootstrapState()
+
+	param := &models.Param{
+		Key: "custom_param_key",
+	}
+	_ = param.Value.Scan("\"custom_value_data\"")
+
+	op, err := replication.NewParamUpsertOperation(param, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := replication.Apply(app.Dao(), op); err != nil {
+		t.Fatal(err)
+	}
+
+	persisted, err := app.Dao().FindParamByKey("custom_param_key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(persisted.Value) != `"custom_value_data"` {
+		t.Fatalf("expected custom_value_data, got %s", string(persisted.Value))
+	}
+
+	// Delete it
+	deleteOp, err := replication.NewParamDeleteOperation(persisted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := replication.Apply(app.Dao(), deleteOp); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := app.Dao().FindParamByKey("custom_param_key"); err == nil {
+		t.Fatal("expected param to be deleted")
+	}
+}
+
+func TestApplyMigrationReplicates(t *testing.T) {
+	app := newTestApp(t)
+	defer app.ResetBootstrapState()
+
+	// Register a dummy migration in migrations list
+	appliedValue := false
+	dummyMigration := &migrate.Migration{
+		File: "20260629_test_migration",
+		Up: func(db dbx.Builder) error {
+			appliedValue = true
+			return nil
+		},
+	}
+	migrations.AppMigrations.Register(dummyMigration.Up, nil, dummyMigration.File)
+
+	op := vector.ReplicatedOperation{
+		ID:        security.NewUUIDString(),
+		Kind:      vector.ReplicatedOperationKindSQLite,
+		Type:      "migration.apply",
+		Strict:    true,
+		Payload:   []byte(`{"file":"20260629_test_migration"}`),
+		CreatedAt: time.Now().UTC(),
+	}
+
+	if err := replication.Apply(app.Dao(), op); err != nil {
+		t.Fatal(err)
+	}
+
+	if !appliedValue {
+		t.Fatal("expected dummy migration Up action to be executed")
+	}
+
+	// Verify that the migration is stored in the _migrations table
+	var count int
+	err := app.DB().Select("count(*)").
+		From("_migrations").
+		Where(dbx.HashExp{"file": "20260629_test_migration"}).
+		Row(&count)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("expected 1 migration in _migrations table, got %d", count)
 	}
 }
 

@@ -8,7 +8,9 @@ import (
 
 	"github.com/zhenruyan/postgrebase/daos"
 	"github.com/zhenruyan/postgrebase/dbx"
+	"github.com/zhenruyan/postgrebase/migrations"
 	"github.com/zhenruyan/postgrebase/models"
+	"github.com/zhenruyan/postgrebase/tools/migrate"
 	"github.com/zhenruyan/postgrebase/tools/security"
 	"github.com/zhenruyan/postgrebase/tools/types"
 	"github.com/zhenruyan/postgrebase/vector"
@@ -23,6 +25,8 @@ const (
 	OperationRecordDelete            = "record.delete"
 	OperationAdminUpsert             = "admin.upsert"
 	OperationAdminDelete             = "admin.delete"
+	OperationParamUpsert             = "param.upsert"
+	OperationParamDelete             = "param.delete"
 )
 
 type CollectionUpsertPayload struct {
@@ -59,6 +63,15 @@ type AdminUpsertPayload struct {
 
 type AdminDeletePayload struct {
 	Admin *models.Admin `json:"admin"`
+}
+
+type ParamUpsertPayload struct {
+	Param *models.Param `json:"param"`
+	IsNew bool          `json:"isNew"`
+}
+
+type ParamDeletePayload struct {
+	Param *models.Param `json:"param"`
 }
 
 func NewCollectionUpsertOperation(collection *models.Collection, isNew bool) (vector.ReplicatedOperation, error) {
@@ -189,6 +202,36 @@ func NewAdminDeleteOperation(admin *models.Admin) (vector.ReplicatedOperation, e
 	return sqliteOperation(OperationAdminDelete, payload), nil
 }
 
+func NewParamUpsertOperation(param *models.Param, isNew bool) (vector.ReplicatedOperation, error) {
+	if param == nil {
+		return vector.ReplicatedOperation{}, errors.New("param is required")
+	}
+
+	stabilizeModel(param, isNew)
+	payload, err := json.Marshal(ParamUpsertPayload{
+		Param: param,
+		IsNew: isNew,
+	})
+	if err != nil {
+		return vector.ReplicatedOperation{}, err
+	}
+
+	return sqliteOperation(OperationParamUpsert, payload), nil
+}
+
+func NewParamDeleteOperation(param *models.Param) (vector.ReplicatedOperation, error) {
+	if param == nil {
+		return vector.ReplicatedOperation{}, errors.New("param is required")
+	}
+
+	payload, err := json.Marshal(ParamDeletePayload{Param: param})
+	if err != nil {
+		return vector.ReplicatedOperation{}, err
+	}
+
+	return sqliteOperation(OperationParamDelete, payload), nil
+}
+
 func Apply(dao *daos.Dao, op vector.ReplicatedOperation) error {
 	if dao == nil {
 		return errors.New("dao is required")
@@ -301,6 +344,67 @@ func Apply(dao *daos.Dao, op vector.ReplicatedOperation) error {
 		}
 		payload.Admin.MarkAsNotNew()
 		return dao.DeleteAdmin(payload.Admin)
+
+	case OperationParamUpsert:
+		var payload ParamUpsertPayload
+		if err := json.Unmarshal(op.Payload, &payload); err != nil {
+			return err
+		}
+		if payload.Param == nil {
+			return errors.New("param payload is required")
+		}
+		if payload.IsNew {
+			payload.Param.MarkAsNew()
+		} else {
+			payload.Param.MarkAsNotNew()
+		}
+		created := payload.Param.Created
+		updated := payload.Param.Updated
+		if err := dao.Save(payload.Param); err != nil {
+			return err
+		}
+		return restoreModelTimestamps(dao, payload.Param, created, updated)
+
+	case OperationParamDelete:
+		var payload ParamDeletePayload
+		if err := json.Unmarshal(op.Payload, &payload); err != nil {
+			return err
+		}
+		if payload.Param == nil {
+			return errors.New("param payload is required")
+		}
+		payload.Param.MarkAsNotNew()
+		return dao.DeleteParam(payload.Param)
+
+	case "migration.apply":
+		var payload struct {
+			File string `json:"file"`
+		}
+		if err := json.Unmarshal(op.Payload, &payload); err != nil {
+			return err
+		}
+		var targetMigration *migrate.Migration
+		for _, m := range migrations.AppMigrations.Items() {
+			if m.File == payload.File {
+				targetMigration = m
+				break
+			}
+		}
+		if targetMigration == nil {
+			return fmt.Errorf("migration %s not found in AppMigrations", payload.File)
+		}
+		return dao.RunInTransaction(func(txDao *daos.Dao) error {
+			if targetMigration.Up != nil {
+				if err := targetMigration.Up(txDao.DB()); err != nil {
+					return err
+				}
+			}
+			_, err := txDao.DB().Insert("_migrations", dbx.Params{
+				"file":    payload.File,
+				"applied": time.Now().UnixMicro(),
+			}).Execute()
+			return err
+		})
 
 	default:
 		return fmt.Errorf("unknown replicated operation type %q", op.Type)

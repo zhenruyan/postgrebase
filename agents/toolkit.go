@@ -14,6 +14,7 @@ import (
 	"github.com/zhenruyan/postgrebase/forms"
 	"github.com/zhenruyan/postgrebase/models"
 	"github.com/zhenruyan/postgrebase/models/schema"
+	"github.com/zhenruyan/postgrebase/replication"
 	"github.com/zhenruyan/postgrebase/tools/dbutils"
 	"github.com/zhenruyan/postgrebase/tools/search"
 	"github.com/zhenruyan/postgrebase/tools/security"
@@ -140,6 +141,9 @@ func NewToolRegistry() *ToolRegistry {
 					"project":     map[string]any{"type": "string"},
 					"name":        map[string]any{"type": "string"},
 					"displayName": map[string]any{"type": "string"},
+					"type":        map[string]any{"type": "string", "enum": []string{"base", "vector"}},
+					"embeddingModel": map[string]any{"type": "string"},
+					"dimensions":     map[string]any{"type": "integer"},
 					"fields": map[string]any{
 						"type": "array",
 						"items": map[string]any{
@@ -713,9 +717,14 @@ func NewCreateTableExecutor(app core.App) ToolExecutor {
 			schemaFields = append(schemaFields, field)
 		}
 
+		colType := cast.ToString(args["type"])
+		if colType == "" {
+			colType = models.CollectionTypeBase
+		}
+
 		collection := &models.Collection{
 			Name:    name,
-			Type:    models.CollectionTypeBase,
+			Type:    colType,
 			Project: &project,
 		}
 		if displayName := cast.ToString(args["displayName"]); displayName != "" {
@@ -731,10 +740,27 @@ func NewCreateTableExecutor(app core.App) ToolExecutor {
 		form := forms.NewCollectionUpsert(app, collection)
 		form.Name = name
 		form.Project = &project
-		form.Type = models.CollectionTypeBase
+		form.Type = colType
 		form.Schema = collection.Schema
 		form.DisplayName = collection.DisplayName
-		form.Options = types.JsonMap{}
+		if colType == models.CollectionTypeVector {
+			embeddingModel := cast.ToString(args["embeddingModel"])
+			dimensions := cast.ToInt(args["dimensions"])
+			if embeddingModel == "" {
+				return nil, errors.New("embeddingModel is required for vector table")
+			}
+			if dimensions <= 0 {
+				return nil, errors.New("dimensions must be positive for vector table")
+			}
+			form.Options = types.JsonMap{
+				"embeddingModel": embeddingModel,
+				"dimensions":     dimensions,
+			}
+		} else {
+			form.Options = types.JsonMap{}
+		}
+
+		configureCollectionUpsertReplication(app, form)
 
 		if err := form.Submit(); err != nil {
 			return nil, err
@@ -821,6 +847,8 @@ func NewAddFieldExecutor(app core.App) ToolExecutor {
 		form.SearchCacheEnabled = next.SearchCacheEnabled
 		form.CacheDuration = next.CacheDuration
 
+		configureCollectionUpsertReplication(app, form)
+
 		if err := form.Submit(); err != nil {
 			return nil, err
 		}
@@ -898,6 +926,7 @@ func NewInsertRecordExecutor(app core.App) ToolExecutor {
 
 		record := models.NewRecord(collection)
 		form := forms.NewRecordUpsert(app, record)
+		configureRecordUpsertReplication(app, form)
 		if err := form.LoadData(sanitizeRecordData(data)); err != nil {
 			return nil, err
 		}
@@ -935,6 +964,37 @@ func NewBulkInsertRecordExecutor(app core.App) ToolExecutor {
 		}
 		if toolResult != nil {
 			return toolResult, nil
+		}
+
+		if app.IsSQLiteCluster() {
+			inserted := []*models.Record{}
+			for _, raw := range rows {
+				data, _ := raw.(map[string]any)
+				if data == nil {
+					return nil, errors.New("each row must be an object")
+				}
+				collection, err := app.Dao().FindCollectionByNameOrId(collectionName)
+				if err != nil {
+					return nil, err
+				}
+				record := models.NewRecord(collection)
+				form := forms.NewRecordUpsert(app, record)
+				configureRecordUpsertReplication(app, form)
+				if err := form.LoadData(sanitizeRecordData(data)); err != nil {
+					return nil, err
+				}
+				if err := form.Submit(); err != nil {
+					return nil, err
+				}
+				inserted = append(inserted, record)
+			}
+			return &ToolExecutionResult{
+				Status:  "ok",
+				Message: "records inserted",
+				Data: map[string]any{
+					"records": inserted,
+				},
+			}, nil
 		}
 
 		inserted := []*models.Record{}
@@ -1037,6 +1097,7 @@ func NewUpdateRecordExecutor(app core.App) ToolExecutor {
 		}
 
 		form := forms.NewRecordUpsert(app, record)
+		configureRecordUpsertReplication(app, form)
 		if err := form.LoadData(sanitizeRecordData(data)); err != nil {
 			return nil, err
 		}
@@ -1076,8 +1137,22 @@ func NewDeleteRecordExecutor(app core.App) ToolExecutor {
 			return toolResult, nil
 		}
 
-		if err := app.Dao().Delete(record); err != nil {
-			return nil, err
+		if app.IsSQLiteCluster() {
+			op, err := replication.NewRecordDeleteOperation(record)
+			if err != nil {
+				return nil, err
+			}
+			manager := app.VectorManager()
+			if manager == nil || manager.Coordinator() == nil {
+				return nil, errors.New("SQLite cluster coordinator is not enabled")
+			}
+			if _, err := manager.Coordinator().ProposeReplicated(op); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := app.Dao().Delete(record); err != nil {
+				return nil, err
+			}
 		}
 
 		return &ToolExecutionResult{
@@ -1183,6 +1258,8 @@ func NewUpdateFieldExecutor(app core.App) ToolExecutor {
 		form.SearchCacheEnabled = next.SearchCacheEnabled
 		form.CacheDuration = next.CacheDuration
 
+		configureCollectionUpsertReplication(app, form)
+
 		if err := form.Submit(); err != nil {
 			return nil, err
 		}
@@ -1259,6 +1336,8 @@ func NewDropFieldExecutor(app core.App) ToolExecutor {
 		form.ListCacheEnabled = next.ListCacheEnabled
 		form.SearchCacheEnabled = next.SearchCacheEnabled
 		form.CacheDuration = next.CacheDuration
+
+		configureCollectionUpsertReplication(app, form)
 
 		if err := form.Submit(); err != nil {
 			return nil, err
@@ -1343,6 +1422,8 @@ func NewCreateIndexExecutor(app core.App) ToolExecutor {
 		form.ListCacheEnabled = next.ListCacheEnabled
 		form.SearchCacheEnabled = next.SearchCacheEnabled
 		form.CacheDuration = next.CacheDuration
+
+		configureCollectionUpsertReplication(app, form)
 
 		if err := form.Submit(); err != nil {
 			return nil, err
@@ -1510,6 +1591,8 @@ func NewSetRelationExecutor(app core.App) ToolExecutor {
 		form.SearchCacheEnabled = next.SearchCacheEnabled
 		form.CacheDuration = next.CacheDuration
 
+		configureCollectionUpsertReplication(app, form)
+
 		if err := form.Submit(); err != nil {
 			return nil, err
 		}
@@ -1519,5 +1602,42 @@ func NewSetRelationExecutor(app core.App) ToolExecutor {
 			Message: "relation field updated",
 			Data:    nextField,
 		}, nil
+	}
+}
+
+func configureCollectionUpsertReplication(app core.App, form *forms.CollectionUpsert) {
+	if app.IsSQLiteCluster() {
+		form.SetSaveFunc(func(col *models.Collection) error {
+			op, err := replication.NewCollectionUpsertOperation(col, col.IsNew())
+			if err != nil {
+				return err
+			}
+			manager := app.VectorManager()
+			if manager == nil || manager.Coordinator() == nil {
+				return errors.New("SQLite cluster coordinator is not enabled")
+			}
+			_, err = manager.Coordinator().ProposeReplicated(op)
+			return err
+		})
+	}
+}
+
+func configureRecordUpsertReplication(app core.App, form *forms.RecordUpsert) {
+	if app.IsSQLiteCluster() {
+		form.SetSaveFunc(func(dao *daos.Dao, record *models.Record) error {
+			op, err := replication.NewRecordUpsertOperation(record, record.IsNew())
+			if err != nil {
+				return err
+			}
+			manager := app.VectorManager()
+			if manager == nil || manager.Coordinator() == nil {
+				return errors.New("SQLite cluster coordinator is not enabled")
+			}
+			_, err = manager.Coordinator().ProposeReplicated(op)
+			if err == nil {
+				record.MarkAsNotNew()
+			}
+			return err
+		})
 	}
 }

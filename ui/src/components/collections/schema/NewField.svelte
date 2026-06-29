@@ -5,6 +5,7 @@
 
     let classes = "";
     export { classes as class }; // export reserved keyword
+    export let collectionType = "";
 
     const dispatch = createEventDispatcher();
 
@@ -64,7 +65,14 @@
             value: "json",
             icon: CommonHelper.getFieldTypeIcon("json"),
         },
+        {
+            label: "Vector",
+            value: "vector",
+            icon: CommonHelper.getFieldTypeIcon("vector"),
+        },
     ];
+
+    $: filteredTypes = types.filter(t => t.value !== "vector" || collectionType === "vector");
 
     function select(fieldType) {
         dispatch("select", fieldType);
@@ -75,7 +83,7 @@
     <i class="ri-add-line" />
     <div class="txt">New field</div>
     <Toggler class="dropdown field-types-dropdown">
-        {#each types as item}
+        {#each filteredTypes as item}
             <div
                 tabindex="0"
                 class="dropdown-item closable"

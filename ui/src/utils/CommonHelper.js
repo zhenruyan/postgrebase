@@ -1066,6 +1066,8 @@ export default class CommonHelper {
                 return "ri-group-line";
             case "view":
                 return "ri-table-line";
+            case "vector":
+                return "ri-focus-3-line";
             default:
                 return "ri-folder-2-line";
         }
@@ -1103,6 +1105,8 @@ export default class CommonHelper {
                 return "ri-image-line";
             case "relation":
                 return "ri-mind-map";
+            case "vector":
+                return "ri-focus-3-line";
             case "user":
                 return "ri-user-line";
             default:

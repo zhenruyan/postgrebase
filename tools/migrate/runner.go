@@ -18,6 +18,7 @@ type Runner struct {
 	db             *dbx.DB
 	migrationsList MigrationsList
 	tableName      string
+	OnApply        func(file string) error
 }
 
 // NewRunner creates and initializes a new db migrations Runner instance.
@@ -150,6 +151,15 @@ func (r *Runner) Up() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if r.OnApply != nil {
+		for _, file := range applied {
+			if err := r.OnApply(file); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	return applied, nil
 }
 

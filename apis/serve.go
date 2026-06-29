@@ -41,9 +41,13 @@ func Serve(app core.App, config ServeConfig) (*http.Server, error) {
 		config.AllowedOrigins = []string{"*"}
 	}
 
-	// ensure that the latest migrations are applied before starting the server
-	if err := runMigrations(app); err != nil {
-		return nil, err
+	// ensure that the latest migrations are applied before starting the server.
+	// In SQLite cluster mode, we defer this to after the coordinator has started,
+	// so that migrations can be cleanly proposed and replicated to peers.
+	if !app.IsSQLiteCluster() {
+		if err := runMigrations(app); err != nil {
+			return nil, err
+		}
 	}
 
 	// reload app settings in case a new default value was set with a migration

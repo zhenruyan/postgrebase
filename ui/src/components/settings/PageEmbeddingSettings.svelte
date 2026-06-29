@@ -21,6 +21,24 @@
         .flatMap((p) => p.models.map((m) => m.providerModelId || m.name))
         .filter(Boolean);
 
+    
+    let isMetricsLoading = false;
+    let metrics = null;
+
+    async function loadMetrics() {
+        isMetricsLoading = true;
+        try {
+            const result = await ApiClient.send("/api/vector/metrics", { method: "GET" });
+            metrics = result?.metrics || null;
+        } catch (err) {
+            ApiClient.error(err);
+        } finally {
+            isMetricsLoading = false;
+        }
+    }
+
+    loadMetrics();
+
     loadSettings();
 
     function emptyConfig() {
@@ -54,6 +72,7 @@
             models: (p.models || []).map((m) => ({
                 name: m.name || "",
                 providerModelId: m.providerModelId || "",
+                dimensions: m.dimensions || 1536,
                 enabled: !!m.enabled,
             })),
         }));
@@ -101,6 +120,7 @@
         embedding.providers[pIdx].models = embedding.providers[pIdx].models.concat({
             name: "",
             providerModelId: "",
+            dimensions: 1536,
             enabled: true,
         });
         embedding = embedding;
@@ -223,6 +243,10 @@
                                         <label>{$t("Provider model id")}</label>
                                         <input type="text" bind:value={model.providerModelId} placeholder="text-embedding-3-small" />
                                     </div>
+                                    <div class="em-field">
+                                        <label>{$t("Dimensions")}</label>
+                                        <input type="number" bind:value={model.dimensions} placeholder="1536" />
+                                    </div>
                                 </div>
                                 <div class="em-model-flags">
                                     <label><input type="checkbox" bind:checked={model.enabled} /> {$t("Enabled")}</label>
@@ -252,6 +276,48 @@
                 </div>
             {/if}
         </form>
+
+        <!-- Embedding Queue Status Panel -->
+        <div class="panel m-t-base">
+            <header class="section-header flex m-b-sm">
+                <h3 class="section-title">{$t("Embedding Queue Status")}</h3>
+                <div class="flex-fill" />
+                <button type="button" class="btn btn-sm btn-transparent" on:click={loadMetrics} disabled={isMetricsLoading}>
+                    <i class="ri-refresh-line" class:spin={isMetricsLoading} /> <span class="txt">{$t("Refresh")}</span>
+                </button>
+            </header>
+
+            {#if isMetricsLoading && !metrics}
+                <div class="loader" />
+            {:else if metrics}
+                <div class="metrics-grid m-b-base">
+                    <div class="metric-card">
+                        <div class="metric-label">{$t("Pending Tasks")}</div>
+                        <div class="metric-value">{metrics.pendingEmbeddings ?? 0}</div>
+                        <div class="metric-sub">{$t("Embeddings currently waiting in queue")}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">{$t("Total Stored Vectors")}</div>
+                        <div class="metric-value">{metrics.vectorEntries ?? 0}</div>
+                        <div class="metric-sub">{$t("Vectors successfully generated")}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">{$t("Active Model")}</div>
+                        <div class="metric-value metric-value-sm">{metrics.embeddingModel || $t("Not Configured")}</div>
+                        <div class="metric-sub">
+                            {$t("Status")}: 
+                            {#if metrics.embeddingReady}
+                                <span class="label label-sm label-success">{$t("Ready")}</span>
+                            {:else}
+                                <span class="label label-sm label-warning">{$t("Not Ready")}</span>
+                            {/if}
+                        </div>
+                    </div>
+                </div>
+            {:else}
+                <p class="txt-hint">{$t("Failed to load queue metrics.")}</p>
+            {/if}
+        </div>
     </div>
 </PageWrapper>
 
@@ -310,5 +376,37 @@
         gap: 12px;
         align-items: center;
         font-size: 12px;
+    }
+
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 0.75rem;
+        margin-top: 1rem;
+    }
+    .metric-card {
+        background: var(--baseAlt1Color);
+        border: 1px solid var(--baseAlt2Color);
+        border-radius: 6px;
+        padding: 1rem;
+    }
+    .metric-label {
+        font-size: 0.8125rem;
+        color: var(--txtHintColor);
+        margin-bottom: 0.35rem;
+    }
+    .metric-value {
+        font-size: 1.5rem;
+        font-weight: 600;
+        line-height: 1.2;
+    }
+    .metric-value-sm {
+        font-size: 1rem;
+        word-break: break-all;
+    }
+    .metric-sub {
+        font-size: 0.75rem;
+        color: var(--txtHintColor);
+        margin-top: 0.5rem;
     }
 </style>

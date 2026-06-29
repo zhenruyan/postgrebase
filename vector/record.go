@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"strings"
 
 	"github.com/spf13/cast"
@@ -85,15 +86,57 @@ func (m *Manager) TriggerRecordEmbedding(record *models.Record) []string {
 	}
 
 	queued := make([]string, 0)
-	for _, field := range record.Collection().Schema.Fields() {
-		switch field.Type {
-		case schema.FieldTypeText, schema.FieldTypeEmail, schema.FieldTypeUrl, schema.FieldTypeEditor, schema.FieldTypeJson:
-			task := BuildRecordEmbeddingTask(record, field, model)
-			if task == nil {
-				continue
+	collection := record.Collection()
+
+	if collection.Type == models.CollectionTypeVector {
+		for _, field := range collection.Schema.Fields() {
+			if field.Type == schema.FieldTypeVector {
+				opt, ok := field.Options.(*schema.VectorOptions)
+				if !ok {
+					var temp schema.VectorOptions
+					raw, _ := json.Marshal(field.Options)
+					if json.Unmarshal(raw, &temp) == nil {
+						opt = &temp
+					}
+				}
+				if opt == nil || opt.SourceField == "" {
+					continue
+				}
+				sourceField := collection.Schema.GetFieldByName(opt.SourceField)
+				if sourceField == nil {
+					continue
+				}
+				content := cast.ToString(record.Get(sourceField.Name))
+				if strings.TrimSpace(content) == "" {
+					continue
+				}
+				task := &EmbeddingTask{
+					Id:           security.NewUUIDString(),
+					ProjectID:    collectionProjectID(record.Collection()),
+					SourceType:   "record:" + collection.Id,
+					SourceID:     record.GetId(),
+					SourceField:  field.Name, // This is the vector field name
+					Model:        model,
+					ContentHash:  recordEmbeddingHash(content),
+					Status:       "pending",
+					Payload:      []byte(content),
+				}
+				if id := m.EnqueueEmbedding(*task); id != "" {
+					queued = append(queued, id)
+				}
 			}
-			if id := m.EnqueueEmbedding(*task); id != "" {
-				queued = append(queued, id)
+		}
+	} else {
+		for _, field := range collection.Schema.Fields() {
+			switch field.Type {
+			case schema.FieldTypeText, schema.FieldTypeEmail, schema.FieldTypeUrl, schema.FieldTypeEditor, schema.FieldTypeJson:
+				task := BuildRecordEmbeddingTask(record, field, model)
+				if task == nil {
+					continue
+				}
+				if id := m.EnqueueEmbedding(*task); id != "" {
+					queued = append(queued, id)
+				}
 			}
 		}
 	}

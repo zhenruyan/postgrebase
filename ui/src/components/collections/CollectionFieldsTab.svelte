@@ -15,6 +15,7 @@
     import SchemaFieldJson from "@/components/collections/schema/SchemaFieldJson.svelte";
     import SchemaFieldFile from "@/components/collections/schema/SchemaFieldFile.svelte";
     import SchemaFieldRelation from "@/components/collections/schema/SchemaFieldRelation.svelte";
+    import SchemaFieldVector from "@/components/collections/schema/SchemaFieldVector.svelte";
     import Draggable from "@/components/base/Draggable.svelte";
 
     export let collection = new Collection();
@@ -31,6 +32,7 @@
         json: SchemaFieldJson,
         file: SchemaFieldFile,
         relation: SchemaFieldRelation,
+        vector: SchemaFieldVector,
     };
 
     $: if (typeof collection.schema === "undefined") {
@@ -133,6 +135,7 @@
             <svelte:component
                 this={fieldComponents[field.type]}
                 key={getSchemaFieldIndex(field)}
+                {collection}
                 bind:field
                 on:remove={() => removeField(i)}
                 on:rename={(e) => replaceIndexesColumn(e.detail.oldName, e.detail.newName)}
@@ -141,7 +144,7 @@
     {/each}
 </div>
 
-<NewField class="btn btn-block btn-outline" on:select={(e) => newField(e.detail)} />
+<NewField collectionType={collection.type} class="btn btn-block btn-outline" on:select={(e) => newField(e.detail)} />
 
 <hr />
 

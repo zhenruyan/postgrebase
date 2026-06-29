@@ -29,11 +29,13 @@
     const TYPE_BASE = "base";
     const TYPE_AUTH = "auth";
     const TYPE_VIEW = "view";
+    const TYPE_VECTOR = "vector";
 
     const collectionTypes = {};
     collectionTypes[TYPE_BASE] = "Base";
     collectionTypes[TYPE_VIEW] = "View";
     collectionTypes[TYPE_AUTH] = "Auth";
+    collectionTypes[TYPE_VECTOR] = "Vector";
 
     const dispatch = createEventDispatcher();
 
@@ -48,6 +50,8 @@
     let schemaTabError = "";
 
     let projects = [];
+    let embeddingModels = [];
+    let isLoadingModels = false;
 
     async function loadProjects() {
         try {
@@ -59,8 +63,34 @@
         }
     }
 
+    async function loadEmbeddingModels() {
+        isLoadingModels = true;
+        try {
+            const settings = await ApiClient.settings.getAll();
+            const providers = settings.agents?.embedding?.providers || [];
+            embeddingModels = [];
+            for (const p of providers) {
+                if (p.enabled && p.models) {
+                    for (const m of p.models) {
+                        if (m.enabled) {
+                            embeddingModels.push({
+                                name: m.name,
+                                providerModelId: m.providerModelId,
+                                dimensions: m.dimensions || 1536,
+                            });
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn("Failed to load embedding models:", err);
+        }
+        isLoadingModels = false;
+    }
+
     $: if ($admin?.id) {
         loadProjects();
+        loadEmbeddingModels();
     }
 
     $: if ($errors.schema || $errors.options?.query) {
@@ -408,6 +438,48 @@
                         </button>
                     </Field>
                 </div>
+
+                {#if collection.type === TYPE_VECTOR}
+                    <div class="col-lg-6">
+                        <Field class="form-field required" name="options.embeddingModel" let:uniqueId>
+                            <label for={uniqueId}>{$t("Embedding Model")}</label>
+                            <select
+                                id={uniqueId}
+                                value={collection.options?.embeddingModel || ""}
+                                on:change={(e) => {
+                                    const modelId = e.target.value;
+                                    collection.options = collection.options || {};
+                                    collection.options.embeddingModel = modelId;
+                                    const model = embeddingModels.find(m => m.name === modelId);
+                                    if (model) {
+                                        collection.options.dimensions = model.dimensions;
+                                    }
+                                }}
+                            >
+                                <option value="">-- Select Model --</option>
+                                {#each embeddingModels as m}
+                                    <option value={m.name}>{m.name} ({m.dimensions}d)</option>
+                                {/each}
+                            </select>
+                        </Field>
+                    </div>
+
+                    <div class="col-lg-6">
+                        <Field class="form-field required" name="options.dimensions" let:uniqueId>
+                            <label for={uniqueId}>{$t("Vector Dimensions")}</label>
+                            <input
+                                type="number"
+                                id={uniqueId}
+                                placeholder="1536"
+                                value={collection.options?.dimensions || ""}
+                                on:input={(e) => {
+                                    collection.options = collection.options || {};
+                                    collection.options.dimensions = parseInt(e.target.value) || 0;
+                                }}
+                            />
+                        </Field>
+                    </div>
+                {/if}
             </div>
 
             <input type="submit" class="hidden" tabindex="-1" />

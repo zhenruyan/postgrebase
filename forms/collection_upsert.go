@@ -26,6 +26,7 @@ type CollectionUpsert struct {
 	app        core.App
 	dao        *daos.Dao
 	collection *models.Collection
+	saveFunc   func(*models.Collection) error
 
 	Id          string                  `form:"id" json:"id"`
 	Type        string                  `form:"type" json:"type"`
@@ -98,6 +99,11 @@ func (form *CollectionUpsert) SetDao(dao *daos.Dao) {
 	form.dao = dao
 }
 
+// SetSaveFunc replaces the default collection persistence callback used by Submit.
+func (form *CollectionUpsert) SetSaveFunc(saveFunc func(*models.Collection) error) {
+	form.saveFunc = saveFunc
+}
+
 // Validate makes the form validatable by implementing [validation.Validatable] interface.
 func (form *CollectionUpsert) Validate() error {
 	isAuth := form.Type == models.CollectionTypeAuth
@@ -133,6 +139,7 @@ func (form *CollectionUpsert) Validate() error {
 				models.CollectionTypeBase,
 				models.CollectionTypeAuth,
 				models.CollectionTypeView,
+				models.CollectionTypeVector,
 			),
 			validation.By(form.ensureNoTypeChange),
 		),
@@ -493,6 +500,16 @@ func (form *CollectionUpsert) checkOptions(value any) error {
 				),
 			}
 		}
+	case models.CollectionTypeVector:
+		options := models.CollectionVectorOptions{}
+		if err := decodeOptions(v, &options); err != nil {
+			return err
+		}
+
+		// check the generic validations
+		if err := options.Validate(); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -568,7 +585,14 @@ func (form *CollectionUpsert) Submit(interceptors ...InterceptorFunc[*models.Col
 		return err
 	}
 
+	saveFn := form.saveFunc
+	if saveFn == nil {
+		saveFn = func(col *models.Collection) error {
+			return form.dao.SaveCollection(col)
+		}
+	}
+
 	return runInterceptors(form.collection, func(collection *models.Collection) error {
-		return form.dao.SaveCollection(collection)
+		return saveFn(collection)
 	}, interceptors...)
 }

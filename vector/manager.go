@@ -36,6 +36,8 @@ type Status struct {
 	LastUpdatedAt     time.Time `json:"lastUpdatedAt,omitempty"`
 	LeaderID          string    `json:"leaderId,omitempty"`
 	RaftTerm          uint64    `json:"raftTerm"`
+	AppliedLogIndex   uint64    `json:"appliedLogIndex"`
+	LastLogIndex      uint64    `json:"lastLogIndex"`
 	Peers             []string  `json:"peers,omitempty"`
 	PendingEmbeddings int       `json:"pendingEmbeddings"`
 	CacheItems        int       `json:"cacheItems"`
@@ -557,6 +559,11 @@ func (m *Manager) DequeueEmbedding() (EmbeddingTask, bool) {
 }
 
 func (m *Manager) snapshotLocked() Snapshot {
+	if m.coordinator != nil {
+		m.status.AppliedLogIndex = m.coordinator.AppliedLogIndex()
+		m.status.LastLogIndex = m.coordinator.LastLogIndex()
+		m.status.RaftTerm = m.coordinator.RaftTerm()
+	}
 	return Snapshot{
 		Status: m.status,
 		Tasks:  append([]EmbeddingTask(nil), m.tasks...),

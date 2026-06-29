@@ -607,6 +607,7 @@ func (c AgentEmbeddingProviderConfig) Validate() error {
 type AgentEmbeddingModel struct {
 	Name            string `form:"name" json:"name"`
 	ProviderModelId string `form:"providerModelId" json:"providerModelId"`
+	Dimensions      int    `form:"dimensions" json:"dimensions"`
 	Enabled         bool   `form:"enabled" json:"enabled"`
 }
 
@@ -616,6 +617,7 @@ func (c AgentEmbeddingModel) Validate() error {
 	return validation.ValidateStruct(&c,
 		validation.Field(&c.Name, validation.When(c.Enabled || c.ProviderModelId != "", validation.Required)),
 		validation.Field(&c.ProviderModelId, validation.When(c.Enabled || c.Name != "", validation.Required)),
+		validation.Field(&c.Dimensions, validation.When(c.Enabled, validation.Required, validation.Min(1))),
 	)
 }
 

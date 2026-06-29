@@ -99,6 +99,13 @@
         delete tabs.update;
         delete tabs.delete;
         delete tabs.realtime;
+    } else if (collection.type === "vector") {
+        tabs = Object.assign({}, baseTabs, {
+            "vector-search": {
+                label: "Vector Search",
+                component: import("@/components/collections/docs/VectorSearchDocs.svelte"),
+            }
+        });
     } else {
         tabs = Object.assign({}, baseTabs);
     }
