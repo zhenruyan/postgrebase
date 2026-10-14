@@ -9,7 +9,7 @@ import (
 	"github.com/zhenruyan/postgrebase/tools/list"
 )
 
-// sdkTool adapts a PostgreBase ToolSpec + executor to the vibecoding
+// sdkTool adapts a PostgreBase ToolSpec + executor to the mothx
 // agent.ExternalTool interface. It enforces both the project boundary
 // (proposal §4.4) and write-operation authorization (proposal §8.3), and
 // records an audit entry for every decision (proposal §8.2).

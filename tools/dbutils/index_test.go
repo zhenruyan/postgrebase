@@ -225,3 +225,24 @@ func TestIndexBuild(t *testing.T) {
 		}
 	}
 }
+
+// TestParseIndexMissingName covers the zero-width index-name group in
+// indexRegex: "CREATE INDEX ON t (col)" must not panic and must produce an
+// invalid Index that callers can reject.
+func TestParseIndexMissingName(t *testing.T) {
+	scenarios := []string{
+		`CREATE INDEX ON demo (email)`,
+		`create unique index  on demo (email)`,
+		`CREATE INDEX ON demo ();`,
+	}
+
+	for _, s := range scenarios {
+		idx := dbutils.ParseIndex(s)
+		if idx.IsValid() {
+			t.Fatalf("[%s] expected invalid index, got %+v", s, idx)
+		}
+		if got := idx.Build(); got != "" {
+			t.Fatalf("[%s] expected empty Build() for invalid index, got %q", s, got)
+		}
+	}
+}

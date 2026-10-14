@@ -237,7 +237,7 @@ func toolName(name string) string {
 	return strings.ReplaceAll(name, ".", "__")
 }
 
-// apiStyle maps a vendor to the vibecoding provider API style.
+// apiStyle maps a vendor to the mothx provider API style.
 func apiStyle(provider settings.AgentProviderConfig) string {
 	switch strings.ToLower(strings.TrimSpace(provider.Api)) {
 	case "openai-chat", "openai-responses", "anthropic-messages", "google-gemini", "google-vertex":
@@ -315,7 +315,7 @@ func historyToMessages(history []SessionMessage) []agentsdk.Message {
 	return messages
 }
 
-// RunSession stores the user message, drives the vibecoding agent runtime and
+// RunSession stores the user message, drives the mothx agent runtime and
 // returns the final accumulated result.
 func (s *Service) RunSession(ctx context.Context, sessionID string, input RunInput, opts RunOptions) (*RunResult, error) {
 	return s.RunSessionStream(ctx, sessionID, input, opts, nil)
@@ -365,7 +365,7 @@ func encodedToolArgs(args map[string]any) string {
 	return string(raw)
 }
 
-// RunSessionStream stores the user message, drives the vibecoding agent runtime
+// RunSessionStream stores the user message, drives the mothx agent runtime
 // (model + tool loop), streams progress events and persists the final assistant
 // and tool messages.
 func (s *Service) RunSessionStream(ctx context.Context, sessionID string, input RunInput, opts RunOptions, emit RunStreamHandler) (*RunResult, error) {
@@ -651,7 +651,7 @@ func traceResultStatus(raw string) (string, string) {
 }
 
 // generateSessionName asks the model for a short title summarizing the first
-// user turn. It reuses the vibecoding SDK with no tools and never fails the
+// user turn. It reuses the mothx SDK with no tools and never fails the
 // run: on any error it returns an empty string and the caller keeps the
 // placeholder name.
 func generateSessionName(ctx context.Context, provider settings.AgentProviderConfig, model, firstUserContent string) string {

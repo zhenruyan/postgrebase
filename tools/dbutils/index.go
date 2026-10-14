@@ -242,11 +242,16 @@ func ParseIndex(createIndexExpr string) Index {
 	nameTk.Separators('.')
 
 	nameParts, _ := nameTk.ScanAll()
-	if len(nameParts) == 2 {
+	switch len(nameParts) {
+	case 2:
 		result.SchemaName = strings.Trim(nameParts[0], trimChars)
 		result.IndexName = strings.Trim(nameParts[1], trimChars)
-	} else {
+	case 1:
 		result.IndexName = strings.Trim(nameParts[0], trimChars)
+	default:
+		// The index name group of indexRegex accepts zero characters, so an
+		// expression like "CREATE INDEX ON t (col)" tokenizes to no name part at
+		// all. Leave IndexName empty and let IsValid() reject it.
 	}
 
 	// TableName

@@ -65,13 +65,21 @@ postgrebase/
 │   └── 1730000000_agent_runtime.go     # Agent sessions/messages/audit/project-config tables
 ├── agents/             # Embedded agent platform (orchestration over controlled tools)
 │   ├── service.go      # Service facade (runtime, sessions, tools, run)
-│   ├── runtime.go      # RunSession: vibecoding agent loop, naming, audit
+│   ├── runtime.go      # RunSession: mothx agent loop, naming, audit
 │   ├── toolkit.go      # ToolRegistry + schema.*/data.* executors + ChartHint
 │   ├── sdk_tools.go    # agent.ExternalTool adapter (project scope + write authz)
 │   ├── authz.go        # RunOptions, write-approval policy, audit sink
 │   ├── project_config.go # per-project overrides (§9.1)
 │   ├── files.go        # record file ref → image content block (§6.2)
 │   └── store_db.go     # DB-backed session/message store
+├── vector/             # Vector runtime + SQLite cluster coordination
+│   ├── manager.go      # State machine (entries, tasks, status); Persist/snapshotLocked
+│   ├── cluster.go      # Coordinator: lightweight raft leader/log/snapshot replication
+│   ├── cluster_http.go # HTTP transport (heartbeat/replicate/forward/send-snapshot)
+│   ├── operation.go    # ReplicatedOperation kinds + vector op wrap/unwrap
+│   ├── engine_db.go    # DB-backed snapshot storage
+│   └── store_db.go     # DB-backed task/entry stores + metrics.go
+├── replication/        # operations.go — ReplicatedOperation encode/decode + Apply() to the main DAO
 ├── cmd/                # CLI commands
 │   ├── serve.go        # `serve` command
 │   ├── admin.go        # `admin create` command
@@ -98,8 +106,9 @@ postgrebase/
 ## Build & Run
 
 ```bash
-# Build (static, no CGO)
-CGO_ENABLED=0 go build -o pb ./build/
+# Build (static, no CGO). Requires ui/dist to exist — see the note below.
+make build            # runs ui-build, then go build
+cGO_ENABLED=0 go build -o pb ./build/   # only after ui/dist exists
 
 # Run with SQLite (local development)
 ./pb serve --dataDsn "sqlite://./pb_data/dev.db"
@@ -122,6 +131,18 @@ CGO_ENABLED=0 go build -o pb ./build/
 cd ui && npm install && npm run build && cd ..
 go build -o pb ./build/    # must rebuild to embed updated dist/
 ```
+
+> `ui/embed.go` uses `//go:embed all:dist` and `ui/dist/` is gitignored, so a fresh
+> clone fails to compile until the UI has been built once. Use `make build` (which
+> depends on `ui-build`) instead of a bare `go build`.
+>
+> Dependency changes need a refreshed vendor tree, since CI builds with
+> `GOFLAGS=-mod=vendor`:
+> ```bash
+> GOFLAGS=-mod=mod go get <module>@<version>
+> GOFLAGS=-mod=mod go mod tidy
+> GOFLAGS=-mod=mod go mod vendor
+> ```
 
 ## Database Driver Detection
 
@@ -155,6 +176,15 @@ When adding driver-specific SQL, check `db.DriverName()` against `"mysql"`, `"sq
 | Column info | `pg_attribute` | `information_schema.columns` | `PRAGMA table_info` |
 | Index info | `pg_indexes` | `information_schema.statistics` | `sqlite_master` (type='index') |
 | Column comments | `COMMENT ON COLUMN` | `MODIFY ... COMMENT` | Not supported |
+| Partial index (`CREATE INDEX ... WHERE`) | ✅ | ❌ not supported | ✅ |
+| Functional/expression index (`CREATE INDEX ((expr))`) | ✅ (expression list) | ✅ **requires MySQL 8.0.13+** | ❌ |
+
+**MySQL minimum version:** auth collections build the unique email index as an
+expression index `((NULLIF(`email`, '')))` to allow many records with an empty
+e-mail (mirroring the Postgres/SQLite partial index `WHERE email != ''`).
+Expression indexes require MySQL 8.0.13 or newer (MariaDB 10.2+); older servers
+fail at collection-creation time. Custom indexes that use a `WHERE` clause are
+rejected up front by `daos.createCollectionIndexes` on MySQL.
 
 ### Where Driver Checks Matter
 
@@ -163,6 +193,7 @@ When adding driver-specific SQL, check `db.DriverName()` against `"mysql"`, `"sq
 - **`daos/table.go`** — `HasTable`, `TableColumns`, `TableInfo`, `TableIndexes` all branch per driver.
 - **`models/schema/schema_field.go:ColDefinition()`** — Returns driver-specific column type strings.
 - **`daos/view.go`** — View creation/deletion (currently Postgres/MySQL only; SQLite views work but less tested).
+- **`daos/record_table_sync.go:validateCollectionIndexes()`** — Runs before any DDL in `SyncRecordTableSchema`, so a rejected index expression never leaves the records table with its previous indexes already dropped.
 
 ## MCP Implementation
 
@@ -195,14 +226,14 @@ AI-native orchestration layer that drives conversations and executes controlled,
 
 ### Agent SDK
 
-- Uses `github.com/startvibecoding/vibecoding/agent` as the outer agent runtime (provider abstraction, streaming, tool-call loop). It is wired via a local `replace` in `go.mod` and vendored.
-- The vibecoding repo was extended (per proposal §5.1.1) with public external-tool support: `agent.ExternalTool`, `Builder.WithExternalTools(...)`, `Builder.WithoutBuiltinTools()`, and a public `bootstrap` package that registers the internal builder/provider. PostgreBase blank-imports `github.com/startvibecoding/vibecoding/bootstrap` (in `agents/service.go`).
+- Uses `github.com/startvibecoding/mothx/agent` as the outer agent runtime (provider abstraction, streaming, tool-call loop). It is a normal versioned module requirement resolved from the proxy and committed in `vendor/` — there is no local `replace` in `go.mod`.
+- The mothx repo (formerly published as `vibecoding`) was extended (per proposal §5.1.1) with public external-tool support: `agent.ExternalTool`, `Builder.WithExternalTools(...)`, `Builder.WithoutBuiltinTools()`, and a public `bootstrap` package that registers the internal builder/provider. PostgreBase blank-imports `github.com/startvibecoding/mothx/bootstrap` (in `agents/service.go`).
 - The agent runs with `WithoutBuiltinTools()` so it may ONLY use PostgreBase's controlled tools — never bash/file/SQL.
 
 ### Structure (`agents/`)
 
 - `service.go` — `Service` facade (runtime view, sessions, tools, run). DB-backed session store by default.
-- `runtime.go` — `RunSession` drives the vibecoding agent (provider/model resolution, tool loop, audit persistence, §9.2 auto-naming). System prompt fixes the project boundary and forbids raw SQL.
+- `runtime.go` — `RunSession` drives the mothx agent (provider/model resolution, tool loop, audit persistence, §9.2 auto-naming). System prompt fixes the project boundary and forbids raw SQL.
 - `toolkit.go` — `ToolRegistry` + executors for `schema.*` / `data.*` / `dataset.preview`. Tool metadata (`category`/`risk`/`auditCategory`/`requiresApproval`, §8.1) lives in `toolMetadataTable`. Query results carry a `ChartHint` recommendation (§10.1).
 - `sdk_tools.go` — adapts executors to `agent.ExternalTool`; enforces project scope + write authorization (§8.3) and writes audit entries.
 - `authz.go` — `RunOptions{AllowWrites, ApprovedTools, Actor}`, `authorize()` (read allowed by default, writes need approval), `auditSink`.
@@ -237,6 +268,42 @@ AI-native orchestration layer that drives conversations and executes controlled,
 2. Add an entry to `toolMetadataTable` (category/risk/auditCategory/requiresApproval) — unknown tools default to write/high/requiresApproval.
 3. Implement the executor `New<Name>Executor(app)` and register it in `agents/service.go:RegisterExecutors`.
 4. It is automatically exposed to the agent runtime, the REST tool endpoint, and MCP (`agent_*`).
+
+## SQLite Cluster Coordination (`vector/cluster.go`, `replication/`)
+
+When `--dataDsn` is SQLite and cluster peers are configured, `core/base.go:initVector()`
+attaches a `vector.Coordinator`. Admin/collection/record writes in `apis/` go through
+`proposeSQLiteOperation()` instead of saving directly, so the same operation is replayed
+on every node.
+
+- **Not full raft.** Leadership is derived deterministically from the alive-member set
+  (`recomputeLeaderLocked`): the lexicographically smallest address that is not behind on
+  `LastLogIndex` wins, and `term` bumps on every leader change. There is no quorum election,
+  no persistent local log, and `logs` is an in-memory replay buffer.
+- **Strict vs best-effort ops.** `op.Strict` requires quorum replication before the local
+  apply (`replicateSyncQuorum`) and fails with `ErrLeaderUnavailable` rather than diverging.
+  Non-strict ops apply locally and replicate asynchronously.
+- **Membership propagation.** `ReceiveHeartbeat` learns `hb.Address` plus every advertised
+  `hb.Members` entry via `addPeerLocked`, which is the single place peer state and
+  `peerNextIndex` are initialized. A newly learned peer starts replay at index `1`.
+- **Monotonicity invariants** (do not weaken these without a matching test):
+  `addPeerLocked` never lowers a known `state.LastLogIndex`; `InstallSnapshot` only ever
+  raises `appliedLogIndex` / `lastLogIndex` / `term` and rejects snapshots whose applied
+  index has already been surpassed.
+- **Snapshots.** When a follower's `peerNextIndex` falls below the retained log window,
+  `retryFailedReplications` streams `CreateConsistentSnapshot` output to the follower, which
+  calls `ReloadDataDBWithReplacement`. At most one transfer per peer is in flight
+  (`snapshotInFlight`). The DB swap runs outside `c.mu` because it closes and reopens the
+  data connection.
+- **Bootstrap fallback.** `apis/admin.go:saveAdmin` falls back to a local save when the
+  coordinator is not ready yet (so the first admin can be created), then calls
+  `AdvanceIndexLocally()` to keep the log watermarks aligned; that path persists and logs
+  failures rather than swallowing them.
+- **Locking note.** `Manager.snapshotLocked()` copies into a local `Status` before reading
+  coordinator watermarks. It must not write through `m.status`, since it is called from
+  read-locked sections and the coordinator callbacks re-enter the manager.
+
+Review history and rationale: `docs/raft-review-and-fixes.md`.
 
 ## Coding Conventions
 
@@ -288,6 +355,6 @@ AI-native orchestration layer that drives conversations and executes controlled,
 - **Linter:** `golangci-lint` (config in `golangci.yml`).
 - **CI/CD:** GitHub Actions in `.github/workflows/` (Build Check and GoReleaser).
 - **Versioning:** Version is set via `ldflags` in `.goreleaser.yaml`.
-- **Vendor directory:** `/vendor/` must not be deleted. All dependencies are vendored (including the `replace`-d `github.com/startvibecoding/vibecoding`).
+- **Vendor directory:** `/vendor/` must not be deleted. All dependencies are vendored, including `github.com/startvibecoding/mothx`. Regenerate after dependency changes with `GOFLAGS=-mod=mod go mod vendor`; CI builds with `GOFLAGS=-mod=vendor`.
 - **Testing:** `go test ./tools/... ./models/... ./daos/... ./agents/...` — tests use `modernc.org/sqlite` (pure Go). The `agents` tests bootstrap a real SQLite app + run migrations.
 - **Static analysis:** `go vet ./...` should pass with no warnings.

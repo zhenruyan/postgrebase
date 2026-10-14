@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -106,6 +107,11 @@ type Coordinator struct {
 	logs            []ReplicatedOperation
 	peerNextIndex   map[string]uint64
 
+	// snapshotInFlight tracks the peers for which a snapshot transfer is
+	// currently running so that concurrent replay ticks cannot stack up
+	// duplicate (and potentially conflicting) transfers for the same peer.
+	snapshotInFlight map[string]bool
+
 	stop    chan struct{}
 	stopped chan struct{}
 	once    sync.Once
@@ -150,23 +156,24 @@ func NewCoordinator(manager *Manager, config CoordinatorConfig) *Coordinator {
 	}
 
 	c := &Coordinator{
-		manager:         manager,
-		transport:       config.Transport,
-		apply:           config.Apply,
-		app:             config.App,
-		selfAddr:        config.SelfAddr,
-		nodeID:          nodeID,
-		peers:           dedupePeers(config.SelfAddr, config.Peers),
-		states:          make(map[string]*PeerState),
-		interval:        interval,
-		timeout:         timeout,
-		term:            term,
-		lastLogIndex:    lastLogIndex,
-		appliedLogIndex: appliedLogIndex,
-		logs:            make([]ReplicatedOperation, 0),
-		peerNextIndex:   make(map[string]uint64),
-		stop:            make(chan struct{}),
-		stopped:         make(chan struct{}),
+		manager:          manager,
+		transport:        config.Transport,
+		apply:            config.Apply,
+		app:              config.App,
+		selfAddr:         config.SelfAddr,
+		nodeID:           nodeID,
+		peers:            dedupePeers(config.SelfAddr, config.Peers),
+		states:           make(map[string]*PeerState),
+		interval:         interval,
+		timeout:          timeout,
+		term:             term,
+		lastLogIndex:     lastLogIndex,
+		appliedLogIndex:  appliedLogIndex,
+		logs:             make([]ReplicatedOperation, 0),
+		peerNextIndex:    make(map[string]uint64),
+		snapshotInFlight: make(map[string]bool),
+		stop:             make(chan struct{}),
+		stopped:          make(chan struct{}),
 	}
 
 	// seed self state
@@ -309,10 +316,35 @@ func (c *Coordinator) retryFailedReplications() {
 		c.mu.RUnlock()
 
 		if hasLogGap {
-			if c.app != nil {
+			// Only one snapshot transfer per peer may be in flight; otherwise a slow
+			// transfer overlaps with the next tick and both races and regressing
+			// peerNextIndex writes become possible.
+			c.mu.Lock()
+			busy := c.snapshotInFlight[peer]
+			if !busy {
+				if c.snapshotInFlight == nil {
+					c.snapshotInFlight = make(map[string]bool)
+				}
+				c.snapshotInFlight[peer] = true
+			}
+			c.mu.Unlock()
+
+			if !busy && c.app != nil {
 				go func(p string, lIdx uint64, appIdx uint64, tVal uint64) {
-					tempPath := filepath.Join(os.TempDir(), fmt.Sprintf("pb_snapshot_%d.db", time.Now().UnixNano()))
-					defer os.Remove(tempPath)
+					defer func() {
+						c.mu.Lock()
+						delete(c.snapshotInFlight, p)
+						c.mu.Unlock()
+					}()
+
+					// Unique temp dir avoids collisions between concurrently scheduled
+					// snapshots (UnixNano granularity is not guaranteed on every platform).
+					dir, err := os.MkdirTemp("", "pb_snapshot_")
+					if err != nil {
+						return
+					}
+					tempPath := filepath.Join(dir, "snapshot.db")
+					defer os.RemoveAll(dir)
 
 					if err := c.app.CreateConsistentSnapshot(tempPath); err != nil {
 						return
@@ -329,11 +361,13 @@ func (c *Coordinator) retryFailedReplications() {
 					cancel()
 					if err == nil {
 						c.mu.Lock()
-						c.peerNextIndex[p] = lIdx + 1
+						// Never regress a peer that raced ahead via replication acks.
+						if next := lIdx + 1; c.peerNextIndex[p] < next {
+							c.peerNextIndex[p] = next
+						}
 						c.mu.Unlock()
 					}
 				}(peer, lastIdx, lastIdx, termVal)
-			} else {
 			}
 			continue
 		}
@@ -424,6 +458,9 @@ func (c *Coordinator) ReceiveHeartbeat(hb Heartbeat) HeartbeatReply {
 	defer c.mu.Unlock()
 
 	if hb.Address != "" {
+		// Record liveness first, then let addPeerLocked own progress bookkeeping so
+		// that a stale (lower) heartbeat value cannot regress already-known
+		// advancement reported by an earlier beat.
 		state := c.states[hb.Address]
 		if state == nil {
 			state = &PeerState{Address: hb.Address}
@@ -432,7 +469,6 @@ func (c *Coordinator) ReceiveHeartbeat(hb Heartbeat) HeartbeatReply {
 		state.Alive = true
 		state.NodeID = hb.NodeID
 		state.Term = hb.Term
-		state.LastLogIndex = hb.LastLogIndex
 		state.LastSeen = time.Now().UTC()
 
 		// learn about new members announced by the peer
@@ -862,8 +898,13 @@ func (c *Coordinator) AdvanceIndexLocally() {
 	c.appliedLogIndex++
 	c.mu.Unlock()
 
+	// Persist immediately: this index advance backs the local-save fallback used
+	// while the cluster is still bootstrapping, and losing it would make later
+	// replay offsets disagree between nodes.
 	if c.manager != nil {
-		_ = c.manager.Persist()
+		if err := c.manager.Persist(); err != nil {
+			log.Printf("[vector] failed to persist cluster log indices after local advance: %v", err)
+		}
 	}
 }
 
@@ -873,28 +914,49 @@ func (c *Coordinator) InstallSnapshot(replacePath string, lastLogIndex uint64, a
 		return errors.New("cannot install snapshot: app not configured")
 	}
 
-	c.mu.Lock()
-	currentApplied := c.appliedLogIndex
-	currentTerm := c.term
-	if appliedLogIndex < currentApplied {
-		c.mu.Unlock()
-		return fmt.Errorf("stale snapshot rejected: incoming applied index %d is behind current %d", appliedLogIndex, currentApplied)
-	}
-	if appliedLogIndex == currentApplied && term < currentTerm {
-		c.mu.Unlock()
-		return fmt.Errorf("stale snapshot rejected: incoming term %d is behind current %d", term, currentTerm)
+	if lastLogIndex < appliedLogIndex {
+		return fmt.Errorf("invalid snapshot: last log index %d is behind applied index %d", lastLogIndex, appliedLogIndex)
 	}
 
-	// 1. Atomically replace database file using the app's database lifecycle hook
+	c.mu.RLock()
+	currentApplied := c.appliedLogIndex
+	currentLast := c.lastLogIndex
+	currentTerm := c.term
+	c.mu.RUnlock()
+
+	// Reject snapshots that would roll the state machine back behind what we have
+	// already applied. Following raft, a snapshot from an older term is only
+	// ignored when it also carries no log beyond our own — otherwise it can still
+	// fill in committed entries and must be installed.
+	if appliedLogIndex < currentApplied {
+		return fmt.Errorf("stale snapshot rejected: incoming applied index %d is behind current %d", appliedLogIndex, currentApplied)
+	}
+	if term < currentTerm && lastLogIndex <= currentLast {
+		return fmt.Errorf("stale snapshot rejected: incoming (term=%d, last=%d) is behind current (term=%d, last=%d)",
+			term, lastLogIndex, currentTerm, currentLast)
+	}
+
+	// 1. Atomically replace database file using the app's database lifecycle hook.
+	// This performs a full close/reopen of the data DB and must NOT run while
+	// holding c.mu, otherwise heartbeats, View() and replication callbacks block
+	// for the whole swap.
 	if err := c.app.ReloadDataDBWithReplacement(replacePath); err != nil {
-		c.mu.Unlock()
 		return fmt.Errorf("failed to reload database with snapshot: %w", err)
 	}
 
-	// 2. Synchronize coordinator log sequence watermarks
-	c.appliedLogIndex = appliedLogIndex
-	c.lastLogIndex = lastLogIndex
-	c.term = term
+	// 2. Synchronize coordinator log sequence watermarks. Watermarks are only
+	// ever raised so that a delayed snapshot cannot roll the follower back to an
+	// earlier log position and re-admit already-applied indexes.
+	c.mu.Lock()
+	if appliedLogIndex > c.appliedLogIndex {
+		c.appliedLogIndex = appliedLogIndex
+	}
+	if lastLogIndex > c.lastLogIndex {
+		c.lastLogIndex = lastLogIndex
+	}
+	if term > c.term {
+		c.term = term
+	}
 	c.logs = make([]ReplicatedOperation, 0) // Clear local logs as we are now fully aligned with snapshot
 	c.mu.Unlock()
 
@@ -995,22 +1057,24 @@ func (c *Coordinator) addPeerLocked(peer string, lastLogIndex uint64) {
 		state = &PeerState{Address: peer}
 		c.states[peer] = state
 	}
+	// Progress is monotonically increasing; a late/out-of-order heartbeat must not
+	// move a peer back to an earlier log position.
 	if lastLogIndex > state.LastLogIndex {
 		state.LastLogIndex = lastLogIndex
 	}
 
-	if c.peerNextIndex != nil {
-		knownLastLogIndex := lastLogIndex
-		if knownLastLogIndex == 0 {
-			knownLastLogIndex = state.LastLogIndex
+	if c.peerNextIndex == nil {
+		return
+	}
+	if state.LastLogIndex == 0 {
+		// Nothing known about this peer's log — replay from the very beginning.
+		if current := c.peerNextIndex[peer]; current == 0 || current > 1 {
+			c.peerNextIndex[peer] = 1
 		}
-		nextIndex := knownLastLogIndex + 1
-		if knownLastLogIndex == 0 {
-			nextIndex = 1
-		}
-		if current := c.peerNextIndex[peer]; current == 0 || nextIndex < current {
-			c.peerNextIndex[peer] = nextIndex
-		}
+		return
+	}
+	if nextIndex := state.LastLogIndex + 1; c.peerNextIndex[peer] == 0 || nextIndex < c.peerNextIndex[peer] {
+		c.peerNextIndex[peer] = nextIndex
 	}
 }
 

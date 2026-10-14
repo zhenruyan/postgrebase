@@ -111,9 +111,9 @@ func (dao *Dao) SyncRecordTableSchema(newCollection *models.Collection, oldColle
 		if newCollection.IsAuth() {
 			if driver == "mysql" {
 				indexStatements := []string{
-					fmt.Sprintf("CREATE UNIQUE INDEX _%s_username_idx ON {{%s}} ([[username]])", newCollection.Id, tableName),
-					fmt.Sprintf("CREATE UNIQUE INDEX _%s_email_idx ON {{%s}} ((NULLIF([[email]], '')))", newCollection.Id, tableName),
-					fmt.Sprintf("CREATE UNIQUE INDEX _%s_tokenKey_idx ON {{%s}} ([[tokenKey]])", newCollection.Id, tableName),
+					fmt.Sprintf("CREATE UNIQUE INDEX [[_%s_username_idx]] ON {{%s}} ([[username]])", newCollection.Id, tableName),
+					fmt.Sprintf("CREATE UNIQUE INDEX [[_%s_email_idx]] ON {{%s}} ((NULLIF([[email]], '')))", newCollection.Id, tableName),
+					fmt.Sprintf("CREATE UNIQUE INDEX [[_%s_tokenKey_idx]] ON {{%s}} ([[tokenKey]])", newCollection.Id, tableName),
 				}
 				for _, s := range indexStatements {
 					if _, err := dao.DB().NewQuery(s).Execute(); err != nil {
@@ -122,9 +122,9 @@ func (dao *Dao) SyncRecordTableSchema(newCollection *models.Collection, oldColle
 				}
 			} else if driver == "sqlite" || driver == "sqlite3" {
 				indexStatements := []string{
-					fmt.Sprintf("CREATE UNIQUE INDEX IF NOT EXISTS _%s_username_idx ON {{%s}} ([[username]])", newCollection.Id, tableName),
-					fmt.Sprintf("CREATE UNIQUE INDEX IF NOT EXISTS _%s_email_idx ON {{%s}} ([[email]]) WHERE [[email]] != ''", newCollection.Id, tableName),
-					fmt.Sprintf("CREATE UNIQUE INDEX IF NOT EXISTS _%s_tokenKey_idx ON {{%s}} ([[tokenKey]])", newCollection.Id, tableName),
+					fmt.Sprintf("CREATE UNIQUE INDEX IF NOT EXISTS [[_%s_username_idx]] ON {{%s}} ([[username]])", newCollection.Id, tableName),
+					fmt.Sprintf("CREATE UNIQUE INDEX IF NOT EXISTS [[_%s_email_idx]] ON {{%s}} ([[email]]) WHERE [[email]] != ''", newCollection.Id, tableName),
+					fmt.Sprintf("CREATE UNIQUE INDEX IF NOT EXISTS [[_%s_tokenKey_idx]] ON {{%s}} ([[tokenKey]])", newCollection.Id, tableName),
 				}
 				for _, s := range indexStatements {
 					if _, err := dao.DB().NewQuery(s).Execute(); err != nil {
@@ -133,9 +133,9 @@ func (dao *Dao) SyncRecordTableSchema(newCollection *models.Collection, oldColle
 				}
 			} else {
 				indexStatements := []string{
-					fmt.Sprintf("CREATE UNIQUE INDEX _%s_username_idx ON {{%s}} ([[username]])", newCollection.Id, tableName),
-					fmt.Sprintf("CREATE UNIQUE INDEX _%s_email_idx ON {{%s}} ([[email]]) WHERE [[email]] != ''", newCollection.Id, tableName),
-					fmt.Sprintf("CREATE UNIQUE INDEX _%s_tokenKey_idx ON {{%s}} ([[tokenKey]])", newCollection.Id, tableName),
+					fmt.Sprintf("CREATE UNIQUE INDEX [[_%s_username_idx]] ON {{%s}} ([[username]])", newCollection.Id, tableName),
+					fmt.Sprintf("CREATE UNIQUE INDEX [[_%s_email_idx]] ON {{%s}} ([[email]]) WHERE [[email]] != ''", newCollection.Id, tableName),
+					fmt.Sprintf("CREATE UNIQUE INDEX [[_%s_tokenKey_idx]] ON {{%s}} ([[tokenKey]])", newCollection.Id, tableName),
 				}
 				for _, s := range indexStatements {
 					if _, err := dao.DB().NewQuery(s).Execute(); err != nil {
@@ -150,6 +150,13 @@ func (dao *Dao) SyncRecordTableSchema(newCollection *models.Collection, oldColle
 
 	// update
 	// -----------------------------------------------------------
+
+	// Reject index expressions the active driver cannot build before any DDL runs,
+	// so a rejected update never leaves the table with its old indexes dropped.
+	if errs := dao.validateCollectionIndexes(newCollection, driver); len(errs) > 0 {
+		return validation.Errors{"indexes": errs}
+	}
+
 	oldTableName := oldCollection.Name
 	newTableName := newCollection.Name
 	oldSchema := oldCollection.Schema
@@ -341,6 +348,15 @@ func (dao *Dao) createCollectionIndexes(collection *models.Collection) error {
 		return nil // views don't have indexes
 	}
 
+	driver := dao.DB().DriverName()
+
+	// Validate before touching anything: an unsupported expression must not be
+	// discovered halfway through dropping the previous indexes, which would leave
+	// the collection without its former constraints.
+	if errs := dao.validateCollectionIndexes(collection, driver); len(errs) > 0 {
+		return validation.Errors{"indexes": errs}
+	}
+
 	// drop new indexes in case a duplicated index name is used
 	if err := dao.dropCollectionIndex(collection); err != nil {
 		fmt.Println("drop index error:", err)
@@ -364,15 +380,8 @@ func (dao *Dao) createCollectionIndexes(collection *models.Collection) error {
 			)
 			continue
 		}
-		if dao.DB().DriverName() == "mysql" && parsed.Where != "" {
-			errs[strconv.Itoa(i)] = validation.NewError(
-				"validation_invalid_index_expression",
-				"MySQL does not support partial indexes with WHERE clauses.",
-			)
-			continue
-		}
 
-		if _, err := dao.DB().NewQuery(parsed.BuildForDriver(dao.DB().DriverName())).Execute(); err != nil {
+		if _, err := dao.DB().NewQuery(parsed.BuildForDriver(driver)).Execute(); err != nil {
 			errs[strconv.Itoa(i)] = validation.NewError(
 				"validation_invalid_index_expression",
 				fmt.Sprintf("Failed to create index %s - %v.", parsed.IndexName, err.Error()),
@@ -389,32 +398,91 @@ func (dao *Dao) createCollectionIndexes(collection *models.Collection) error {
 
 }
 
+// validateCollectionIndexes checks the index expressions of a collection without
+// executing any DDL. It is called before SyncRecordTableSchema mutates the table
+// so that a rejected update cannot leave the records table with its previous
+// indexes already dropped.
+func (dao *Dao) validateCollectionIndexes(collection *models.Collection, driver string) validation.Errors {
+	errs := validation.Errors{}
+	for i, idx := range collection.Indexes {
+		parsed := dbutils.ParseIndex(idx)
+		if !parsed.IsValid() {
+			errs[strconv.Itoa(i)] = validation.NewError(
+				"validation_invalid_index_expression",
+				"Invalid CREATE INDEX expression.",
+			)
+			continue
+		}
+		if driver == "mysql" && parsed.Where != "" {
+			errs[strconv.Itoa(i)] = validation.NewError(
+				"validation_invalid_index_expression",
+				"MySQL does not support partial indexes with WHERE clauses; drop the WHERE clause or use a composite/expression index.",
+			)
+		}
+	}
+	return errs
+}
+
+// addSchemaFieldColumn adds the column for `field` to an existing records table.
+//
+// MySQL cannot attach a non-NULL default to a JSON column, so multi-valued
+// fields (which are stored as JSON arrays) are added as nullable and then
+// tightened in place. Because MySQL DDL is not transactional, every step is
+// individually idempotent and any failure rolls the half-added column back with
+// DROP COLUMN, so a failed sync never leaves the table in an inconsistent shape.
 func (dao *Dao) addSchemaFieldColumn(tableName string, columnName string, field *schema.SchemaField, driver string) error {
-	if driver == "mysql" && isMySQLRequiredJSONField(field) {
-		if _, err := dao.DB().AddColumn(tableName, columnName, "JSON NULL").Execute(); err != nil {
-			return err
-		}
-		if _, err := dao.DB().NewQuery(fmt.Sprintf(
-			"UPDATE {{%s}} SET [[%s]] = JSON_ARRAY() WHERE [[%s]] IS NULL",
-			tableName,
-			columnName,
-			columnName,
-		)).Execute(); err != nil {
-			return err
-		}
-		_, err := dao.DB().NewQuery(fmt.Sprintf(
-			"ALTER TABLE {{%s}} MODIFY [[%s]] %s",
-			tableName,
-			columnName,
-			field.ColDefinition(driver),
-		)).Execute()
+	// Make sure Options holds its concrete pointer type so that the MultiValuer
+	// assertions below and ColDefinition() agree with each other.
+	if err := field.InitOptions(); err != nil {
+		return fmt.Errorf("failed to resolve options for column %s - %w", columnName, err)
+	}
+
+	if driver != "mysql" || !isMySQLRequiredJSONField(field) {
+		_, err := dao.DB().AddColumn(tableName, columnName, field.ColDefinition(driver)).Execute()
 		return err
 	}
 
-	_, err := dao.DB().AddColumn(tableName, columnName, field.ColDefinition(driver)).Execute()
-	return err
+	onError := func(err error) error {
+		// Best-effort cleanup; MySQL implicitly commits the ADD COLUMN, so without
+		// this the table keeps a nullable column that no longer matches the schema.
+		if _, dropErr := dao.DB().DropColumn(tableName, columnName).Execute(); dropErr != nil {
+			return fmt.Errorf("%w (and rollback drop of %s failed: %v)", err, columnName, dropErr)
+		}
+		return err
+	}
+
+	if _, err := dao.DB().AddColumn(tableName, columnName, "JSON NULL").Execute(); err != nil {
+		return err
+	}
+
+	// Backfill only rows that actually need it. The column was just added, so
+	// every row is NULL; a single statement keeps this cheap and avoids reading
+	// the whole table repeatedly.
+	if _, err := dao.DB().NewQuery(fmt.Sprintf(
+		"UPDATE {{%s}} SET [[%s]] = JSON_ARRAY() WHERE [[%s]] IS NULL",
+		tableName,
+		columnName,
+		columnName,
+	)).Execute(); err != nil {
+		return onError(err)
+	}
+
+	modifySql := fmt.Sprintf(
+		"ALTER TABLE {{%s}} MODIFY [[%s]] %s",
+		tableName,
+		columnName,
+		field.ColDefinition(driver),
+	)
+	if _, err := dao.DB().NewQuery(modifySql).Execute(); err != nil {
+		return onError(err)
+	}
+
+	return nil
 }
 
+// isMySQLRequiredJSONField reports whether a field is persisted as a mandatory
+// JSON array on MySQL, i.e. any multi-valued field except a raw json field
+// (which stays deliberately nullable).
 func isMySQLRequiredJSONField(field *schema.SchemaField) bool {
 	if field == nil || field.Type == schema.FieldTypeJson {
 		return false

@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	// Registers the vibecoding agent builder + provider resolution hooks.
+	// Registers the mothx agent builder + provider resolution hooks.
 	_ "github.com/startvibecoding/mothx/bootstrap"
 	"github.com/zhenruyan/postgrebase/core"
 	"github.com/zhenruyan/postgrebase/models"

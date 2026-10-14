@@ -261,8 +261,9 @@ func (m *Manager) Persist() error {
 
 	m.mu.RLock()
 	snapshot := m.snapshotLocked()
+	engine := m.engine
 	m.mu.RUnlock()
-	return m.engine.Save(snapshot)
+	return engine.Save(snapshot)
 }
 
 // ApplySnapshot replaces the current runtime state with the provided snapshot.
@@ -559,13 +560,18 @@ func (m *Manager) DequeueEmbedding() (EmbeddingTask, bool) {
 }
 
 func (m *Manager) snapshotLocked() Snapshot {
-	if m.coordinator != nil {
-		m.status.AppliedLogIndex = m.coordinator.AppliedLogIndex()
-		m.status.LastLogIndex = m.coordinator.LastLogIndex()
-		m.status.RaftTerm = m.coordinator.RaftTerm()
+	status := m.status
+	if coordinator := m.coordinator; coordinator != nil {
+		// Read the coordinator watermarks into the copy instead of writing through
+		// m.status: snapshotLocked is called from read-locked sections, and the
+		// coordinator callbacks re-enter the manager, so mutating shared state here
+		// was both a data race and a deadlock risk.
+		status.AppliedLogIndex = coordinator.AppliedLogIndex()
+		status.LastLogIndex = coordinator.LastLogIndex()
+		status.RaftTerm = coordinator.RaftTerm()
 	}
 	return Snapshot{
-		Status: m.status,
+		Status: status,
 		Tasks:  append([]EmbeddingTask(nil), m.tasks...),
 	}
 }

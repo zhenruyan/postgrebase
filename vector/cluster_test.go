@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -865,20 +866,43 @@ func TestCoordinatorAddPeerStartsCatchupFromBeginning(t *testing.T) {
 	}
 }
 
+// mockSnapshotApp is accessed from the coordinator's background snapshot
+// goroutine as well as from the test goroutine, so its counters are atomic.
 type mockSnapshotApp struct {
-	createSnapshotCalled bool
-	reloadDbCalled       bool
+	createSnapshotCount atomic.Int64
+	reloadDbCount       atomic.Int64
+
+	mu           sync.Mutex
+	installedIdx uint64
+	installedSet bool
 }
 
 func (m *mockSnapshotApp) CreateConsistentSnapshot(targetPath string) error {
-	m.createSnapshotCalled = true
+	m.createSnapshotCount.Add(1)
 	// Create a dummy file
 	return os.WriteFile(targetPath, []byte("sqlite-snapshot-data"), 0644)
 }
 
 func (m *mockSnapshotApp) ReloadDataDBWithReplacement(replacePath string) error {
-	m.reloadDbCalled = true
+	m.reloadDbCount.Add(1)
 	return nil
+}
+
+func (m *mockSnapshotApp) createSnapshotCalled() bool {
+	return m.createSnapshotCount.Load() > 0
+}
+
+func (m *mockSnapshotApp) reloadDbCalled() bool {
+	return m.reloadDbCount.Load() > 0
+}
+
+// recordInstall mirrors the watermark bookkeeping InstallSnapshot performs so
+// tests can assert on the resulting state machine position.
+func (m *mockSnapshotApp) recordInstall(appliedIdx uint64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.installedIdx = appliedIdx
+	m.installedSet = true
 }
 
 func TestCoordinatorSnapshotGapAndJoin(t *testing.T) {
@@ -941,12 +965,12 @@ func TestCoordinatorSnapshotGapAndJoin(t *testing.T) {
 
 	// Wait for background retry failed replications loop to detect the gap and send the snapshot!
 	waitFor(t, func() bool {
-		return appA.createSnapshotCalled
+		return appA.createSnapshotCalled()
 	})
 
 	// Also verify that on the other side, the snapshot gets loaded
 	waitFor(t, func() bool {
-		return appB.reloadDbCalled
+		return appB.reloadDbCalled()
 	})
 
 	// And the follower's next index should be updated to lastLogIndex + 1 = 11
@@ -984,10 +1008,90 @@ func TestCoordinatorRejectsStaleSnapshot(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected stale snapshot to be rejected")
 	}
-	if app.reloadDbCalled {
+	if app.reloadDbCalled() {
 		t.Fatal("stale snapshot must not replace the database")
 	}
 	if got := c.AppliedLogIndex(); got != 2 {
 		t.Fatalf("expected applied log index to remain 2, got %d", got)
+	}
+}
+
+func TestCoordinatorSnapshotNeverLowersWatermarks(t *testing.T) {
+	mgr := newTestManager(t)
+	app := &mockSnapshotApp{}
+	c := NewCoordinator(mgr, CoordinatorConfig{
+		SelfAddr: "http://node-a",
+		App:      app,
+		Apply: func(op ReplicatedOperation) error {
+			return nil
+		},
+	})
+
+	for i := uint64(1); i <= 5; i++ {
+		if _, err := c.ApplyReplicated(ReplicatedOperation{
+			LogIndex: i,
+			Kind:     ReplicatedOperationKindSQLite,
+			Type:     "record.create",
+			Strict:   true,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	startTerm := c.RaftTerm()
+
+	// A snapshot whose applied index moves forward but whose last-log watermark is
+	// lower than ours must not drag lastLogIndex backwards, otherwise already-held
+	// indexes become re-proposable.
+	if err := c.InstallSnapshot("snap.db", 6, 6, startTerm+1); err != nil {
+		t.Fatalf("expected newer snapshot to be accepted: %v", err)
+	}
+	if !app.reloadDbCalled() {
+		t.Fatal("accepted snapshot must replace the database")
+	}
+	if got := c.AppliedLogIndex(); got != 6 {
+		t.Fatalf("expected applied log index 6, got %d", got)
+	}
+	if got := c.LastLogIndex(); got != 6 {
+		t.Fatalf("expected last log index 6, got %d", got)
+	}
+	if got := c.RaftTerm(); got != startTerm+1 {
+		t.Fatalf("expected term %d, got %d", startTerm+1, got)
+	}
+
+	// An older term that carries no log beyond ours is rejected outright.
+	before := app.reloadDbCount.Load()
+	if err := c.InstallSnapshot("old.db", 6, 6, startTerm); err == nil {
+		t.Fatal("expected same-position snapshot from an older term to be rejected")
+	}
+	if got := app.reloadDbCount.Load(); got != before {
+		t.Fatal("rejected snapshot must not replace the database")
+	}
+
+	// But per raft an older term is still installed when it fills in committed
+	// entries we are missing, as long as it does not rewind the state machine.
+	if err := c.InstallSnapshot("fill.db", 9, 7, startTerm); err != nil {
+		t.Fatalf("expected older-term snapshot with newer log to be accepted: %v", err)
+	}
+	if got := c.AppliedLogIndex(); got != 7 {
+		t.Fatalf("expected applied log index 7, got %d", got)
+	}
+	if got := c.LastLogIndex(); got != 9 {
+		t.Fatalf("expected last log index 9, got %d", got)
+	}
+	if got := c.RaftTerm(); got != startTerm+1 {
+		t.Fatalf("expected term to stay at %d, got %d", startTerm+1, got)
+	}
+
+	// Malformed watermarks (last < applied) are rejected before any I/O.
+	reloadBefore := app.reloadDbCount.Load()
+	if err := c.InstallSnapshot("bad.db", 2, 8, startTerm+2); err == nil {
+		t.Fatal("expected snapshot with lastLogIndex < appliedLogIndex to be rejected")
+	}
+	if got := app.reloadDbCount.Load(); got != reloadBefore {
+		t.Fatal("malformed snapshot must not replace the database")
+	}
+	if got := c.AppliedLogIndex(); got != 7 {
+		t.Fatalf("expected applied log index to remain 7, got %d", got)
 	}
 }

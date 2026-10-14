@@ -21,7 +21,7 @@ PostgreBase 当前已经具备数据库抽象、MCP 工具、REST API、Admin UI
 5. 支持“灌入数据”和“查询数据”全部走注册工具。
 6. 支持向量数据库类型，后端基于 `sqlite-vec`（modernc）实现。
 7. 支持配置 `embedded` 的 LLM 模型自动进行 embedding。
-8. 复用 `github.com/startvibecoding/vibecoding/agent` 作为外层 Agent SDK。
+8. 复用 `github.com/startvibecoding/mothx/agent`（原 `vibecoding`）作为外层 Agent SDK。
 
 ## 3. 非目标
 
@@ -35,7 +35,7 @@ PostgreBase 当前已经具备数据库抽象、MCP 工具、REST API、Admin UI
 ### 4.1 三层结构
 
 1. **Agent 层**
-   - 用 vibecoding 的 `agent.Builder` 创建运行实例。
+   - 用 mothx 的 `agent.Builder` 创建运行实例。
    - 负责对话、规划、工具调用、事件流。
 
 2. **Tool 层**
@@ -89,7 +89,7 @@ Agent 的运行必须约束在 PostgreBase 的项目层。
 
 ## 5. Agent SDK 接入方式
 
-### 5.1 采用 vibecoding/agent 作为运行时
+### 5.1 采用 mothx/agent 作为运行时
 
 建议在 PostgreBase 中新增一个嵌入式 agent 包装层，复用如下能力：
 
@@ -103,7 +103,7 @@ Agent 的运行必须约束在 PostgreBase 的项目层。
 
 ### 5.1.1 依赖前置条件
 
-如果 `github.com/startvibecoding/vibecoding/agent` 的现有能力不足，优先改造 `vibecoding` 仓库，再回到 PostgreBase 接入。
+如果 `github.com/startvibecoding/mothx/agent` 的现有能力不足，优先改造 `mothx` 仓库（原 `vibecoding`），再回到 PostgreBase 接入。
 
 这是前置约束，不作为 PostgreBase 里临时绕过的理由。
 
@@ -113,7 +113,7 @@ Agent 的运行必须约束在 PostgreBase 的项目层。
 - **运行时模型切换不够直接**：Builder 以单一 `Provider + Model` 为主，任务过程中如果要按步骤切模型，可能需要扩展 Agent 配置或会话级路由。
 - **文件解析不是 SDK 责任**：图片和文档输入需要在 Agent 外先做抽取，再以统一内容块喂入。
 
-如果后续评审确认这些限制会影响产品目标，应先在 `vibecoding/agent` 内补齐能力，再让 PostgreBase 复用。
+如果后续评审确认这些限制会影响产品目标，应先在 `mothx/agent` 内补齐能力，再让 PostgreBase 复用。
 
 ### 5.2 Provider 接入策略
 
@@ -414,7 +414,7 @@ Agent 的写入性操作必须授权，不能默认放行。
 
 ### Phase 1
 
-- 接入 vibecoding/agent runtime。
+- 接入 mothx/agent runtime。
 - 实现 provider/model 配置。
 - 打通文本对话 + tool call。
 
